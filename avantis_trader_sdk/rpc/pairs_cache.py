@@ -4,18 +4,18 @@ class PairsCache:
         self.client = client
         self._pair_info_cache = {}
 
-    def get_pairs_info(self):
+    async def get_pairs_info(self):
         if not self._pair_info_cache:
             Multicall = self.client.contracts.get('Multicall')
-            PairStorage = self.client.contracts.get('PairStorage')            
-            pairsCount = self.get_pairs_count()
+            PairStorage = self.client.contracts.get('PairStorage') 
+            pairs_count = await self.get_pairs_count()
             
             calls = []
-            for pair_index in range(pairsCount):          
+            for pair_index in range(pairs_count):          
                 call_data = PairStorage.encodeABI(fn_name='pairs', args=[pair_index])
                 calls.append((PairStorage.address, call_data))
 
-            _, raw_data = Multicall.functions.aggregate(calls).call()
+            _, raw_data = await Multicall.functions.aggregate(calls).call()
             
             decoded_data = []
             for data in raw_data:
@@ -27,6 +27,6 @@ class PairsCache:
             
         return self._pair_info_cache
 
-    def get_pairs_count(self):
-        PairStorage = self.client.contracts.get('PairStorage')  # Replace with the actual contract name
-        return PairStorage.functions.pairsCount().call()
+    async def get_pairs_count(self):
+        PairStorage = self.client.contracts.get('PairStorage')
+        return await PairStorage.functions.pairsCount().call()
