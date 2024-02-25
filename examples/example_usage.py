@@ -1,6 +1,6 @@
 from avantis_trader_sdk import TraderClient
 
-provider_url = 'https://base-mainnet.g.alchemy.com/v2/CHctvvwxXGqOKG_GbRN9yw4hyw217PX_'
+provider_url = '<YOUR RPC HERE>'
 client = TraderClient(provider_url)
 
 print('----- GETTING PAIR INFO -----')
