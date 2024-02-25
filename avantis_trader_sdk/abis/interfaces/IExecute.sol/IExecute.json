@@ -1,0 +1,1628 @@
+{
+  "abi": [
+    {
+      "type": "function",
+      "name": "distributeReward",
+      "inputs": [
+        {
+          "name": "",
+          "type": "tuple",
+          "internalType": "struct IExecute.TriggeredLimitId",
+          "components": [
+            { "name": "trader", "type": "address", "internalType": "address" },
+            { "name": "pairIndex", "type": "uint256", "internalType": "uint256" },
+            { "name": "index", "type": "uint256", "internalType": "uint256" },
+            { "name": "order", "type": "uint8", "internalType": "enum ITradingStorage.LimitOrder" }
+          ]
+        },
+        { "name": "", "type": "uint256", "internalType": "uint256" }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "openLimitOrderTypes",
+      "inputs": [
+        { "name": "", "type": "address", "internalType": "address" },
+        { "name": "", "type": "uint256", "internalType": "uint256" },
+        { "name": "", "type": "uint256", "internalType": "uint256" }
+      ],
+      "outputs": [{ "name": "", "type": "uint8", "internalType": "enum IExecute.OpenLimitOrderType" }],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "setOpenLimitOrderType",
+      "inputs": [
+        { "name": "", "type": "address", "internalType": "address" },
+        { "name": "", "type": "uint256", "internalType": "uint256" },
+        { "name": "", "type": "uint256", "internalType": "uint256" },
+        { "name": "", "type": "uint8", "internalType": "enum IExecute.OpenLimitOrderType" }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "storeFirstToTrigger",
+      "inputs": [
+        {
+          "name": "",
+          "type": "tuple",
+          "internalType": "struct IExecute.TriggeredLimitId",
+          "components": [
+            { "name": "trader", "type": "address", "internalType": "address" },
+            { "name": "pairIndex", "type": "uint256", "internalType": "uint256" },
+            { "name": "index", "type": "uint256", "internalType": "uint256" },
+            { "name": "order", "type": "uint8", "internalType": "enum ITradingStorage.LimitOrder" }
+          ]
+        },
+        { "name": "", "type": "address", "internalType": "address" }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "unregisterTrigger",
+      "inputs": [
+        {
+          "name": "",
+          "type": "tuple",
+          "internalType": "struct IExecute.TriggeredLimitId",
+          "components": [
+            { "name": "trader", "type": "address", "internalType": "address" },
+            { "name": "pairIndex", "type": "uint256", "internalType": "uint256" },
+            { "name": "index", "type": "uint256", "internalType": "uint256" },
+            { "name": "order", "type": "uint8", "internalType": "enum ITradingStorage.LimitOrder" }
+          ]
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "event",
+      "name": "NumberUpdated",
+      "inputs": [
+        { "name": "name", "type": "string", "indexed": false, "internalType": "string" },
+        { "name": "value", "type": "uint256", "indexed": false, "internalType": "uint256" }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "PercentagesUpdated",
+      "inputs": [{ "name": "firstP", "type": "uint256", "indexed": false, "internalType": "uint256" }],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "PoolTokensClaimed",
+      "inputs": [
+        { "name": "bot", "type": "address", "indexed": false, "internalType": "address" },
+        { "name": "fromRound", "type": "uint256", "indexed": false, "internalType": "uint256" },
+        { "name": "toRound", "type": "uint256", "indexed": false, "internalType": "uint256" },
+        { "name": "tokens", "type": "uint256", "indexed": false, "internalType": "uint256" }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "TokensClaimed",
+      "inputs": [
+        { "name": "bot", "type": "address", "indexed": false, "internalType": "address" },
+        { "name": "tokens", "type": "uint256", "indexed": false, "internalType": "uint256" }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "TriggerRewarded",
+      "inputs": [
+        {
+          "name": "id",
+          "type": "tuple",
+          "indexed": false,
+          "internalType": "struct IExecute.TriggeredLimitId",
+          "components": [
+            { "name": "trader", "type": "address", "internalType": "address" },
+            { "name": "pairIndex", "type": "uint256", "internalType": "uint256" },
+            { "name": "index", "type": "uint256", "internalType": "uint256" },
+            { "name": "order", "type": "uint8", "internalType": "enum ITradingStorage.LimitOrder" }
+          ]
+        },
+        { "name": "reward", "type": "uint256", "indexed": false, "internalType": "uint256" }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "TriggerUnregistered",
+      "inputs": [
+        {
+          "name": "id",
+          "type": "tuple",
+          "indexed": false,
+          "internalType": "struct IExecute.TriggeredLimitId",
+          "components": [
+            { "name": "trader", "type": "address", "internalType": "address" },
+            { "name": "pairIndex", "type": "uint256", "internalType": "uint256" },
+            { "name": "index", "type": "uint256", "internalType": "uint256" },
+            { "name": "order", "type": "uint8", "internalType": "enum ITradingStorage.LimitOrder" }
+          ]
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "TriggeredFirst",
+      "inputs": [
+        {
+          "name": "id",
+          "type": "tuple",
+          "indexed": false,
+          "internalType": "struct IExecute.TriggeredLimitId",
+          "components": [
+            { "name": "trader", "type": "address", "internalType": "address" },
+            { "name": "pairIndex", "type": "uint256", "internalType": "uint256" },
+            { "name": "index", "type": "uint256", "internalType": "uint256" },
+            { "name": "order", "type": "uint8", "internalType": "enum ITradingStorage.LimitOrder" }
+          ]
+        },
+        { "name": "bot", "type": "address", "indexed": false, "internalType": "address" }
+      ],
+      "anonymous": false
+    }
+  ],
+  "bytecode": { "object": "0x", "sourceMap": "", "linkReferences": {} },
+  "deployedBytecode": { "object": "0x", "sourceMap": "", "linkReferences": {} },
+  "methodIdentifiers": {
+    "distributeReward((address,uint256,uint256,uint8),uint256)": "afc329ac",
+    "openLimitOrderTypes(address,uint256,uint256)": "d4de65ea",
+    "setOpenLimitOrderType(address,uint256,uint256,uint8)": "ec570610",
+    "storeFirstToTrigger((address,uint256,uint256,uint8),address)": "c23c886c",
+    "unregisterTrigger((address,uint256,uint256,uint8))": "bf654d2b"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.8.7+commit.e28d00a7\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"NumberUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"firstP\",\"type\":\"uint256\"}],\"name\":\"PercentagesUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"bot\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"fromRound\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"toRound\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"tokens\",\"type\":\"uint256\"}],\"name\":\"PoolTokensClaimed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"bot\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"tokens\",\"type\":\"uint256\"}],\"name\":\"TokensClaimed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"trader\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"pairIndex\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"index\",\"type\":\"uint256\"},{\"internalType\":\"enum ITradingStorage.LimitOrder\",\"name\":\"order\",\"type\":\"uint8\"}],\"indexed\":false,\"internalType\":\"struct IExecute.TriggeredLimitId\",\"name\":\"id\",\"type\":\"tuple\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"reward\",\"type\":\"uint256\"}],\"name\":\"TriggerRewarded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"trader\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"pairIndex\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"index\",\"type\":\"uint256\"},{\"internalType\":\"enum ITradingStorage.LimitOrder\",\"name\":\"order\",\"type\":\"uint8\"}],\"indexed\":false,\"internalType\":\"struct IExecute.TriggeredLimitId\",\"name\":\"id\",\"type\":\"tuple\"}],\"name\":\"TriggerUnregistered\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"trader\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"pairIndex\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"index\",\"type\":\"uint256\"},{\"internalType\":\"enum ITradingStorage.LimitOrder\",\"name\":\"order\",\"type\":\"uint8\"}],\"indexed\":false,\"internalType\":\"struct IExecute.TriggeredLimitId\",\"name\":\"id\",\"type\":\"tuple\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"bot\",\"type\":\"address\"}],\"name\":\"TriggeredFirst\",\"type\":\"event\"},{\"inputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"trader\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"pairIndex\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"index\",\"type\":\"uint256\"},{\"internalType\":\"enum ITradingStorage.LimitOrder\",\"name\":\"order\",\"type\":\"uint8\"}],\"internalType\":\"struct IExecute.TriggeredLimitId\",\"name\":\"\",\"type\":\"tuple\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"distributeReward\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"openLimitOrderTypes\",\"outputs\":[{\"internalType\":\"enum IExecute.OpenLimitOrderType\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"enum IExecute.OpenLimitOrderType\",\"name\":\"\",\"type\":\"uint8\"}],\"name\":\"setOpenLimitOrderType\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"trader\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"pairIndex\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"index\",\"type\":\"uint256\"},{\"internalType\":\"enum ITradingStorage.LimitOrder\",\"name\":\"order\",\"type\":\"uint8\"}],\"internalType\":\"struct IExecute.TriggeredLimitId\",\"name\":\"\",\"type\":\"tuple\"},{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"storeFirstToTrigger\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"trader\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"pairIndex\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"index\",\"type\":\"uint256\"},{\"internalType\":\"enum ITradingStorage.LimitOrder\",\"name\":\"order\",\"type\":\"uint8\"}],\"internalType\":\"struct IExecute.TriggeredLimitId\",\"name\":\"\",\"type\":\"tuple\"}],\"name\":\"unregisterTrigger\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"kind\":\"dev\",\"methods\":{},\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"src/interfaces/IExecute.sol\":\"IExecute\"},\"evmVersion\":\"london\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\"},\"optimizer\":{\"enabled\":true,\"runs\":200},\"remappings\":[\":@chainlink/=lib/chainlink/\",\":@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/\",\":@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/\",\":chainlink/=lib/chainlink/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":erc4626-tests/=lib/openzeppelin-contracts/lib/erc4626-tests/\",\":forge-std/=lib/forge-std/src/\",\":openzeppelin-contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/\",\":openzeppelin-contracts/=lib/openzeppelin-contracts/\",\":openzeppelin/=lib/openzeppelin-contracts/contracts/\",\":pyth-sdk-solidity/=lib/pyth-sdk-solidity/\"]},\"sources\":{\"lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol\":{\"keccak256\":\"0x287b55befed2961a7eabd7d7b1b2839cbca8a5b80ef8dcbb25ed3d4c2002c305\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://bd39944e8fc06be6dbe2dd1d8449b5336e23c6a7ba3e8e9ae5ae0f37f35283f5\",\"dweb:/ipfs/QmPV3FGYjVwvKSgAXKUN3r9T9GwniZz83CxBpM7vyj2G53\"]},\"src/interfaces/ICallbacks.sol\":{\"keccak256\":\"0xf752442ca8254c91ace7ca3e7c6360783cfd9019ce50f3354c45b7e73268f6e8\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://d43dbc8029336d54a698810f532ce5ccdb9957db24cfbbefd56d65837001743f\",\"dweb:/ipfs/QmSEfht6aZ7McGJJPqBeorSdYve3NpnMvCwt5vX1VKp6pu\"]},\"src/interfaces/IExecute.sol\":{\"keccak256\":\"0x189f78c460465dcdaab444248da17059e96e76e862bb08540e7054296512b9b4\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://c757cbde37e2932a25fca5ed1ef8fdd49cf1521b8d9f1cfa1d512d1e94862a3b\",\"dweb:/ipfs/QmVvbrLcDBFo9oMdNqaYTmhhtgnH2WzgX8nbMTKuJU6Y1m\"]},\"src/interfaces/IPairStorage.sol\":{\"keccak256\":\"0xe21543cdbe3b6c526c3d13178cc0550d3f310d3d3d0fda72949697c5c3c6ca2a\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://57ae213d0c07d7206ddafbd04e45e76f5f10ab1c8c68082faff345d271c7ac7d\",\"dweb:/ipfs/QmQGev8sZeFeTge53USh7dyMS3jVWgvr3VVPDFqnnNRqti\"]},\"src/interfaces/IPausable.sol\":{\"keccak256\":\"0x0cf760757842bd332ce27fac78b8dc0f7a36406529a213954bc463c2be174ecd\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://c69ee15b814b76caed732b47b729d1c2b361ed158b85220da30ea9aac893ad0e\",\"dweb:/ipfs/QmbF9HWVA7DCtNzK2LkRdvhMV1TuqTf9dzUzAKwQadHZnY\"]},\"src/interfaces/IPriceAggregator.sol\":{\"keccak256\":\"0x56ebae9f8fcf1e1674eafc7ab4397034d6f5304c3a8b8c688014445887ed2c5e\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://d328b9fbdbd90afb4740dff095996555d14a2cdb67849ccffe796f61a29ff2ad\",\"dweb:/ipfs/QmZZNbj6gfLvrKhdT8qghCUTRRWx26UTagirxXtqdJWTy7\"]},\"src/interfaces/ITradingStorage.sol\":{\"keccak256\":\"0x8d11251a316c5ef1808bfd4a67421fc121aa7bd32f87aec028c9078d5e2b51ae\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://ae714dca1f1584b94b8b2efe27e63c7d7fb23062700fcfbdda515bf51256294f\",\"dweb:/ipfs/QmZEoAZ28MDGsfXh48EBBJGAW9XKGpbPEPaQAzEts9fnja\"]},\"src/interfaces/IVaultManager.sol\":{\"keccak256\":\"0x155dfef9cee4095d62850c4175988ea1e58d666e0cef4a56784b5eb22945e6a4\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://ca48d24e6b286737c8644877c0317a2c81e4ffe15eed3b2a47a7494700581b05\",\"dweb:/ipfs/Qmct1V584KcWZTtKZrU6DK444nHs7PRi3r8DiHNYesh9eZ\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": { "version": "0.8.7+commit.e28d00a7" },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            { "internalType": "string", "name": "name", "type": "string", "indexed": false },
+            { "internalType": "uint256", "name": "value", "type": "uint256", "indexed": false }
+          ],
+          "type": "event",
+          "name": "NumberUpdated",
+          "anonymous": false
+        },
+        {
+          "inputs": [{ "internalType": "uint256", "name": "firstP", "type": "uint256", "indexed": false }],
+          "type": "event",
+          "name": "PercentagesUpdated",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            { "internalType": "address", "name": "bot", "type": "address", "indexed": false },
+            { "internalType": "uint256", "name": "fromRound", "type": "uint256", "indexed": false },
+            { "internalType": "uint256", "name": "toRound", "type": "uint256", "indexed": false },
+            { "internalType": "uint256", "name": "tokens", "type": "uint256", "indexed": false }
+          ],
+          "type": "event",
+          "name": "PoolTokensClaimed",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            { "internalType": "address", "name": "bot", "type": "address", "indexed": false },
+            { "internalType": "uint256", "name": "tokens", "type": "uint256", "indexed": false }
+          ],
+          "type": "event",
+          "name": "TokensClaimed",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "struct IExecute.TriggeredLimitId",
+              "name": "id",
+              "type": "tuple",
+              "components": [
+                { "internalType": "address", "name": "trader", "type": "address" },
+                { "internalType": "uint256", "name": "pairIndex", "type": "uint256" },
+                { "internalType": "uint256", "name": "index", "type": "uint256" },
+                { "internalType": "enum ITradingStorage.LimitOrder", "name": "order", "type": "uint8" }
+              ],
+              "indexed": false
+            },
+            { "internalType": "uint256", "name": "reward", "type": "uint256", "indexed": false }
+          ],
+          "type": "event",
+          "name": "TriggerRewarded",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "struct IExecute.TriggeredLimitId",
+              "name": "id",
+              "type": "tuple",
+              "components": [
+                { "internalType": "address", "name": "trader", "type": "address" },
+                { "internalType": "uint256", "name": "pairIndex", "type": "uint256" },
+                { "internalType": "uint256", "name": "index", "type": "uint256" },
+                { "internalType": "enum ITradingStorage.LimitOrder", "name": "order", "type": "uint8" }
+              ],
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "TriggerUnregistered",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "struct IExecute.TriggeredLimitId",
+              "name": "id",
+              "type": "tuple",
+              "components": [
+                { "internalType": "address", "name": "trader", "type": "address" },
+                { "internalType": "uint256", "name": "pairIndex", "type": "uint256" },
+                { "internalType": "uint256", "name": "index", "type": "uint256" },
+                { "internalType": "enum ITradingStorage.LimitOrder", "name": "order", "type": "uint8" }
+              ],
+              "indexed": false
+            },
+            { "internalType": "address", "name": "bot", "type": "address", "indexed": false }
+          ],
+          "type": "event",
+          "name": "TriggeredFirst",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "struct IExecute.TriggeredLimitId",
+              "name": "",
+              "type": "tuple",
+              "components": [
+                { "internalType": "address", "name": "trader", "type": "address" },
+                { "internalType": "uint256", "name": "pairIndex", "type": "uint256" },
+                { "internalType": "uint256", "name": "index", "type": "uint256" },
+                { "internalType": "enum ITradingStorage.LimitOrder", "name": "order", "type": "uint8" }
+              ]
+            },
+            { "internalType": "uint256", "name": "", "type": "uint256" }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "distributeReward"
+        },
+        {
+          "inputs": [
+            { "internalType": "address", "name": "", "type": "address" },
+            { "internalType": "uint256", "name": "", "type": "uint256" },
+            { "internalType": "uint256", "name": "", "type": "uint256" }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "openLimitOrderTypes",
+          "outputs": [{ "internalType": "enum IExecute.OpenLimitOrderType", "name": "", "type": "uint8" }]
+        },
+        {
+          "inputs": [
+            { "internalType": "address", "name": "", "type": "address" },
+            { "internalType": "uint256", "name": "", "type": "uint256" },
+            { "internalType": "uint256", "name": "", "type": "uint256" },
+            { "internalType": "enum IExecute.OpenLimitOrderType", "name": "", "type": "uint8" }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "setOpenLimitOrderType"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "struct IExecute.TriggeredLimitId",
+              "name": "",
+              "type": "tuple",
+              "components": [
+                { "internalType": "address", "name": "trader", "type": "address" },
+                { "internalType": "uint256", "name": "pairIndex", "type": "uint256" },
+                { "internalType": "uint256", "name": "index", "type": "uint256" },
+                { "internalType": "enum ITradingStorage.LimitOrder", "name": "order", "type": "uint8" }
+              ]
+            },
+            { "internalType": "address", "name": "", "type": "address" }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "storeFirstToTrigger"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "struct IExecute.TriggeredLimitId",
+              "name": "",
+              "type": "tuple",
+              "components": [
+                { "internalType": "address", "name": "trader", "type": "address" },
+                { "internalType": "uint256", "name": "pairIndex", "type": "uint256" },
+                { "internalType": "uint256", "name": "index", "type": "uint256" },
+                { "internalType": "enum ITradingStorage.LimitOrder", "name": "order", "type": "uint8" }
+              ]
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "unregisterTrigger"
+        }
+      ],
+      "devdoc": { "kind": "dev", "methods": {}, "version": 1 },
+      "userdoc": { "kind": "user", "methods": {}, "version": 1 }
+    },
+    "settings": {
+      "remappings": [
+        "@chainlink/=lib/chainlink/",
+        "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/",
+        "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+        "chainlink/=lib/chainlink/",
+        "ds-test/=lib/forge-std/lib/ds-test/src/",
+        "erc4626-tests/=lib/openzeppelin-contracts/lib/erc4626-tests/",
+        "forge-std/=lib/forge-std/src/",
+        "openzeppelin-contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/",
+        "openzeppelin-contracts/=lib/openzeppelin-contracts/",
+        "openzeppelin/=lib/openzeppelin-contracts/contracts/",
+        "pyth-sdk-solidity/=lib/pyth-sdk-solidity/"
+      ],
+      "optimizer": { "enabled": true, "runs": 200 },
+      "metadata": { "bytecodeHash": "ipfs" },
+      "compilationTarget": { "src/interfaces/IExecute.sol": "IExecute" },
+      "libraries": {}
+    },
+    "sources": {
+      "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol": {
+        "keccak256": "0x287b55befed2961a7eabd7d7b1b2839cbca8a5b80ef8dcbb25ed3d4c2002c305",
+        "urls": [
+          "bzz-raw://bd39944e8fc06be6dbe2dd1d8449b5336e23c6a7ba3e8e9ae5ae0f37f35283f5",
+          "dweb:/ipfs/QmPV3FGYjVwvKSgAXKUN3r9T9GwniZz83CxBpM7vyj2G53"
+        ],
+        "license": "MIT"
+      },
+      "src/interfaces/ICallbacks.sol": {
+        "keccak256": "0xf752442ca8254c91ace7ca3e7c6360783cfd9019ce50f3354c45b7e73268f6e8",
+        "urls": [
+          "bzz-raw://d43dbc8029336d54a698810f532ce5ccdb9957db24cfbbefd56d65837001743f",
+          "dweb:/ipfs/QmSEfht6aZ7McGJJPqBeorSdYve3NpnMvCwt5vX1VKp6pu"
+        ],
+        "license": "MIT"
+      },
+      "src/interfaces/IExecute.sol": {
+        "keccak256": "0x189f78c460465dcdaab444248da17059e96e76e862bb08540e7054296512b9b4",
+        "urls": [
+          "bzz-raw://c757cbde37e2932a25fca5ed1ef8fdd49cf1521b8d9f1cfa1d512d1e94862a3b",
+          "dweb:/ipfs/QmVvbrLcDBFo9oMdNqaYTmhhtgnH2WzgX8nbMTKuJU6Y1m"
+        ],
+        "license": "MIT"
+      },
+      "src/interfaces/IPairStorage.sol": {
+        "keccak256": "0xe21543cdbe3b6c526c3d13178cc0550d3f310d3d3d0fda72949697c5c3c6ca2a",
+        "urls": [
+          "bzz-raw://57ae213d0c07d7206ddafbd04e45e76f5f10ab1c8c68082faff345d271c7ac7d",
+          "dweb:/ipfs/QmQGev8sZeFeTge53USh7dyMS3jVWgvr3VVPDFqnnNRqti"
+        ],
+        "license": "MIT"
+      },
+      "src/interfaces/IPausable.sol": {
+        "keccak256": "0x0cf760757842bd332ce27fac78b8dc0f7a36406529a213954bc463c2be174ecd",
+        "urls": [
+          "bzz-raw://c69ee15b814b76caed732b47b729d1c2b361ed158b85220da30ea9aac893ad0e",
+          "dweb:/ipfs/QmbF9HWVA7DCtNzK2LkRdvhMV1TuqTf9dzUzAKwQadHZnY"
+        ],
+        "license": "MIT"
+      },
+      "src/interfaces/IPriceAggregator.sol": {
+        "keccak256": "0x56ebae9f8fcf1e1674eafc7ab4397034d6f5304c3a8b8c688014445887ed2c5e",
+        "urls": [
+          "bzz-raw://d328b9fbdbd90afb4740dff095996555d14a2cdb67849ccffe796f61a29ff2ad",
+          "dweb:/ipfs/QmZZNbj6gfLvrKhdT8qghCUTRRWx26UTagirxXtqdJWTy7"
+        ],
+        "license": "MIT"
+      },
+      "src/interfaces/ITradingStorage.sol": {
+        "keccak256": "0x8d11251a316c5ef1808bfd4a67421fc121aa7bd32f87aec028c9078d5e2b51ae",
+        "urls": [
+          "bzz-raw://ae714dca1f1584b94b8b2efe27e63c7d7fb23062700fcfbdda515bf51256294f",
+          "dweb:/ipfs/QmZEoAZ28MDGsfXh48EBBJGAW9XKGpbPEPaQAzEts9fnja"
+        ],
+        "license": "MIT"
+      },
+      "src/interfaces/IVaultManager.sol": {
+        "keccak256": "0x155dfef9cee4095d62850c4175988ea1e58d666e0cef4a56784b5eb22945e6a4",
+        "urls": [
+          "bzz-raw://ca48d24e6b286737c8644877c0317a2c81e4ffe15eed3b2a47a7494700581b05",
+          "dweb:/ipfs/Qmct1V584KcWZTtKZrU6DK444nHs7PRi3r8DiHNYesh9eZ"
+        ],
+        "license": "MIT"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "src/interfaces/IExecute.sol",
+    "id": 73020,
+    "exportedSymbols": { "IExecute": [73019], "ITradingStorage": [74531] },
+    "nodeType": "SourceUnit",
+    "src": "32:1269:87",
+    "nodes": [
+      {
+        "id": 72907,
+        "nodeType": "PragmaDirective",
+        "src": "32:22:87",
+        "nodes": [],
+        "literals": ["solidity", "0.8", ".7"]
+      },
+      {
+        "id": 72908,
+        "nodeType": "ImportDirective",
+        "src": "55:31:87",
+        "nodes": [],
+        "absolutePath": "src/interfaces/ITradingStorage.sol",
+        "file": "./ITradingStorage.sol",
+        "nameLocation": "-1:-1:-1",
+        "scope": 73020,
+        "sourceUnit": 74532,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 73019,
+        "nodeType": "ContractDefinition",
+        "src": "88:1212:87",
+        "nodes": [
+          {
+            "id": 72913,
+            "nodeType": "StructDefinition",
+            "src": "138:72:87",
+            "nodes": [],
+            "canonicalName": "IExecute.TriggeredLimit",
+            "members": [
+              {
+                "constant": false,
+                "id": 72910,
+                "mutability": "mutable",
+                "name": "first",
+                "nameLocation": "178:5:87",
+                "nodeType": "VariableDeclaration",
+                "scope": 72913,
+                "src": "170:13:87",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": { "typeIdentifier": "t_address", "typeString": "address" },
+                "typeName": {
+                  "id": 72909,
+                  "name": "address",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "170:7:87",
+                  "stateMutability": "nonpayable",
+                  "typeDescriptions": { "typeIdentifier": "t_address", "typeString": "address" }
+                },
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 72912,
+                "mutability": "mutable",
+                "name": "block",
+                "nameLocation": "198:5:87",
+                "nodeType": "VariableDeclaration",
+                "scope": 72913,
+                "src": "193:10:87",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": { "typeIdentifier": "t_uint256", "typeString": "uint256" },
+                "typeName": {
+                  "id": 72911,
+                  "name": "uint",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "193:4:87",
+                  "typeDescriptions": { "typeIdentifier": "t_uint256", "typeString": "uint256" }
+                },
+                "visibility": "internal"
+              }
+            ],
+            "name": "TriggeredLimit",
+            "nameLocation": "145:14:87",
+            "scope": 73019,
+            "visibility": "public"
+          },
+          {
+            "id": 72923,
+            "nodeType": "StructDefinition",
+            "src": "220:141:87",
+            "nodes": [],
+            "canonicalName": "IExecute.TriggeredLimitId",
+            "members": [
+              {
+                "constant": false,
+                "id": 72915,
+                "mutability": "mutable",
+                "name": "trader",
+                "nameLocation": "262:6:87",
+                "nodeType": "VariableDeclaration",
+                "scope": 72923,
+                "src": "254:14:87",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": { "typeIdentifier": "t_address", "typeString": "address" },
+                "typeName": {
+                  "id": 72914,
+                  "name": "address",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "254:7:87",
+                  "stateMutability": "nonpayable",
+                  "typeDescriptions": { "typeIdentifier": "t_address", "typeString": "address" }
+                },
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 72917,
+                "mutability": "mutable",
+                "name": "pairIndex",
+                "nameLocation": "283:9:87",
+                "nodeType": "VariableDeclaration",
+                "scope": 72923,
+                "src": "278:14:87",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": { "typeIdentifier": "t_uint256", "typeString": "uint256" },
+                "typeName": {
+                  "id": 72916,
+                  "name": "uint",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "278:4:87",
+                  "typeDescriptions": { "typeIdentifier": "t_uint256", "typeString": "uint256" }
+                },
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 72919,
+                "mutability": "mutable",
+                "name": "index",
+                "nameLocation": "307:5:87",
+                "nodeType": "VariableDeclaration",
+                "scope": 72923,
+                "src": "302:10:87",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": { "typeIdentifier": "t_uint256", "typeString": "uint256" },
+                "typeName": {
+                  "id": 72918,
+                  "name": "uint",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "302:4:87",
+                  "typeDescriptions": { "typeIdentifier": "t_uint256", "typeString": "uint256" }
+                },
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 72922,
+                "mutability": "mutable",
+                "name": "order",
+                "nameLocation": "349:5:87",
+                "nodeType": "VariableDeclaration",
+                "scope": 72923,
+                "src": "322:32:87",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_enum$_LimitOrder_$74006",
+                  "typeString": "enum ITradingStorage.LimitOrder"
+                },
+                "typeName": {
+                  "id": 72921,
+                  "nodeType": "UserDefinedTypeName",
+                  "pathNode": {
+                    "id": 72920,
+                    "name": "ITradingStorage.LimitOrder",
+                    "nodeType": "IdentifierPath",
+                    "referencedDeclaration": 74006,
+                    "src": "322:26:87"
+                  },
+                  "referencedDeclaration": 74006,
+                  "src": "322:26:87",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_enum$_LimitOrder_$74006",
+                    "typeString": "enum ITradingStorage.LimitOrder"
+                  }
+                },
+                "visibility": "internal"
+              }
+            ],
+            "name": "TriggeredLimitId",
+            "nameLocation": "227:16:87",
+            "scope": 73019,
+            "visibility": "public"
+          },
+          {
+            "id": 72927,
+            "nodeType": "EnumDefinition",
+            "src": "367:105:87",
+            "nodes": [],
+            "canonicalName": "IExecute.OpenLimitOrderType",
+            "members": [
+              { "id": 72924, "name": "MARKET", "nameLocation": "401:6:87", "nodeType": "EnumValue", "src": "401:6:87" },
+              {
+                "id": 72925,
+                "name": "REVERSAL",
+                "nameLocation": "417:8:87",
+                "nodeType": "EnumValue",
+                "src": "417:8:87"
+              },
+              {
+                "id": 72926,
+                "name": "MOMENTUM",
+                "nameLocation": "449:8:87",
+                "nodeType": "EnumValue",
+                "src": "449:8:87"
+              }
+            ],
+            "name": "OpenLimitOrderType",
+            "nameLocation": "372:18:87"
+          },
+          {
+            "id": 72933,
+            "nodeType": "EventDefinition",
+            "src": "492:45:87",
+            "nodes": [],
+            "anonymous": false,
+            "name": "NumberUpdated",
+            "nameLocation": "498:13:87",
+            "parameters": {
+              "id": 72932,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 72929,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "name",
+                  "nameLocation": "519:4:87",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 72933,
+                  "src": "512:11:87",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": { "typeIdentifier": "t_string_memory_ptr", "typeString": "string" },
+                  "typeName": {
+                    "id": 72928,
+                    "name": "string",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "512:6:87",
+                    "typeDescriptions": { "typeIdentifier": "t_string_storage_ptr", "typeString": "string" }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 72931,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "value",
+                  "nameLocation": "530:5:87",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 72933,
+                  "src": "525:10:87",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": { "typeIdentifier": "t_uint256", "typeString": "uint256" },
+                  "typeName": {
+                    "id": 72930,
+                    "name": "uint",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "525:4:87",
+                    "typeDescriptions": { "typeIdentifier": "t_uint256", "typeString": "uint256" }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "511:25:87"
+            }
+          },
+          {
+            "id": 72937,
+            "nodeType": "EventDefinition",
+            "src": "542:38:87",
+            "nodes": [],
+            "anonymous": false,
+            "name": "PercentagesUpdated",
+            "nameLocation": "548:18:87",
+            "parameters": {
+              "id": 72936,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 72935,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "firstP",
+                  "nameLocation": "572:6:87",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 72937,
+                  "src": "567:11:87",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": { "typeIdentifier": "t_uint256", "typeString": "uint256" },
+                  "typeName": {
+                    "id": 72934,
+                    "name": "uint",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "567:4:87",
+                    "typeDescriptions": { "typeIdentifier": "t_uint256", "typeString": "uint256" }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "566:13:87"
+            }
+          },
+          {
+            "id": 72944,
+            "nodeType": "EventDefinition",
+            "src": "585:55:87",
+            "nodes": [],
+            "anonymous": false,
+            "name": "TriggeredFirst",
+            "nameLocation": "591:14:87",
+            "parameters": {
+              "id": 72943,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 72940,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "id",
+                  "nameLocation": "623:2:87",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 72944,
+                  "src": "606:19:87",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_struct$_TriggeredLimitId_$72923_memory_ptr",
+                    "typeString": "struct IExecute.TriggeredLimitId"
+                  },
+                  "typeName": {
+                    "id": 72939,
+                    "nodeType": "UserDefinedTypeName",
+                    "pathNode": {
+                      "id": 72938,
+                      "name": "TriggeredLimitId",
+                      "nodeType": "IdentifierPath",
+                      "referencedDeclaration": 72923,
+                      "src": "606:16:87"
+                    },
+                    "referencedDeclaration": 72923,
+                    "src": "606:16:87",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_struct$_TriggeredLimitId_$72923_storage_ptr",
+                      "typeString": "struct IExecute.TriggeredLimitId"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 72942,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "bot",
+                  "nameLocation": "635:3:87",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 72944,
+                  "src": "627:11:87",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": { "typeIdentifier": "t_address", "typeString": "address" },
+                  "typeName": {
+                    "id": 72941,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "627:7:87",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": { "typeIdentifier": "t_address", "typeString": "address" }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "605:34:87"
+            }
+          },
+          {
+            "id": 72949,
+            "nodeType": "EventDefinition",
+            "src": "645:47:87",
+            "nodes": [],
+            "anonymous": false,
+            "name": "TriggerUnregistered",
+            "nameLocation": "651:19:87",
+            "parameters": {
+              "id": 72948,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 72947,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "id",
+                  "nameLocation": "688:2:87",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 72949,
+                  "src": "671:19:87",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_struct$_TriggeredLimitId_$72923_memory_ptr",
+                    "typeString": "struct IExecute.TriggeredLimitId"
+                  },
+                  "typeName": {
+                    "id": 72946,
+                    "nodeType": "UserDefinedTypeName",
+                    "pathNode": {
+                      "id": 72945,
+                      "name": "TriggeredLimitId",
+                      "nodeType": "IdentifierPath",
+                      "referencedDeclaration": 72923,
+                      "src": "671:16:87"
+                    },
+                    "referencedDeclaration": 72923,
+                    "src": "671:16:87",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_struct$_TriggeredLimitId_$72923_storage_ptr",
+                      "typeString": "struct IExecute.TriggeredLimitId"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "670:21:87"
+            }
+          },
+          {
+            "id": 72956,
+            "nodeType": "EventDefinition",
+            "src": "697:56:87",
+            "nodes": [],
+            "anonymous": false,
+            "name": "TriggerRewarded",
+            "nameLocation": "703:15:87",
+            "parameters": {
+              "id": 72955,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 72952,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "id",
+                  "nameLocation": "736:2:87",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 72956,
+                  "src": "719:19:87",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_struct$_TriggeredLimitId_$72923_memory_ptr",
+                    "typeString": "struct IExecute.TriggeredLimitId"
+                  },
+                  "typeName": {
+                    "id": 72951,
+                    "nodeType": "UserDefinedTypeName",
+                    "pathNode": {
+                      "id": 72950,
+                      "name": "TriggeredLimitId",
+                      "nodeType": "IdentifierPath",
+                      "referencedDeclaration": 72923,
+                      "src": "719:16:87"
+                    },
+                    "referencedDeclaration": 72923,
+                    "src": "719:16:87",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_struct$_TriggeredLimitId_$72923_storage_ptr",
+                      "typeString": "struct IExecute.TriggeredLimitId"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 72954,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "reward",
+                  "nameLocation": "745:6:87",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 72956,
+                  "src": "740:11:87",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": { "typeIdentifier": "t_uint256", "typeString": "uint256" },
+                  "typeName": {
+                    "id": 72953,
+                    "name": "uint",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "740:4:87",
+                    "typeDescriptions": { "typeIdentifier": "t_uint256", "typeString": "uint256" }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "718:34:87"
+            }
+          },
+          {
+            "id": 72966,
+            "nodeType": "EventDefinition",
+            "src": "758:80:87",
+            "nodes": [],
+            "anonymous": false,
+            "name": "PoolTokensClaimed",
+            "nameLocation": "764:17:87",
+            "parameters": {
+              "id": 72965,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 72958,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "bot",
+                  "nameLocation": "790:3:87",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 72966,
+                  "src": "782:11:87",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": { "typeIdentifier": "t_address", "typeString": "address" },
+                  "typeName": {
+                    "id": 72957,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "782:7:87",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": { "typeIdentifier": "t_address", "typeString": "address" }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 72960,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "fromRound",
+                  "nameLocation": "800:9:87",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 72966,
+                  "src": "795:14:87",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": { "typeIdentifier": "t_uint256", "typeString": "uint256" },
+                  "typeName": {
+                    "id": 72959,
+                    "name": "uint",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "795:4:87",
+                    "typeDescriptions": { "typeIdentifier": "t_uint256", "typeString": "uint256" }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 72962,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "toRound",
+                  "nameLocation": "816:7:87",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 72966,
+                  "src": "811:12:87",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": { "typeIdentifier": "t_uint256", "typeString": "uint256" },
+                  "typeName": {
+                    "id": 72961,
+                    "name": "uint",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "811:4:87",
+                    "typeDescriptions": { "typeIdentifier": "t_uint256", "typeString": "uint256" }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 72964,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "tokens",
+                  "nameLocation": "830:6:87",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 72966,
+                  "src": "825:11:87",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": { "typeIdentifier": "t_uint256", "typeString": "uint256" },
+                  "typeName": {
+                    "id": 72963,
+                    "name": "uint",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "825:4:87",
+                    "typeDescriptions": { "typeIdentifier": "t_uint256", "typeString": "uint256" }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "781:56:87"
+            }
+          },
+          {
+            "id": 72972,
+            "nodeType": "EventDefinition",
+            "src": "843:46:87",
+            "nodes": [],
+            "anonymous": false,
+            "name": "TokensClaimed",
+            "nameLocation": "849:13:87",
+            "parameters": {
+              "id": 72971,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 72968,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "bot",
+                  "nameLocation": "871:3:87",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 72972,
+                  "src": "863:11:87",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": { "typeIdentifier": "t_address", "typeString": "address" },
+                  "typeName": {
+                    "id": 72967,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "863:7:87",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": { "typeIdentifier": "t_address", "typeString": "address" }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 72970,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "tokens",
+                  "nameLocation": "881:6:87",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 72972,
+                  "src": "876:11:87",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": { "typeIdentifier": "t_uint256", "typeString": "uint256" },
+                  "typeName": {
+                    "id": 72969,
+                    "name": "uint",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "876:4:87",
+                    "typeDescriptions": { "typeIdentifier": "t_uint256", "typeString": "uint256" }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "862:26:87"
+            }
+          },
+          {
+            "id": 72980,
+            "nodeType": "FunctionDefinition",
+            "src": "895:74:87",
+            "nodes": [],
+            "functionSelector": "c23c886c",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "storeFirstToTrigger",
+            "nameLocation": "904:19:87",
+            "parameters": {
+              "id": 72978,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 72975,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nameLocation": "-1:-1:-1",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 72980,
+                  "src": "924:25:87",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_struct$_TriggeredLimitId_$72923_calldata_ptr",
+                    "typeString": "struct IExecute.TriggeredLimitId"
+                  },
+                  "typeName": {
+                    "id": 72974,
+                    "nodeType": "UserDefinedTypeName",
+                    "pathNode": {
+                      "id": 72973,
+                      "name": "TriggeredLimitId",
+                      "nodeType": "IdentifierPath",
+                      "referencedDeclaration": 72923,
+                      "src": "924:16:87"
+                    },
+                    "referencedDeclaration": 72923,
+                    "src": "924:16:87",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_struct$_TriggeredLimitId_$72923_storage_ptr",
+                      "typeString": "struct IExecute.TriggeredLimitId"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 72977,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nameLocation": "-1:-1:-1",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 72980,
+                  "src": "951:7:87",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": { "typeIdentifier": "t_address", "typeString": "address" },
+                  "typeName": {
+                    "id": 72976,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "951:7:87",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": { "typeIdentifier": "t_address", "typeString": "address" }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "923:36:87"
+            },
+            "returnParameters": { "id": 72979, "nodeType": "ParameterList", "parameters": [], "src": "968:0:87" },
+            "scope": 73019,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 72986,
+            "nodeType": "FunctionDefinition",
+            "src": "975:63:87",
+            "nodes": [],
+            "functionSelector": "bf654d2b",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "unregisterTrigger",
+            "nameLocation": "984:17:87",
+            "parameters": {
+              "id": 72984,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 72983,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nameLocation": "-1:-1:-1",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 72986,
+                  "src": "1002:25:87",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_struct$_TriggeredLimitId_$72923_calldata_ptr",
+                    "typeString": "struct IExecute.TriggeredLimitId"
+                  },
+                  "typeName": {
+                    "id": 72982,
+                    "nodeType": "UserDefinedTypeName",
+                    "pathNode": {
+                      "id": 72981,
+                      "name": "TriggeredLimitId",
+                      "nodeType": "IdentifierPath",
+                      "referencedDeclaration": 72923,
+                      "src": "1002:16:87"
+                    },
+                    "referencedDeclaration": 72923,
+                    "src": "1002:16:87",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_struct$_TriggeredLimitId_$72923_storage_ptr",
+                      "typeString": "struct IExecute.TriggeredLimitId"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1001:27:87"
+            },
+            "returnParameters": { "id": 72985, "nodeType": "ParameterList", "parameters": [], "src": "1037:0:87" },
+            "scope": 73019,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 72994,
+            "nodeType": "FunctionDefinition",
+            "src": "1044:68:87",
+            "nodes": [],
+            "functionSelector": "afc329ac",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "distributeReward",
+            "nameLocation": "1053:16:87",
+            "parameters": {
+              "id": 72992,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 72989,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nameLocation": "-1:-1:-1",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 72994,
+                  "src": "1070:25:87",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_struct$_TriggeredLimitId_$72923_calldata_ptr",
+                    "typeString": "struct IExecute.TriggeredLimitId"
+                  },
+                  "typeName": {
+                    "id": 72988,
+                    "nodeType": "UserDefinedTypeName",
+                    "pathNode": {
+                      "id": 72987,
+                      "name": "TriggeredLimitId",
+                      "nodeType": "IdentifierPath",
+                      "referencedDeclaration": 72923,
+                      "src": "1070:16:87"
+                    },
+                    "referencedDeclaration": 72923,
+                    "src": "1070:16:87",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_struct$_TriggeredLimitId_$72923_storage_ptr",
+                      "typeString": "struct IExecute.TriggeredLimitId"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 72991,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nameLocation": "-1:-1:-1",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 72994,
+                  "src": "1097:4:87",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": { "typeIdentifier": "t_uint256", "typeString": "uint256" },
+                  "typeName": {
+                    "id": 72990,
+                    "name": "uint",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1097:4:87",
+                    "typeDescriptions": { "typeIdentifier": "t_uint256", "typeString": "uint256" }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1069:33:87"
+            },
+            "returnParameters": { "id": 72993, "nodeType": "ParameterList", "parameters": [], "src": "1111:0:87" },
+            "scope": 73019,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 73006,
+            "nodeType": "FunctionDefinition",
+            "src": "1118:93:87",
+            "nodes": [],
+            "functionSelector": "d4de65ea",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "openLimitOrderTypes",
+            "nameLocation": "1127:19:87",
+            "parameters": {
+              "id": 73001,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 72996,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nameLocation": "-1:-1:-1",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 73006,
+                  "src": "1147:7:87",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": { "typeIdentifier": "t_address", "typeString": "address" },
+                  "typeName": {
+                    "id": 72995,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1147:7:87",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": { "typeIdentifier": "t_address", "typeString": "address" }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 72998,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nameLocation": "-1:-1:-1",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 73006,
+                  "src": "1156:4:87",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": { "typeIdentifier": "t_uint256", "typeString": "uint256" },
+                  "typeName": {
+                    "id": 72997,
+                    "name": "uint",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1156:4:87",
+                    "typeDescriptions": { "typeIdentifier": "t_uint256", "typeString": "uint256" }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 73000,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nameLocation": "-1:-1:-1",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 73006,
+                  "src": "1162:4:87",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": { "typeIdentifier": "t_uint256", "typeString": "uint256" },
+                  "typeName": {
+                    "id": 72999,
+                    "name": "uint",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1162:4:87",
+                    "typeDescriptions": { "typeIdentifier": "t_uint256", "typeString": "uint256" }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1146:21:87"
+            },
+            "returnParameters": {
+              "id": 73005,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 73004,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nameLocation": "-1:-1:-1",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 73006,
+                  "src": "1191:18:87",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_enum$_OpenLimitOrderType_$72927",
+                    "typeString": "enum IExecute.OpenLimitOrderType"
+                  },
+                  "typeName": {
+                    "id": 73003,
+                    "nodeType": "UserDefinedTypeName",
+                    "pathNode": {
+                      "id": 73002,
+                      "name": "OpenLimitOrderType",
+                      "nodeType": "IdentifierPath",
+                      "referencedDeclaration": 72927,
+                      "src": "1191:18:87"
+                    },
+                    "referencedDeclaration": 72927,
+                    "src": "1191:18:87",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_enum$_OpenLimitOrderType_$72927",
+                      "typeString": "enum IExecute.OpenLimitOrderType"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1190:20:87"
+            },
+            "scope": 73019,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 73018,
+            "nodeType": "FunctionDefinition",
+            "src": "1217:81:87",
+            "nodes": [],
+            "functionSelector": "ec570610",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "setOpenLimitOrderType",
+            "nameLocation": "1226:21:87",
+            "parameters": {
+              "id": 73016,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 73008,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nameLocation": "-1:-1:-1",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 73018,
+                  "src": "1248:7:87",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": { "typeIdentifier": "t_address", "typeString": "address" },
+                  "typeName": {
+                    "id": 73007,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1248:7:87",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": { "typeIdentifier": "t_address", "typeString": "address" }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 73010,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nameLocation": "-1:-1:-1",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 73018,
+                  "src": "1257:4:87",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": { "typeIdentifier": "t_uint256", "typeString": "uint256" },
+                  "typeName": {
+                    "id": 73009,
+                    "name": "uint",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1257:4:87",
+                    "typeDescriptions": { "typeIdentifier": "t_uint256", "typeString": "uint256" }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 73012,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nameLocation": "-1:-1:-1",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 73018,
+                  "src": "1263:4:87",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": { "typeIdentifier": "t_uint256", "typeString": "uint256" },
+                  "typeName": {
+                    "id": 73011,
+                    "name": "uint",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1263:4:87",
+                    "typeDescriptions": { "typeIdentifier": "t_uint256", "typeString": "uint256" }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 73015,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nameLocation": "-1:-1:-1",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 73018,
+                  "src": "1269:18:87",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_enum$_OpenLimitOrderType_$72927",
+                    "typeString": "enum IExecute.OpenLimitOrderType"
+                  },
+                  "typeName": {
+                    "id": 73014,
+                    "nodeType": "UserDefinedTypeName",
+                    "pathNode": {
+                      "id": 73013,
+                      "name": "OpenLimitOrderType",
+                      "nodeType": "IdentifierPath",
+                      "referencedDeclaration": 72927,
+                      "src": "1269:18:87"
+                    },
+                    "referencedDeclaration": 72927,
+                    "src": "1269:18:87",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_enum$_OpenLimitOrderType_$72927",
+                      "typeString": "enum IExecute.OpenLimitOrderType"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1247:41:87"
+            },
+            "returnParameters": { "id": 73017, "nodeType": "ParameterList", "parameters": [], "src": "1297:0:87" },
+            "scope": 73019,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [73019],
+        "name": "IExecute",
+        "nameLocation": "98:8:87",
+        "scope": 73020,
+        "usedErrors": []
+      }
+    ],
+    "license": "MIT"
+  },
+  "id": 87
+}
