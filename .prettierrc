@@ -1,0 +1,10 @@
+{
+	"overrides": [
+		{
+			"files": "*.py",
+			"options": {
+				"parser": "python"
+			}
+		}
+	]
+}
