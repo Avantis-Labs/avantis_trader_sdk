@@ -32,3 +32,9 @@ class OpenInterest(BaseModel):
     
 class OpenInterestLimits(BaseModel):
     limits: Dict[str, float]
+    
+class AssetUtilization(BaseModel):
+    utilization: Dict[str, float]
+class AssetSkew(BaseModel):
+    skew: Dict[str, float]
+    
