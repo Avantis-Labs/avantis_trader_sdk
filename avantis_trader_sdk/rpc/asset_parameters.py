@@ -1,4 +1,5 @@
 from .rpc_helpers import map_output_to_pairs
+from ..types import OpenInterest, OpenInterestLimits
 class AssetParametersRPC:
     def __init__(self, client):
         self.client = client
@@ -15,7 +16,7 @@ class AssetParametersRPC:
         response = await Multicall.functions.aggregate(calls).call()
         decoded_response = [int.from_bytes(value, byteorder='big') / 10 ** 6 for value in response[1]]
         
-        return map_output_to_pairs(pairs_info, decoded_response)
+        return OpenInterestLimits(limits = map_output_to_pairs(pairs_info, decoded_response))
     
     
     async def get_oi(self):
@@ -23,7 +24,7 @@ class AssetParametersRPC:
         pairs_info = await self.client.pairs_cache.get_pairs_info()
         raw_data = await Multicall.functions.getLongShortRatios().call()
         decoded = self.client.utils['decoder'](Multicall, 'getLongShortRatios', raw_data)
-        return {"longRatio": map_output_to_pairs(pairs_info, decoded["longRatio"]), "shortRatio": map_output_to_pairs(pairs_info, decoded['shortRatio'])}
+        return OpenInterest(longRatio= map_output_to_pairs(pairs_info, decoded["longRatio"]), shortRatio = map_output_to_pairs(pairs_info, decoded['shortRatio']))
 
     # def calculate_asset_utilization(self, pair_index):
     #     # ...
