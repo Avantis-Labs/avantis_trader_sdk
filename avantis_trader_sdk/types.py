@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, validator
-from typing import Dict
+from typing import Dict, List
 
 
 class PairInfoFeed(BaseModel):
@@ -30,17 +30,27 @@ class PairInfo(BaseModel):
 
 
 class OpenInterest(BaseModel):
-    longRatio: Dict[str, float]
-    shortRatio: Dict[str, float]
+    long: Dict[str, float]
+    short: Dict[str, float]
 
 
 class OpenInterestLimits(BaseModel):
     limits: Dict[str, float]
 
 
-class AssetUtilization(BaseModel):
+class Utilization(BaseModel):
     utilization: Dict[str, float]
 
 
-class AssetSkew(BaseModel):
+class Skew(BaseModel):
     skew: Dict[str, float]
+
+
+class MarginFee(BaseModel):
+    base: Dict[str, float]
+    margin_long: Dict[str, float]
+    margin_short: Dict[str, float]
+
+
+class PairSpread(BaseModel):
+    spread: Dict[str, float]

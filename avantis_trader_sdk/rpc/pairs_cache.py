@@ -15,6 +15,7 @@ class PairsCache:
         """
         self.client = client
         self._pair_info_cache = {}
+        self._group_indexes_cache = {}
 
     async def get_pairs_info(self, force_update=False):
         """
@@ -46,6 +47,9 @@ class PairsCache:
             for index, pair_info in enumerate(decoded_data):
                 self._pair_info_cache[index] = pair_info
 
+            group_indexes = set([pair.groupIndex for pair in decoded_data])
+            self._group_indexes_cache = group_indexes
+
         return self._pair_info_cache
 
     async def get_pairs_count(self):
@@ -57,3 +61,14 @@ class PairsCache:
         """
         PairStorage = self.client.contracts.get("PairStorage")
         return await PairStorage.functions.pairsCount().call()
+
+    async def get_group_indexes(self):
+        """
+        Retrieves the group ids from the blockchain.
+
+        Returns:
+            The group ids as a set.
+        """
+        if not self._group_indexes_cache:
+            await self.get_pairs_info()
+        return self._group_indexes_cache

@@ -4,6 +4,9 @@ from web3 import Web3, AsyncWeb3
 from .config import CONTRACT_ADDRESSES
 from .rpc.pairs_cache import PairsCache
 from .rpc.asset_parameters import AssetParametersRPC
+from .rpc.category_parameters import CategoryParametersRPC
+from .rpc.blended import BlendedRPC
+from .rpc.fee_parameters import FeeParametersRPC
 from .utils import decoder
 
 
@@ -17,6 +20,9 @@ class TraderClient:
         }
         self.pairs_cache = PairsCache(self)
         self.asset_parameters = AssetParametersRPC(self)
+        self.category_parameters = CategoryParametersRPC(self)
+        self.blended = BlendedRPC(self)
+        self.fee_parameters = FeeParametersRPC(self)
 
     def load_contract(self, name):
         abi_path = Path(__file__).parent / "abis" / f"{name}.sol" / f"{name}.json"

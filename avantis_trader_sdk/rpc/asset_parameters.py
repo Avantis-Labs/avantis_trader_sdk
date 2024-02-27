@@ -1,6 +1,6 @@
 import asyncio
 from .rpc_helpers import map_output_to_pairs
-from ..types import OpenInterest, OpenInterestLimits, AssetUtilization, AssetSkew
+from ..types import OpenInterest, OpenInterestLimits, Utilization, Skew
 
 
 class AssetParametersRPC:
@@ -58,16 +58,16 @@ class AssetParametersRPC:
             Multicall, "getLongShortRatios", raw_data
         )
         return OpenInterest(
-            longRatio=map_output_to_pairs(pairs_info, decoded["longRatio"]),
-            shortRatio=map_output_to_pairs(pairs_info, decoded["shortRatio"]),
+            long=map_output_to_pairs(pairs_info, decoded["longRatio"]),
+            short=map_output_to_pairs(pairs_info, decoded["shortRatio"]),
         )
 
-    async def get_asset_utilization(self):
+    async def get_utilization(self):
         """
         Calculates the asset utilization for all trading pairs.
 
         Returns:
-            An AssetUtilization instance containing the asset utilization
+            A Utilization instance containing the asset utilization
             percentage % for each trading pair.
         """
         TradingStorage = self.client.contracts.get("TradingStorage")
@@ -94,25 +94,25 @@ class AssetParametersRPC:
             limit = oi_limit
             utilization[pair_name] = current_oi * 100 / limit if limit else 0
 
-        return AssetUtilization(utilization=utilization)
+        return Utilization(utilization=utilization)
 
     async def get_asset_skew(self):
         """
         Calculates the asset skew for all trading pairs.
 
         Returns:
-            An AssetSkew instance containing the asset skew
+            An Skew instance containing the asset skew
             percentage % for each trading pair.
         """
         oi = await self.get_oi()
 
         skew = {}
-        for pair, long_ratio in oi.longRatio.items():
-            short_ratio = oi.shortRatio[pair]
+        for pair, long_ratio in oi.long.items():
+            short_ratio = oi.short[pair]
             skew[pair] = (
                 long_ratio * 100 / (long_ratio + short_ratio)
                 if long_ratio + short_ratio
                 else 0
             )
 
-        return AssetSkew(skew=skew)
+        return Skew(skew=skew)
