@@ -54,3 +54,26 @@ class MarginFee(BaseModel):
 
 class PairSpread(BaseModel):
     spread: Dict[str, float]
+
+
+class PriceFeedResponse(BaseModel):
+    id: str
+    price: Dict[str, str]
+    ema_price: Dict[str, str]
+    pair: str
+    converted_price: float = 0.0
+    converted_ema_price: float = 0.0
+
+    @validator("converted_price", always=True, pre=True)
+    def convert_price(cls, v, values):
+        price_info = values.get("price")
+        if price_info:
+            return float(price_info["price"]) / 10 ** -int(price_info["expo"])
+        return v
+
+    @validator("converted_ema_price", always=True, pre=True)
+    def convert_ema_price(cls, v, values):
+        ema_price_info = values.get("ema_price")
+        if ema_price_info:
+            return float(ema_price_info["price"]) / 10 ** -int(ema_price_info["expo"])
+        return v
