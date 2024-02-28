@@ -79,7 +79,18 @@ class PriceFeedResponse(BaseModel):
         return v
 
 
-class PriceImpactSpread(BaseModel):
+class Spread(BaseModel):
+    long: Optional[Dict[str, float]] = None
+    short: Optional[Dict[str, float]] = None
+
+    @validator("long", "short", always=True)
+    def check_at_least_one(cls, v, values, field, config, **kwargs):
+        if "long" not in field.name and "short" not in field.name:
+            raise ValueError('At least one of "long" or "short" must be present.')
+        return v
+
+
+class Fee(BaseModel):
     long: Optional[Dict[str, float]] = None
     short: Optional[Dict[str, float]] = None
 
