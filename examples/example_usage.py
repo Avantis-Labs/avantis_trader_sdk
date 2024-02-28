@@ -26,6 +26,7 @@ async def main():
         group_oi,
         group_utilization,
         group_skew,
+        price_impact_spread,
     ) = await asyncio.gather(
         trader_client.asset_parameters.get_oi_limits(),
         trader_client.asset_parameters.get_oi(),
@@ -37,6 +38,7 @@ async def main():
         trader_client.category_parameters.get_oi(),
         trader_client.category_parameters.get_utilization(),
         trader_client.category_parameters.get_category_skew(),
+        trader_client.asset_parameters.get_price_impact_spread(1000.5),
     )
     print("OI Limits:", oi_limits)
     print("OI:", oi)
@@ -48,6 +50,7 @@ async def main():
     print("Group OI:", group_oi)
     print("Group Utilization:", group_utilization)
     print("Group Skew:", group_skew)
+    print("Price Impact Spread:", price_impact_spread)
 
     feed_client.register_price_feed_callback(
         "0x09f7c1d7dfbb7df2b8fe3d3d87ee94a2259d212da4f30c1f0540d066dfa44723",

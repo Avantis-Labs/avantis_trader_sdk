@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field, validator
-from typing import Dict, List
+from pydantic import BaseModel, Field, validator, ValidationError
+from typing import Dict, Optional
 
 
 class PairInfoFeed(BaseModel):
@@ -76,4 +76,15 @@ class PriceFeedResponse(BaseModel):
         ema_price_info = values.get("ema_price")
         if ema_price_info:
             return float(ema_price_info["price"]) / 10 ** -int(ema_price_info["expo"])
+        return v
+
+
+class PriceImpactSpread(BaseModel):
+    long: Optional[Dict[str, float]] = None
+    short: Optional[Dict[str, float]] = None
+
+    @validator("long", "short", always=True)
+    def check_at_least_one(cls, v, values, field, config, **kwargs):
+        if "long" not in field.name and "short" not in field.name:
+            raise ValueError('At least one of "long" or "short" must be present.')
         return v

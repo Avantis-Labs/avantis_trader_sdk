@@ -72,3 +72,22 @@ class PairsCache:
         if not self._group_indexes_cache:
             await self.get_pairs_info()
         return self._group_indexes_cache
+
+    async def get_pair_index(self, pair):
+        """
+        Retrieves the index of a pair from the blockchain.
+
+        Args:
+            pair: The pair to retrieve the index for. Expects a string in the format "from/to".
+
+        Returns:
+            The index of the pair as an integer.
+
+        Raises:
+            ValueError: If the pair is not found in the pairs information.
+        """
+        pairs_info = await self.get_pairs_info()
+        for index, pair_info in pairs_info.items():
+            if pair_info.from_ + "/" + pair_info.to == pair:
+                return index
+        raise ValueError(f"Pair {pair} not found in pairs info.")

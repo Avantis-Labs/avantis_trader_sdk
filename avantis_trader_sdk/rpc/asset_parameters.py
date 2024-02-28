@@ -1,6 +1,13 @@
 import asyncio
 from .rpc_helpers import map_output_to_pairs
-from ..types import OpenInterest, OpenInterestLimits, Utilization, Skew
+from ..types import (
+    OpenInterest,
+    OpenInterestLimits,
+    Utilization,
+    Skew,
+    PriceImpactSpread,
+)
+from typing import Optional
 
 
 class AssetParametersRPC:
@@ -116,3 +123,124 @@ class AssetParametersRPC:
             )
 
         return Skew(skew=skew)
+
+    async def get_price_impact_spread(
+        self, position_size: int = 0, is_long: Optional[bool] = None, pair: str = None
+    ):
+        """
+        Retrieves the price impact spread for all trading pairs.
+
+        Args:
+            is_long: A boolean indicating if the position is a buy or sell. Defaults to None. If None, the price impact spread for both buy and sell will be returned.
+            position_size: The size of the position (collateral * leverage). Supports upto 6 decimals. Defaults to 0.
+            pair: The trading pair for which the price impact spread is to be calculated. Defaults to None. If None, the price impact spread for all trading pairs will be returned.
+
+        Returns:
+            A PriceImpactSpread instance containing the price impact spread for each trading pair.
+        """
+        position_size = int(position_size * 10**6)
+
+        Multicall = self.client.contracts.get("Multicall")
+
+        calls = []
+        response = None
+
+        if pair is not None:
+            pair_index = await self.client.pairs_cache.get_pair_index(pair)
+            PairInfos = self.client.contracts.get("PairInfos")
+            if is_long is None:
+                calls.extend(
+                    [
+                        (
+                            PairInfos.address,
+                            PairInfos.encodeABI(
+                                fn_name="getPriceImpactSpread",
+                                args=[pair_index, True, position_size],
+                            ),
+                        ),
+                        (
+                            PairInfos.address,
+                            PairInfos.encodeABI(
+                                fn_name="getPriceImpactSpread",
+                                args=[pair_index, False, position_size],
+                            ),
+                        ),
+                    ]
+                )
+            else:
+                response = await PairInfos.functions.getPriceImpactSpread(
+                    pair_index, is_long, position_size
+                ).call()
+        else:
+            pairs_info = await self.client.pairs_cache.get_pairs_info()
+            PairInfos = self.client.contracts.get("PairInfos")
+            for pair_index in range(len(pairs_info)):
+                if is_long is None:
+                    calls.extend(
+                        [
+                            (
+                                PairInfos.address,
+                                PairInfos.encodeABI(
+                                    fn_name="getPriceImpactSpread",
+                                    args=[pair_index, True, position_size],
+                                ),
+                            ),
+                            (
+                                PairInfos.address,
+                                PairInfos.encodeABI(
+                                    fn_name="getPriceImpactSpread",
+                                    args=[pair_index, False, position_size],
+                                ),
+                            ),
+                        ]
+                    )
+                else:
+                    calls.append(
+                        (
+                            PairInfos.address,
+                            PairInfos.encodeABI(
+                                fn_name="getPriceImpactSpread",
+                                args=[pair_index, is_long, position_size],
+                            ),
+                        )
+                    )
+
+        if response is None:
+            response = await Multicall.functions.aggregate(calls).call()
+            if is_long is None:
+                decoded_response = [
+                    int.from_bytes(value, byteorder="big") / 10**10
+                    for value in response[1]
+                ]
+                if pair is None:
+                    return PriceImpactSpread(
+                        long=map_output_to_pairs(pairs_info, decoded_response[::2]),
+                        short=map_output_to_pairs(pairs_info, decoded_response[1::2]),
+                    )
+                else:
+                    return PriceImpactSpread(
+                        long={pair: decoded_response[0]},
+                        short={pair: decoded_response[1]},
+                    )
+            elif is_long:
+                decoded_response = map_output_to_pairs(
+                    pairs_info,
+                    [
+                        int.from_bytes(value, byteorder="big") / 10**10
+                        for value in buy_response[1]
+                    ],
+                )
+                return PriceImpactSpread(long=decoded_response)
+            else:
+                decoded_response = map_output_to_pairs(
+                    pairs_info,
+                    [
+                        int.from_bytes(value, byteorder="big") / 10**10
+                        for value in sell_response[1]
+                    ],
+                )
+                return PriceImpactSpread(short=decoded_response)
+        elif is_long:
+            return PriceImpactSpread(long={pair: response / 10**10})
+        else:
+            return PriceImpactSpread(short={pair: response / 10**10})
