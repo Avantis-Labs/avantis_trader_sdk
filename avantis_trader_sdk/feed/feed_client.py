@@ -66,19 +66,19 @@ class FeedClient:
                                 ]:
                                     callback(PriceFeedResponse(**data["price_feed"]))
                     except websockets.exceptions.ConnectionClosed as e:
-                        if self.on_close:
-                            self.on_close(e)
+                        if self._on_close:
+                            self._on_close(e)
                         else:
                             print(f"Connection closed with error: {e}")
                         break
                     except Exception as e:
-                        if self.on_error:
-                            self.on_error(e)
+                        if self._on_error:
+                            self._on_error(e)
                         else:
                             raise e
         except Exception as e:
-            if self.on_error:
-                self.on_error(e)
+            if self._on_error:
+                self._on_error(e)
             else:
                 raise e
 

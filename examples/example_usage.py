@@ -1,5 +1,6 @@
 import asyncio
 from avantis_trader_sdk import TraderClient, FeedClient
+from avantis_trader_sdk.types import TradeInput
 
 
 async def main():
@@ -30,6 +31,7 @@ async def main():
         skew_impact_spread,
         opening_price_impact_spread,
         opening_fee,
+        loss_protection_tier,
     ) = await asyncio.gather(
         trader_client.asset_parameters.get_oi_limits(),
         trader_client.asset_parameters.get_oi(),
@@ -47,6 +49,14 @@ async def main():
             "ETH/USD", 100.5, 3200, True
         ),
         trader_client.fee_parameters.get_opening_fee(1000),
+        trader_client.fee_parameters.get_loss_protection_tier(
+            TradeInput(
+                pair_index=await trader_client.pairs_cache.get_pair_index("ARB/USD"),
+                collateral=1,
+                is_long=False,
+                leverage=2,
+            )
+        ),
     )
     print("OI Limits:", oi_limits)
     print("OI:", oi)
@@ -62,6 +72,7 @@ async def main():
     print("Skew Impact Spread:", skew_impact_spread)
     print("Opening Price Impact Spread:", opening_price_impact_spread)
     print("Opening Fee:", opening_fee)
+    print("Loss Protection Tier:", loss_protection_tier)
 
     feed_client.register_price_feed_callback(
         "0x09f7c1d7dfbb7df2b8fe3d3d87ee94a2259d212da4f30c1f0540d066dfa44723",
