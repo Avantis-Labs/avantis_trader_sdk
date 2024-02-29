@@ -24,6 +24,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",  # Add links to highlighted source code
     "sphinx_autodoc_typehints",  # Add this line
+    "sphinx_markdown_builder",
 ]
 
 templates_path = ["_templates"]
