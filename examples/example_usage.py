@@ -1,6 +1,10 @@
 import asyncio
-from avantis_trader_sdk import TraderClient, FeedClient
+from avantis_trader_sdk import TraderClient, FeedClient, __version__
 from avantis_trader_sdk.types import TradeInput
+
+import avantis_trader_sdk
+
+print(avantis_trader_sdk.__version__)
 
 
 async def main():
@@ -49,7 +53,7 @@ async def main():
             "ETH/USD", 100.5, 3200, True
         ),
         trader_client.fee_parameters.get_opening_fee(1000),
-        trader_client.fee_parameters.get_loss_protection_tier(
+        trader_client.trading_parameters.get_loss_protection_tier(
             TradeInput(
                 pair_index=await trader_client.pairs_cache.get_pair_index("ARB/USD"),
                 collateral=1,

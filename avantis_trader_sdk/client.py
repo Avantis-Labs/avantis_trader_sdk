@@ -7,6 +7,7 @@ from .rpc.asset_parameters import AssetParametersRPC
 from .rpc.category_parameters import CategoryParametersRPC
 from .rpc.blended import BlendedRPC
 from .rpc.fee_parameters import FeeParametersRPC
+from .rpc.trading_parameters import TradingParametersRPC
 from .utils import decoder
 
 
@@ -34,6 +35,7 @@ class TraderClient:
         self.category_parameters = CategoryParametersRPC(self)
         self.blended = BlendedRPC(self)
         self.fee_parameters = FeeParametersRPC(self)
+        self.trading_parameters = TradingParametersRPC(self)
 
     def load_contract(self, name):
         """
@@ -60,7 +62,7 @@ class TraderClient:
         """
         return {name: self.load_contract(name) for name in CONTRACT_ADDRESSES.keys()}
 
-    async def read_contract(self, contract_name, function_name, *args):
+    async def read_contract(self, contract_name, function_name, *args, decode=False):
         """
         Calls a read-only function of a contract.
 
@@ -75,4 +77,10 @@ class TraderClient:
         contract = self.contracts.get(contract_name)
         if not contract:
             raise ValueError(f"Contract {contract_name} not found")
-        return await contract.functions[function_name](*args).call()
+
+        raw_data = await contract.functions[function_name](*args).call()
+
+        if decode:
+            return self.utils["decoder"](contract, function_name, raw_data)
+
+        return raw_data

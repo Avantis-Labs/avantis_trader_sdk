@@ -23,10 +23,11 @@ extensions = [
     "sphinx.ext.coverage",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",  # Add links to highlighted source code
+    "sphinx_autodoc_typehints",  # Add this line
 ]
 
 templates_path = ["_templates"]
-exclude_patterns = []
+exclude_patterns = ["utils.py", "config.py"]
 
 
 # -- Options for HTML output -------------------------------------------------
