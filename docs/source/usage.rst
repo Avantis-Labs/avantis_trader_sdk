@@ -93,46 +93,452 @@ The ``get_pair_index`` method retrieves the index of a trading pair from the blo
 Asset Parameters
 ----------------
 
-WIP
+The ``asset_parameters`` module provides methods to retrieve and calculate various asset parameters related to trading. Reference: :meth:`~avantis_trader_sdk.rpc.asset_parameters.AssetParametersRPC`:
 
-Category Parameters
--------------------
+get_oi_limits
+^^^^^^^^^^^^^
 
-WIP
-
-Trading Parameters
-------------------
-
-WIP
-
-Fee Parameters
---------------
-
-This section describes the various fee-related parameters and methods available in the Avantis Trader SDK.
-
-get_opening_fee
-^^^^^^^^^^^^^^^
-
-The ``get_opening_fee`` method retrieves the opening fee for a given trading pair, position size, and direction (long or short). This fee is applicable when opening a new position and is calculated based on the current market conditions and the size of the position.
-
-**Parameters:**
-
-- ``position_size`` (int, optional): The size of the position (collateral * leverage). Supports up to 6 decimals. Defaults to 0.
-- ``is_long`` (Optional[bool], optional): A boolean indicating if the position is a buy (long) or sell (short). Defaults to None. If None, the opening fee for both buy and sell will be returned.
-- ``pair`` (str, optional): The trading pair for which the opening fee is to be calculated. Defaults to None. If None, the opening fee for all trading pairs will be returned.
+The ``get_oi_limits`` method retrieves the open interest limits for all trading pairs. Open interest limits are the maximum allowable open interest for each trading pair, which helps manage risk and liquidity in the market.
 
 **Returns:**
 
-- A ``Fee`` instance containing the opening fee for each trading pair.
+- An instance of :class:`~avantis_trader_sdk.types.OpenInterestLimits` containing the open interest limits for each trading pair. Each entry in the ``limits`` dictionary maps a trading pair (e.g., "ETH/USD") to its corresponding open interest limit.
 
 **Example Usage:**
 
 .. code-block:: python
 
-   opening_fee_long = await trader_client.fee_parameters.get_opening_fee(position_size=1000, is_long=True, pair="ETH/USD")
-   opening_fee_short = await trader_client.fee_parameters.get_opening_fee(position_size=1000, is_long=False, pair="ETH/USD")
-   print("Opening Fee (Long):", opening_fee_long)
-   print("Opening Fee (Short):", opening_fee_short)
+   oi_limits = await trader_client.asset_parameters.get_oi_limits()
+   print("Open Interest Limits:", oi_limits.limits)
 
+**Notes:**
+
+- The open interest limits are returned in units of the quote currency of each trading pair.
+
+get_oi
+^^^^^^
+
+The ``get_oi`` method retrieves the current open interest for all trading pairs. Open interest represents the total number of open positions in a trading pair, which is a key metric for understanding market liquidity and trader sentiment.
+
+**Returns:**
+
+- An instance of :class:`~avantis_trader_sdk.types.OpenInterest` containing the long and short open interest ratios for each trading pair. The ``long`` and ``short`` dictionaries map each trading pair (e.g., "ETH/USD") to its corresponding long and short open interest ratios, respectively.
+
+**Example Usage:**
+
+.. code-block:: python
+
+   oi = await trader_client.asset_parameters.get_oi()
+   print("Open Interest (Long):", oi.long)
+   print("Open Interest (Short):", oi.short)
+
+**Notes:**
+
+- The open interest ratios are returned as percentages, representing the proportion of long or short positions relative to the total open interest in each trading pair.
+
+get_utilization
+^^^^^^^^^^^^^^^
+
+The ``get_utilization`` method calculates the asset utilization for all trading pairs. Asset utilization is a measure of how much of the available open interest limit is currently being used by open positions.
+
+**Returns:**
+
+- An instance of :class:`~avantis_trader_sdk.types.Utilization` containing the asset utilization percentage for each trading pair. The ``utilization`` dictionary maps each trading pair (e.g., "ETH/USD") to its corresponding utilization percentage.
+
+**Example Usage:**
+
+.. code-block:: python
+
+   utilization = await trader_client.asset_parameters.get_utilization()
+   print("Asset Utilization:", utilization.utilization)
+
+**Notes:**
+
+- Utilization is calculated as the current open interest divided by the open interest limit for each trading pair.
+- A higher utilization percentage indicates that a larger portion of the available limit is being used, which can impact the cost of opening new positions (e.g., higher fees or price impact).
+- Utilization is returned as a percentage, where 100% means the open interest limit is fully utilized.
+
+get_asset_skew
+^^^^^^^^^^^^^^
+
+The ``get_asset_skew`` method calculates the asset skew for all trading pairs. Asset skew is a measure of the imbalance between long and short open interest.
+
+**Returns:**
+
+- An instance of :class:`~avantis_trader_sdk.types.Skew` containing the asset skew percentage for each trading pair. The ``skew`` dictionary maps each trading pair (e.g., "ETH/USD") to its corresponding skew percentage.
+
+**Example Usage:**
+
+.. code-block:: python
+
+   skew = await trader_client.asset_parameters.get_asset_skew()
+   print("Asset Skew:", skew.skew)
+
+**Notes:**
+
+- Skew is calculated as the percentage of long open interest relative to the total open interest (long + short) for each trading pair.
+- A skew of 50% indicates a balanced market with equal long and short interest. A skew higher than 50% indicates a market biased towards long positions, and a skew lower than 50% indicates a market biased towards short positions.
+- Skew is returned as a percentage, where 100% means all open interest is in long positions, and 0% means all open interest is in short positions.
+
+get_price_impact_spread
+^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``get_price_impact_spread`` method retrieves the price impact spread for all trading pairs. Price impact spread is a measure of how much the price is expected to move due to a trade.
+
+**Parameters:**
+
+- ``position_size`` (int): The size of the position (collateral * leverage). Supports up to 6 decimals. Defaults to 0.
+- ``is_long`` (bool, optional): A boolean indicating if the position is a buy (long) or sell (short). Defaults to None. If None, the price impact spread for both buy and sell will be returned.
+- ``pair`` (str, optional): The trading pair for which the price impact spread is to be calculated. Defaults to None. If None, the price impact spread for all trading pairs will be returned.
+
+**Returns:**
+
+- An instance of :class:`~avantis_trader_sdk.types.Spread` containing the price impact spread for each trading pair. The ``long`` and ``short`` dictionaries within the ``Spread`` instance map each trading pair (e.g., "ETH/USD") to its corresponding price impact spread for long and short positions, respectively.
+
+**Example Usage:**
+
+.. code-block:: python
+
+   # Example 1: Specify position size, is_long, and pair
+   price_impact_spread = await trader_client.asset_parameters.get_price_impact_spread(position_size=1000, is_long=True, pair="ETH/USD")
+   print("Price Impact Spread for ETH/USD (Long):", price_impact_spread.long["ETH/USD"])
+
+   # Example 2: Omit is_long to get both long and short spreads for a specific pair
+   price_impact_spread = await trader_client.asset_parameters.get_price_impact_spread(position_size=1000, pair="ETH/USD")
+   print("Price Impact Spread for ETH/USD (Long):", price_impact_spread.long["ETH/USD"])
+   print("Price Impact Spread for ETH/USD (Short):", price_impact_spread.short["ETH/USD"])
+
+   # Example 3: Omit pair to get spreads for all pairs
+   price_impact_spread = await trader_client.asset_parameters.get_price_impact_spread(position_size=1000, is_long=True)
+   print("Price Impact Spread for all pairs (Long):", price_impact_spread.long)
+
+   # Example 4: Omit both is_long and pair to get both long and short spreads for all pairs
+   price_impact_spread = await trader_client.asset_parameters.get_price_impact_spread(position_size=1000)
+   print("Price Impact Spread for all pairs (Long):", price_impact_spread.long)
+   print("Price Impact Spread for all pairs (Short):", price_impact_spread.short)
+
+**Notes:**
+
+- The price impact spread is expressed as a percentage and represents the expected price movement due to a trade of the specified size.
+- For example, a price impact spread of 0.5% for a long position means that the price is expected to increase by 0.5% due to the trade.
+
+
+get_skew_impact_spread
+^^^^^^^^^^^^^^^^^^^^^^
+
+The ``get_skew_impact_spread`` method retrieves the skew impact spread for all trading pairs. Skew impact spread is a measure of how much the price is expected to move due to the imbalance between long and short positions.
+
+**Parameters:**
+
+- ``position_size`` (int, optional): The size of the position (collateral * leverage). Supports up to 6 decimals. Defaults to 0.
+- ``is_long`` (bool, optional): A boolean indicating if the position is a buy (long) or sell (short). Defaults to None. If None, the skew impact spread for both buy and sell will be returned.
+- ``pair`` (str, optional): The trading pair for which the skew impact spread is to be calculated. Defaults to None. If None, the skew impact spread for all trading pairs will be returned.
+
+**Returns:**
+
+- An instance of :class:`~avantis_trader_sdk.types.Spread` containing the skew impact spread for each trading pair. The ``long`` and ``short`` dictionaries within the ``Spread`` instance map each trading pair (e.g., "ETH/USD") to its corresponding skew impact spread for long and short positions, respectively.
+
+**Example Usage:**
+
+.. code-block:: python
+
+   # Example 1: Specify position size, is_long, and pair
+   skew_impact_spread = await trader_client.asset_parameters.get_skew_impact_spread(position_size=1000, is_long=True, pair="ETH/USD")
+   print("Skew Impact Spread for ETH/USD (Long):", skew_impact_spread.long["ETH/USD"])
+
+   # Example 2: Omit is_long to get both long and short spreads for a specific pair
+   skew_impact_spread = await trader_client.asset_parameters.get_skew_impact_spread(position_size=1000, pair="ETH/USD")
+   print("Skew Impact Spread for ETH/USD (Long):", skew_impact_spread.long["ETH/USD"])
+   print("Skew Impact Spread for ETH/USD (Short):", skew_impact_spread.short["ETH/USD"])
+
+   # Example 3: Omit pair to get spreads for all pairs
+   skew_impact_spread = await trader_client.asset_parameters.get_skew_impact_spread(position_size=1000, is_long=True)
+   print("Skew Impact Spread for all pairs (Long):", skew_impact_spread.long)
+
+   # Example 4: Omit both is_long and pair to get both long and short spreads for all pairs
+   skew_impact_spread = await trader_client.asset_parameters.get_skew_impact_spread(position_size=1000)
+   print("Skew Impact Spread for all pairs (Long):", skew_impact_spread.long)
+   print("Skew Impact Spread for all pairs (Short):", skew_impact_spread.short)
+
+**Notes:**
+
+- The skew impact spread is expressed as a percentage and represents the expected price movement due to the imbalance between long and short positions.
+- For example, a skew impact spread of 0.5% for a long position means that the price is expected to increase by 0.5% due to the skew between long and short positions.
+
+get_opening_price_impact_spread
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``get_opening_price_impact_spread`` method retrieves the trade price impact spread for a specific trading pair. This measure indicates how much the price is expected to move due to the opening of a new position.
+
+**Parameters:**
+
+- ``pair`` (str): The trading pair for which the price impact is to be calculated.
+- ``position_size`` (int, optional): The size of the position (collateral * leverage). Supports up to 6 decimals. Defaults to 0.
+- ``open_price`` (float, optional): The price at which the position was opened. Supports up to 10 decimals. Defaults to 0.
+- ``is_long`` (bool, optional): A boolean indicating if the position is a buy (long) or sell (short). Defaults to None. If None, the price impact for both buy and sell will be returned.
+
+**Returns:**
+
+- An instance of :class:`~avantis_trader_sdk.types.Spread` containing the trade price impact for the specified pair. The ``long`` and ``short`` attributes within the ``Spread`` instance represent the price impact for long and short positions, respectively.
+
+**Example Usage:**
+
+.. code-block:: python
+
+   # Specify pair, position size, open price, and is_long
+   opening_price_impact_spread = await trader_client.asset_parameters.get_opening_price_impact_spread(
+       pair="ETH/USD",
+       position_size=1000,
+       open_price=3200,
+       is_long=True
+   )
+   print("Opening Price Impact Spread for ETH/USD (Long):", opening_price_impact_spread.long["ETH/USD"])
+
+   # Omit is_long to get both long and short price impacts for a specific pair
+   opening_price_impact_spread = await trader_client.asset_parameters.get_opening_price_impact_spread(
+       pair="ETH/USD",
+       position_size=1000,
+       open_price=3200
+   )
+   print("Opening Price Impact Spread for ETH/USD (Long):", opening_price_impact_spread.long["ETH/USD"])
+   print("Opening Price Impact Spread for ETH/USD (Short):", opening_price_impact_spread.short["ETH/USD"])
+
+**Notes:**
+
+- The trade price impact spread is expressed as a percentage and represents the expected price movement due to the opening of a new position.
+- For example, an opening price impact spread of 0.5% for a long position means that the price is expected to increase by 0.5% due to the opening of the position.
+
+
+Category Parameters
+-------------------
+
+The ``category_parameters`` module provides methods to retrieve and calculate various category parameters related to trading. Reference: :meth:`~avantis_trader_sdk.rpc.category_parameters.CategoryParametersRPC`:
+
+get_oi_limits
+^^^^^^^^^^^^^
+
+The ``get_oi_limits`` method retrieves the open interest limits for all categories.
+
+**Returns:**
+
+- An instance of :class:`~avantis_trader_sdk.types.OpenInterestLimits` containing the open interest limits for each category. The ``limits`` dictionary maps each category index to its corresponding open interest limit.
+
+**Example Usage:**
+
+.. code-block:: python
+
+   oi_limits = await trader_client.category_parameters.get_oi_limits()
+   print("Open Interest Limits:", oi_limits.limits)
+
+**Notes:**
+
+- The open interest limit for a category represents the maximum allowed open interest for all trading pairs within that category.
+- The category index is used to identify different categories, such as crypto, forex, and commodities.
+- This method is useful for understanding the maximum exposure allowed for each category on the platform.
+
+get_oi
+^^^^^^
+
+The ``get_oi`` method retrieves the current open interest for all categories.
+
+**Returns:**
+
+- An instance of :class:`~avantis_trader_sdk.types.OpenInterest` containing the long and short open interest for each category. The ``long`` and ``short`` dictionaries within the ``OpenInterest`` instance map each category index to its corresponding long and short open interest, respectively.
+
+**Example Usage:**
+
+.. code-block:: python
+
+   oi = await trader_client.category_parameters.get_oi()
+   print("Long Open Interest:", oi.long)
+   print("Short Open Interest:", oi.short)
+
+**Notes:**
+
+- Open interest represents the total number of outstanding contracts that have not been settled.
+- The category index is used to identify different categories, such as crypto, forex, and commodities.
+- This method provides a snapshot of the market's open interest distribution across different categories.
+
+get_utilization
+^^^^^^^^^^^^^^^
+
+The ``get_utilization`` method calculates the category utilization for all categories.
+
+**Returns:**
+
+- An instance of :class:`~avantis_trader_sdk.types.Utilization` containing the category utilization percentage for each category. The ``utilization`` dictionary within the ``Utilization`` instance maps each category index to its corresponding utilization percentage.
+
+**Example Usage:**
+
+.. code-block:: python
+
+   utilization = await trader_client.category_parameters.get_utilization()
+   print("Category Utilization:", utilization.utilization)
+
+**Notes:**
+
+- Category utilization is a measure of how much of the open interest limits for each category is currently being utilized.
+- It is calculated as the current open interest divided by the open interest limit for each category, expressed as a percentage.
+- A higher utilization percentage indicates a higher level of activity and risk in that category.
+
+get_category_skew
+^^^^^^^^^^^^^^^^^
+
+The ``get_category_skew`` method calculates the category skew for all categories.
+
+**Returns:**
+
+- An instance of :class:`~avantis_trader_sdk.types.Skew` containing the category skew percentage for each category. The ``skew`` dictionary within the ``Skew`` instance maps each category index to its corresponding skew percentage.
+
+**Example Usage:**
+
+.. code-block:: python
+
+   category_skew = await trader_client.category_parameters.get_category_skew()
+   print("Category Skew:", category_skew.skew)
+
+**Notes:**
+
+- Category skew is a measure of the imbalance between long and short open interest within each category.
+- It is calculated as the percentage of long open interest relative to the total open interest (long + short) for each category.
+- A skew of 50% indicates a balanced market with equal long and short interest. A skew higher than 50% indicates a market biased towards long positions, and a skew lower than 50% indicates a market biased towards short positions.
+- Skew is returned as a percentage, where 100% means all open interest is in long positions, and 0% means all open interest is in short positions.
+
+
+Trading Parameters
+------------------
+
+The ``trading_parameters`` module provides methods to retrieve and calculate various trading parameters related to opening and closing positions. Reference: :meth:`~avantis_trader_sdk.rpc.trading_parameters.TradingParametersRPC`:
+
+
+get_loss_protection_tier
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``get_loss_protection_tier`` method retrieves the loss protection tier for a trade. Loss protection tiers are part of Avantis's reward system, offering protection against losses under certain conditions. Read more about loss protection tiers in the `Avantis documentation <https://docs.avantisfi.com/rewards/loss-protection>`_.
+
+**Parameters:**
+
+- ``trade`` (:class:`~avantis_trader_sdk.types.TradeInput`): A TradeInput instance containing the trade details.
+
+**Returns:**
+
+- The loss protection tier as an integer (int).
+
+**Example Usage:**
+
+.. code-block:: python
+
+   trade_input = TradeInput(
+       trader="0x123...",
+       pairIndex=1,
+       initialPosToken=1000000,
+       positionSizeUSDC=2000000,
+       openPrice=3000000000,
+       buy=True,
+       leverage=10,
+       tp=4000000000,
+       sl=2000000000,
+       timestamp=1650000000
+   )
+   loss_protection_tier = await trader_client.trading_parameters.get_loss_protection_tier(trade_input)
+   print("Loss Protection Tier:", loss_protection_tier)
+
+**Notes:**
+
+- The loss protection tier is determined based on the trade's parameters and the current market conditions.
+- A higher tier generally indicates a greater level of protection against losses.
+- Read more about loss protection tiers `here <https://docs.avantisfi.com/rewards/loss-protection>`_.
+
+Fee Parameters
+--------------
+
+The ``fee_parameters`` module provides methods to retrieve and calculate various fee parameters related to trading. Reference: :meth:`~avantis_trader_sdk.rpc.fee_parameters.FeeParametersRPC`:
+
+get_margin_fee
+^^^^^^^^^^^^^^
+
+The ``get_margin_fee`` method retrieves the margin fee for all trading pairs. Margin fees are charged for holding leveraged positions and vary depending on the trading pair and the direction of the trade (long or short).
+
+**Returns:**
+
+- A :class:`~avantis_trader_sdk.types.MarginFee` instance containing the margin fee for each trading pair. The instance includes the base fee, margin fee for long positions, and margin fee for short positions.
+
+**Example Usage:**
+
+.. code-block:: python
+
+   margin_fee = await trader_client.fee_parameters.get_margin_fee()
+   print("Base Margin Fee:", margin_fee.base)
+   print("Long Margin Fee:", margin_fee.margin_long)
+   print("Short Margin Fee:", margin_fee.margin_short)
+
+**Notes:**
+
+- The margin fee is expressed as a percentage of the position size and is typically charged on a per-block basis.
+- The base fee is the fee charged for non-leveraged trades.
+- The margin_long and margin_short fees are the additional fees charged for leveraged long and short positions, respectively.
+
+get_pair_spread
+^^^^^^^^^^^^^^^
+
+The ``get_pair_spread`` method retrieves the spread percentage for all trading pairs. The spread is the difference between the bid and ask prices, expressed as a percentage of the mid-price.
+
+**Returns:**
+
+- A :class:`~avantis_trader_sdk.types.PairSpread` instance containing the spread percentage for each trading pair.
+
+**Example Usage:**
+
+.. code-block:: python
+
+   pair_spread = await trader_client.fee_parameters.get_pair_spread()
+   print("Pair Spread:", pair_spread.spread)
+
+**Notes:**
+
+- The spread is an important factor in trading as it affects the cost of entering and exiting positions.
+- A lower spread indicates a more liquid market with tighter bid-ask prices, while a higher spread suggests less liquidity and wider bid-ask prices.
+
+get_opening_fee
+^^^^^^^^^^^^^^^
+
+The ``get_opening_fee`` method retrieves the opening fee for all trading pairs. The opening fee is a fee charged when opening a new position.
+
+**Parameters:**
+
+- ``position_size`` (int): The size of the position (collateral * leverage). Supports up to 6 decimals. Defaults to 0.
+- ``is_long`` (Optional[bool]): A boolean indicating if the position is a buy (long) or sell (short). Defaults to None. If None, the opening fee for both buy and sell will be returned.
+- ``pair`` (str, optional): The trading pair for which the opening fee is to be calculated. Defaults to None. If None, the opening fee for all trading pairs will be returned.
+
+**Returns:**
+
+- A :class:`~avantis_trader_sdk.types.Fee` instance containing the opening fee for each trading pair. The ``long`` and ``short`` dictionaries within the ``Fee`` instance map each trading pair (e.g., "ETH/USD") to its corresponding opening fee for long and short positions, respectively.
+
+**Example Usage:**
+
+.. code-block:: python
+
+   # Example 1: Specify position size, is_long, and pair
+   opening_fee = await trader_client.fee_parameters.get_opening_fee(position_size=1000, is_long=True, pair="ETH/USD")
+   print("Opening Fee for ETH/USD (Long):", opening_fee.long["ETH/USD"])
+
+   # Example 2: Omit is_long to get both long and short fees for a specific pair
+   opening_fee = await trader_client.fee_parameters.get_opening_fee(position_size=1000, pair="ETH/USD")
+   print("Opening Fee for ETH/USD (Long):", opening_fee.long["ETH/USD"])
+   print("Opening Fee for ETH/USD (Short):", opening_fee.short["ETH/USD"])
+
+   # Example 3: Omit pair to get fees for all pairs
+   opening_fee = await trader_client.fee_parameters.get_opening_fee(position_size=1000, is_long=True)
+   print("Opening Fee for all pairs (Long):", opening_fee.long)
+
+   # Example 4: Omit both is_long and pair to get both long and short fees for all pairs
+   opening_fee = await trader_client.fee_parameters.get_opening_fee(position_size=1000)
+   print("Opening Fee for all pairs (Long):", opening_fee.long)
+   print("Opening Fee for all pairs (Short):", opening_fee.short)
+
+**Notes:**
+
+- The opening fee is expressed as a percentage of the position size.
+- The fee is applied when opening a new position and is deducted from the position's initial margin.
 
 

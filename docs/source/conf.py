@@ -36,3 +36,6 @@ exclude_patterns = ["utils.py", "config.py"]
 
 html_theme = "sphinx_rtd_theme"
 html_static_path = ["_static"]
+
+# Make docs with sphinx-apidoc -o docs/source avantis_trader_sdk/
+# Then make html with make html in docs directory
