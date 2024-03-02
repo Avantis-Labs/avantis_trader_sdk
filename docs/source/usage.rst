@@ -221,6 +221,8 @@ The ``get_price_impact_spread`` method retrieves the price impact spread for all
 
 - The price impact spread is expressed as a percentage and represents the expected price movement due to a trade of the specified size.
 - For example, a price impact spread of 0.5% for a long position means that the price is expected to increase by 0.5% due to the trade.
+- For example, a negative price impact spread for a long position means that the price is expected to decrease by the specified percentage due to the trade. This can give better entry prices for long positions.
+- This method is used with the ``get_opening_price_impact_spread`` and ``get_skew_impact_spread`` method to calculate the expected price movement due to the opening of a new position.
 
 
 get_skew_impact_spread
@@ -264,6 +266,8 @@ The ``get_skew_impact_spread`` method retrieves the skew impact spread for all t
 
 - The skew impact spread is expressed as a percentage and represents the expected price movement due to the imbalance between long and short positions.
 - For example, a skew impact spread of 0.5% for a long position means that the price is expected to increase by 0.5% due to the skew between long and short positions.
+- For example, a negative skew impact spread for a long position means that the price is expected to decrease by the specified percentage due to the skew between long and short positions. This can give better entry prices for long positions.
+- This method is used with the ``get_price_impact_spread`` and ``get_opening_price_impact_spread`` method to calculate the expected price movement due to the opening of a new position.
 
 get_opening_price_impact_spread
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -307,7 +311,8 @@ The ``get_opening_price_impact_spread`` method retrieves the trade price impact 
 
 - The trade price impact spread is expressed as a percentage and represents the expected price movement due to the opening of a new position.
 - For example, an opening price impact spread of 0.5% for a long position means that the price is expected to increase by 0.5% due to the opening of the position.
-
+- For example, a negative opening price impact spread for a long position means that the price is expected to decrease by the specified percentage due to the opening of the position. This can give better entry prices for long positions.
+- The open price is used with ``get_price_impact_spread`` and ``get_skew_impact_spread`` to calculate the expected price movement due to the opening of a new position.
 
 Category Parameters
 -------------------
@@ -414,7 +419,7 @@ The ``trading_parameters`` module provides methods to retrieve and calculate var
 get_loss_protection_tier
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-The ``get_loss_protection_tier`` method retrieves the loss protection tier for a trade. Loss protection tiers are part of Avantis's reward system, offering protection against losses under certain conditions. Read more about loss protection tiers in the `Avantis documentation <https://docs.avantisfi.com/rewards/loss-protection>`_.
+The ``get_loss_protection_tier`` method retrieves the loss protection tier for a trade. Loss protection tiers are part of Avantis's reward system, offering protection against losses under certain conditions. Read more about loss protection tiers in the `Avantis documentation <https://docs.avantisfi.com/rewards/loss-protection>`_. Returned index is 0-based. Indexes are mapped to the tiers.
 
 **Parameters:**
 
@@ -429,16 +434,10 @@ The ``get_loss_protection_tier`` method retrieves the loss protection tier for a
 .. code-block:: python
 
    trade_input = TradeInput(
-       trader="0x123...",
-       pairIndex=1,
-       initialPosToken=1000000,
-       positionSizeUSDC=2000000,
-       openPrice=3000000000,
-       buy=True,
-       leverage=10,
-       tp=4000000000,
-       sl=2000000000,
-       timestamp=1650000000
+      pair_index=await trader_client.pairs_cache.get_pair_index("ARB/USD"),
+      collateral=1,
+      is_long=False,
+      leverage=2,
    )
    loss_protection_tier = await trader_client.trading_parameters.get_loss_protection_tier(trade_input)
    print("Loss Protection Tier:", loss_protection_tier)
@@ -542,3 +541,116 @@ The ``get_opening_fee`` method retrieves the opening fee for all trading pairs. 
 - The fee is applied when opening a new position and is deducted from the position's initial margin.
 
 
+Price Feed RPC
+--------------
+
+The ``price_feed_rpc`` module provides methods to register callbacks for real-time price feed updates. Avantis uses Pyth for price feeds. Read more about Pyth here: https://docs.pyth.network/. Reference: :meth:`~avantis_trader_sdk.rpc.price_feed_rpc.PriceFeedRPC`:
+
+register_price_feed_callback
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``register_price_feed_callback`` method registers a callback for price feed updates. This allows you to receive real-time price updates for a specific trading pair or price feed identifier. You can get price feed ids from https://pyth.network/developers/price-feed-ids.
+
+**Parameters:**
+
+- ``identifier`` (str): The identifier of the price feed to register the callback for. This can be either the price feed ID (e.g., "0x09f7c1d7dfbb7df2b8fe3d3d87ee94a2259d212da4f30c1f0540d066dfa44723") or the trading pair (e.g., "ETH/USD").
+- ``callback`` (Callable): The callback function to register. The callback should accept a single argument, which will be the price feed data.
+
+**Raises:**
+
+- ``ValueError``: If the identifier is unknown or not supported.
+
+**Example Usage:**
+
+.. code-block:: python
+
+   def price_update_callback(data):
+       print("Price Update:", data)
+
+   # Example 1: Register a callback by using pair name
+   feed_client.register_price_feed_callback("ETH/USD", price_update_callback)
+
+   # Example 2: Register a callback by using price feed id
+   feed_client.register_price_feed_callback("0x09f7c1d7dfbb7df2b8fe3d3d87ee94a2259d212da4f30c1f0540d066dfa44723", price_update_callback)
+
+**Notes:**
+
+- The price feed data passed to the callback will typically include information such as the current price, confidence interval, and timestamp.
+- You can register multiple callbacks for the same price feed identifier to handle different aspects of the price update.
+
+unregister_price_feed_callback
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``unregister_price_feed_callback`` method unregisters a previously registered callback for price feed updates. This is useful if you no longer need to receive updates for a specific price feed.
+
+**Parameters:**
+
+- ``identifier`` (str): The identifier of the price feed to unregister the callback for. This can be either the price feed ID (e.g., "0x09f7c1d7dfbb7df2b8fe3d3d87ee94a2259d212da4f30c1f0540d066dfa44723") or the trading pair (e.g., "ETH/USD").
+- ``callback`` (Callable): The callback function to unregister.
+
+**Example Usage:**
+
+.. code-block:: python
+
+   def price_update_callback(data):
+       print("Price Update:", data)
+
+   feed_client.register_price_feed_callback("ETH/USD", price_update_callback)
+   # Later, when you no longer need the updates:
+   feed_client.unregister_price_feed_callback("ETH/USD", price_update_callback)
+
+**Notes:**
+
+- Make sure the identifier and callback match the ones used during registration with ``register_price_feed_callback``.
+- If the specified callback is not found for the given identifier, this method will silently complete without any error.
+
+listen_for_price_updates
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``listen_for_price_updates`` method listens for real-time price updates from the Pyth price feed websocket. When a price update is received, all registered callbacks for that price feed are called with the updated price data.
+
+**Raises:**
+
+- ``Exception``: If an error occurs while listening for price updates.
+
+**Example Usage:**
+
+.. code-block:: python
+
+   async def price_update_callback(data):
+       print("Price Update:", data)
+
+   feed_client.register_price_feed_callback("ETH/USD", price_update_callback)
+   await feed_client.listen_for_price_updates()
+
+**Notes:**
+
+- This method is an asynchronous coroutine and should be called using ``await`` in an asynchronous context.
+- The registered callbacks will be called with an instance of :class:`~avantis_trader_sdk.types.PriceFeedResponse`, which contains the updated price data for the subscribed price feed.
+- If the websocket connection is closed due to an error, the registered ``on_close`` callback will be called with the exception, if provided. Otherwise, the exception will be printed.
+- If any other exception occurs during the listening process, the registered ``on_error`` callback will be called with the exception, if provided. Otherwise, the exception will be re-raised.
+
+get_pair_from_feed_id
+^^^^^^^^^^^^^^^^^^^^^
+
+The ``get_pair_from_feed_id`` method retrieves the trading pair string (e.g., "ETH/USD") corresponding to a given price feed ID.
+
+**Parameters:**
+
+- ``feed_id`` (str): The feed ID to retrieve the pair string for.
+
+**Returns:**
+
+- The trading pair string associated with the feed ID, if found. Otherwise, ``None``.
+
+**Example Usage:**
+
+.. code-block:: python
+
+   pair_string = feed_client.get_pair_from_feed_id("0x09f7c1d7dfbb7df2b8fe3d3d87ee94a2259d212da4f30c1f0540d066dfa44723")
+   print("Pair String:", pair_string)
+
+**Notes:**
+
+- The feed ID should be a hexadecimal string starting with "0x". If the provided feed ID does not start with "0x", it will be automatically prefixed with "0x" before performing the lookup.
+- This method is used internally by the SDK to map price feed updates to their corresponding trading pairs.
