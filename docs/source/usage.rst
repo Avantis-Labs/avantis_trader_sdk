@@ -541,10 +541,10 @@ The ``get_opening_fee`` method retrieves the opening fee for all trading pairs. 
 - The fee is applied when opening a new position and is deducted from the position's initial margin.
 
 
-Price Feed RPC
---------------
+Price Feed
+----------
 
-The ``price_feed_rpc`` module provides methods to register callbacks for real-time price feed updates. Avantis uses Pyth for price feeds. Read more about Pyth here: https://docs.pyth.network/. Reference: :meth:`~avantis_trader_sdk.rpc.price_feed_rpc.PriceFeedRPC`:
+The ``price_feed`` module provides methods to register callbacks for real-time price feed updates. Avantis uses Pyth for price feeds. Read more about Pyth here: https://docs.pyth.network/. Reference: :meth:`~avantis_trader_sdk.feed_client.FeedClient`:
 
 register_price_feed_callback
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
