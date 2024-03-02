@@ -9,11 +9,7 @@ print(avantis_trader_sdk.__version__)
 
 async def main():
     provider_url = "https://mainnet.base.org"
-    ws_url = "wss://<YOUR-WEBSOCKET-ENDPOINT>"
     trader_client = TraderClient(provider_url)
-    feed_client = FeedClient(
-        ws_url, on_error=ws_error_handler, on_close=ws_error_handler
-    )
 
     print("----- GETTING PAIR INFO -----")
     result = await trader_client.pairs_cache.get_pairs_info()
@@ -77,6 +73,12 @@ async def main():
     print("Opening Price Impact Spread:", opening_price_impact_spread)
     print("Opening Fee:", opening_fee)
     print("Loss Protection Tier:", loss_protection_tier)
+
+    ws_url = "wss://<YOUR-WEBSOCKET-ENDPOINT>"
+
+    feed_client = FeedClient(
+        ws_url, on_error=ws_error_handler, on_close=ws_error_handler
+    )
 
     feed_client.register_price_feed_callback(
         "0x09f7c1d7dfbb7df2b8fe3d3d87ee94a2259d212da4f30c1f0540d066dfa44723",
