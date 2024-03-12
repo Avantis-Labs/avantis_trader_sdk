@@ -38,7 +38,7 @@ class CategoryParametersRPC:
                     break
 
         calls = []
-        for pair_index in range(len(pair_indexes)):
+        for pair_index in pair_indexes:
             call_data = PairStorage.encodeABI(fn_name="groupMaxOI", args=[pair_index])
             calls.append((PairStorage.address, call_data))
 

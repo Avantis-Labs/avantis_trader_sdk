@@ -58,23 +58,39 @@ async def main():
             )
         ),
     )
+    print("-------------------------")
     print("OI Limits:", oi_limits)
+    print("-------------------------")
     print("OI:", oi)
+    print("-------------------------")
     print("Utilization:", utilization)
+    print("-------------------------")
     print("Skew:", skew)
+    print("-------------------------")
     print("Spread:", spread)
+    print("-------------------------")
     print("Margin Fee:", margin_fee)
+    print("-------------------------")
     print("Group OI Limits:", group_oi_limits)
+    print("-------------------------")
     print("Group OI:", group_oi)
+    print("-------------------------")
     print("Group Utilization:", group_utilization)
+    print("-------------------------")
     print("Group Skew:", group_skew)
+    print("-------------------------")
     print("Price Impact Spread:", price_impact_spread)
+    print("-------------------------")
     print("Skew Impact Spread:", skew_impact_spread)
+    print("-------------------------")
     print("Opening Price Impact Spread:", opening_price_impact_spread)
+    print("-------------------------")
     print("Opening Fee:", opening_fee)
+    print("-------------------------")
     print("Loss Protection Tier:", loss_protection_tier)
+    print("-------------------------")
 
-    ws_url = "wss://<YOUR-WEBSOCKET-ENDPOINT>"
+    ws_url = "<YOUR WEBSOCKET URL>"
 
     feed_client = FeedClient(
         ws_url, on_error=ws_error_handler, on_close=ws_error_handler
