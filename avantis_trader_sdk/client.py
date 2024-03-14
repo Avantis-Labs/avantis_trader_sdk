@@ -8,6 +8,7 @@ from .rpc.category_parameters import CategoryParametersRPC
 from .rpc.blended import BlendedRPC
 from .rpc.fee_parameters import FeeParametersRPC
 from .rpc.trading_parameters import TradingParametersRPC
+from .rpc.snapshot import SnapshotRPC
 from .utils import decoder
 
 
@@ -36,6 +37,7 @@ class TraderClient:
         self.blended = BlendedRPC(self)
         self.fee_parameters = FeeParametersRPC(self)
         self.trading_parameters = TradingParametersRPC(self)
+        self.snapshot = SnapshotRPC(self)
 
     def load_contract(self, name):
         """

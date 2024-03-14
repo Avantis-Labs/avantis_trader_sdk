@@ -15,6 +15,11 @@ async def main():
     result = await trader_client.pairs_cache.get_pairs_info()
     print(result)
 
+    result = await trader_client.snapshot.get_snapshot()
+    print("-------------------------")
+    print("Snapshot:", result)
+    print("-------------------------")
+
     print("----- GETTING DATA -----")
     (
         oi_limits,

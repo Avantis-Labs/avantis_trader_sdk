@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, validator, ValidationError
+from pydantic import BaseModel, Field, conint, validator, ValidationError
 from typing import Dict, Optional
 import time
 import re
@@ -49,9 +49,24 @@ class Skew(BaseModel):
 
 
 class MarginFee(BaseModel):
-    base: Dict[str, float]
+    hourly_base_fee_parameter: Dict[str, float]
     margin_long: Dict[str, float]
     margin_short: Dict[str, float]
+
+
+class MarginFeeSingle(BaseModel):
+    hourly_base_fee_parameter: float
+    margin_long: float
+    margin_short: float
+
+
+class PairInfoExtended(PairInfo):
+    open_interest_limit: int
+    open_interest: Dict[str, int]
+    utilization: int
+    skew: int
+    spread: int
+    margin_fee: MarginFeeSingle
 
 
 class PairSpread(BaseModel):
@@ -185,3 +200,18 @@ class TradeResponse(BaseModel):
     @validator("initialPosToken", "positionSizeUSDC", pre=True, allow_reuse=True)
     def convert_to_float_6(cls, v):
         return v / 10**6
+
+
+class SnapshotOpenInterest(BaseModel):
+    long: float
+    short: float
+
+
+class SnapshotCategory(BaseModel):
+    open_interest_limit: float
+    open_interest: SnapshotOpenInterest
+    pairs: Dict[str, PairInfoExtended]
+
+
+class Snapshot(BaseModel):
+    categories: Dict[conint(ge=0), SnapshotCategory]

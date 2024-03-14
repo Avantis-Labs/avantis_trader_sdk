@@ -35,7 +35,9 @@ class FeeParametersRPC:
             decoded[key] = [val * 30 * 60 / 10**10 for val in value]
 
         return MarginFee(
-            base=map_output_to_pairs(pairs_info, decoded["rolloverFeePerBlockP"]),
+            hourly_base_fee_parameter=map_output_to_pairs(
+                pairs_info, decoded["rolloverFeePerBlockP"]
+            ),
             margin_long=map_output_to_pairs(
                 pairs_info, decoded["rolloverFeePerBlockLong"]
             ),
@@ -44,7 +46,7 @@ class FeeParametersRPC:
             ),
         )
 
-    async def get_pair_spread(self):
+    async def constant_spread_parameter(self):
         """
         Retrieves the spread percentage % for all trading pairs.
 
@@ -78,7 +80,7 @@ class FeeParametersRPC:
             pair: The trading pair for which the opening fee is to be calculated. Defaults to None. If None, the opening fee for all trading pairs will be returned.
 
         Returns:
-            A Fee instance containing the skew impact Fee for each trading pair.
+            A Fee instance containing the opening Fee for each trading pair.
         """
         position_size = int(position_size * 10**6)
 
