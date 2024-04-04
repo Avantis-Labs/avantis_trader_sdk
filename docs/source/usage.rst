@@ -3,6 +3,26 @@ Usage
 
 The Avantis Trader SDK provides various methods to interact with Avantis contracts and retrieve trading parameters. Below are examples for each category.
 
+Snapshot
+-----------
+The ``snapshot`` module provides methods to retrieve the current snapshot of the trading parameters. Reference: :meth:`~avantis_trader_sdk.rpc.snapshot.SnapshotRPC`:
+
+get_snapshot
+^^^^^^^^^^^^
+
+The ``get_snapshot`` method retrieves the current snapshot of the trading parameters. The snapshot includes information such as the current open interest, asset utilization, asset skew, category utilization, category skew, and more.
+
+**Returns:**
+
+- An instance of :class:`~avantis_trader_sdk.types.Snapshot` containing the current snapshot of the trading parameters.
+
+**Example Usage:**
+
+.. code-block:: python
+
+   snapshot = await trader_client.snapshot.get_snapshot()
+   print("Snapshot:", snapshot)
+
 Pairs Cache
 -----------
 

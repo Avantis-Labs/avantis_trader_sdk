@@ -24,8 +24,12 @@ class TraderClient:
         Args:
             provider_url: The URL of the Ethereum node provider.
         """
-        self.web3 = Web3(Web3.HTTPProvider(provider_url))
-        self.async_web3 = AsyncWeb3(AsyncWeb3.AsyncHTTPProvider(provider_url))
+        self.web3 = Web3(
+            Web3.HTTPProvider(provider_url, request_kwargs={"timeout": 60})
+        )
+        self.async_web3 = AsyncWeb3(
+            AsyncWeb3.AsyncHTTPProvider(provider_url, request_kwargs={"timeout": 60})
+        )
         self.contracts = self.load_contracts()
         self.utils = {
             "decoder": lambda *args, **kwargs: decoder(self.web3, *args, **kwargs)

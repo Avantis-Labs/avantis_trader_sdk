@@ -16,6 +16,7 @@ class PairsCache:
         self.client = client
         self._pair_info_cache = {}
         self._group_indexes_cache = {}
+        self._pair_mapping = {}
 
     async def get_pairs_info(self, force_update=False):
         """
@@ -47,8 +48,12 @@ class PairsCache:
             for index, pair_info in enumerate(decoded_data):
                 self._pair_info_cache[index] = pair_info
 
-            group_indexes = set([pair.groupIndex for pair in decoded_data])
+            group_indexes = set([pair.group_index for pair in decoded_data])
             self._group_indexes_cache = group_indexes
+            self._pair_mapping = {
+                f"{info.from_}/{info.to}": index
+                for index, info in self._pair_info_cache.items()
+            }
 
         return self._pair_info_cache
 

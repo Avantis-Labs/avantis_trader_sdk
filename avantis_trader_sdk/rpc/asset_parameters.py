@@ -6,6 +6,7 @@ from ..types import (
     Utilization,
     Skew,
     Spread,
+    Depth,
 )
 from typing import Optional
 
@@ -64,9 +65,14 @@ class AssetParametersRPC:
         decoded = self.client.utils["decoder"](
             Multicall, "getLongShortRatios", raw_data
         )
+
         return OpenInterest(
-            long=map_output_to_pairs(pairs_info, decoded["longRatio"]),
-            short=map_output_to_pairs(pairs_info, decoded["shortRatio"]),
+            long=map_output_to_pairs(
+                pairs_info, [val / 10**6 for val in decoded["longRatio"]]
+            ),
+            short=map_output_to_pairs(
+                pairs_info, [val / 10**6 for val in decoded["shortRatio"]]
+            ),
         )
 
     async def get_utilization(self):
@@ -75,7 +81,7 @@ class AssetParametersRPC:
 
         Returns:
             A Utilization instance containing the asset utilization
-            percentage % for each trading pair.
+            absolute value for each trading pair.
         """
         TradingStorage = self.client.contracts.get("TradingStorage")
         Multicall = self.client.contracts.get("Multicall")
@@ -99,7 +105,7 @@ class AssetParametersRPC:
             pair_name = f"{pairs_info[pair_index].from_}/{pairs_info[pair_index].to}"
             current_oi = int.from_bytes(pair_data, byteorder="big") / 10**6
             limit = oi_limit
-            utilization[pair_name] = current_oi * 100 / limit if limit else 0
+            utilization[pair_name] = current_oi / limit if limit else 0
 
         return Utilization(utilization=utilization)
 
@@ -109,7 +115,7 @@ class AssetParametersRPC:
 
         Returns:
             An Skew instance containing the asset skew
-            percentage % for each trading pair.
+            absolute value for each trading pair.
         """
         oi = await self.get_oi()
 
@@ -117,7 +123,7 @@ class AssetParametersRPC:
         for pair, long_ratio in oi.long.items():
             short_ratio = oi.short[pair]
             skew[pair] = (
-                long_ratio * 100 / (long_ratio + short_ratio)
+                long_ratio / (long_ratio + short_ratio)
                 if long_ratio + short_ratio
                 else 0
             )
@@ -136,7 +142,7 @@ class AssetParametersRPC:
             pair: The trading pair for which the price impact spread is to be calculated. Defaults to None. If None, the price impact spread for all trading pairs will be returned.
 
         Returns:
-            A Spread instance containing the price impact spread for each trading pair.
+            A Spread instance containing the price impact spread for each trading pair in bps.
         """
         position_size = int(position_size * 10**6)
 
@@ -209,7 +215,7 @@ class AssetParametersRPC:
             response = await Multicall.functions.aggregate(calls).call()
             if is_long is None:
                 decoded_response = [
-                    int.from_bytes(value, byteorder="big") / 10**10
+                    int.from_bytes(value, byteorder="big") / 10**10 * 100
                     for value in response[1]
                 ]
                 if pair is None:
@@ -226,7 +232,7 @@ class AssetParametersRPC:
                 decoded_response = map_output_to_pairs(
                     pairs_info,
                     [
-                        int.from_bytes(value, byteorder="big") / 10**10
+                        int.from_bytes(value, byteorder="big") / 10**10 * 100
                         for value in response[1]
                     ],
                 )
@@ -235,15 +241,15 @@ class AssetParametersRPC:
                 decoded_response = map_output_to_pairs(
                     pairs_info,
                     [
-                        int.from_bytes(value, byteorder="big") / 10**10
+                        int.from_bytes(value, byteorder="big") / 10**10 * 100
                         for value in response[1]
                     ],
                 )
                 return Spread(short=decoded_response)
         elif is_long:
-            return Spread(long={pair: response / 10**10})
+            return Spread(long={pair: response / 10**10 * 100})
         else:
-            return Spread(short={pair: response / 10**10})
+            return Spread(short={pair: response / 10**10 * 100})
 
     async def get_skew_impact_spread(
         self, position_size: int = 0, is_long: Optional[bool] = None, pair: str = None
@@ -257,7 +263,7 @@ class AssetParametersRPC:
             pair: The trading pair for which the skew impact spread is to be calculated. Defaults to None. If None, the skew impact spread for all trading pairs will be returned.
 
         Returns:
-            A Spread instance containing the skew impact spread for each trading pair.
+            A Spread instance containing the skew impact spread for each trading pair in bps.
         """
         position_size = int(position_size * 10**6)
 
@@ -329,8 +335,9 @@ class AssetParametersRPC:
         if response is None:
             response = await Multicall.functions.aggregate(calls).call()
             if is_long is None:
+
                 decoded_response = [
-                    int.from_bytes(value, byteorder="big") / 10**10
+                    int.from_bytes(value, byteorder="big", signed=True) / 10**10 * 100
                     for value in response[1]
                 ]
                 if pair is None:
@@ -347,7 +354,7 @@ class AssetParametersRPC:
                 decoded_response = map_output_to_pairs(
                     pairs_info,
                     [
-                        int.from_bytes(value, byteorder="big") / 10**10
+                        int.from_bytes(value, byteorder="big") / 10**10 * 100
                         for value in response[1]
                     ],
                 )
@@ -356,15 +363,15 @@ class AssetParametersRPC:
                 decoded_response = map_output_to_pairs(
                     pairs_info,
                     [
-                        int.from_bytes(value, byteorder="big") / 10**10
+                        int.from_bytes(value, byteorder="big") / 10**10 * 100
                         for value in response[1]
                     ],
                 )
                 return Spread(short=decoded_response)
         elif is_long:
-            return Spread(long={pair: response / 10**10})
+            return Spread(long={pair: response / 10**10 * 100})
         else:
-            return Spread(short={pair: response / 10**10})
+            return Spread(short={pair: response / 10**10 * 100})
 
     async def get_opening_price_impact_spread(
         self,
@@ -384,7 +391,7 @@ class AssetParametersRPC:
 
 
         Returns:
-            A Spread instance containing the trade price impact for pair.
+            A Spread instance containing the trade price impact for pair in bps.
         """
         position_size = int(position_size * 10**6)
         open_price = int(open_price * 10**10)
@@ -423,13 +430,57 @@ class AssetParametersRPC:
         if response is None:
             response = await Multicall.functions.aggregate(calls).call()
             decoded_response = [
-                int.from_bytes(value, byteorder="big") / 10**10 for value in response[1]
+                int.from_bytes(value, byteorder="big") / 10**10 * 100
+                for value in response[1]
             ]
             return Spread(
                 long={pair: decoded_response[0]},
                 short={pair: decoded_response[1]},
             )
         elif is_long:
-            return Spread(long={pair: response / 10**10})
+            return Spread(long={pair: response / 10**10 * 100})
         else:
-            return Spread(short={pair: response / 10**10})
+            return Spread(short={pair: response / 10**10 * 100})
+
+    async def get_one_percent_depth(self):
+        """
+        Retrieves the one percent depth for all trading pairs.
+
+        Returns:
+            A Depth instance containing the one percent depth for each trading pair.
+        """
+
+        Multicall = self.client.contracts.get("Multicall")
+        PairInfos = self.client.contracts.get("PairInfos")
+        pairs_info = await self.client.pairs_cache.get_pairs_info()
+        calls = []
+        for pair_index in range(len(pairs_info)):
+            calls.extend(
+                [
+                    (
+                        PairInfos.address,
+                        PairInfos.encodeABI(
+                            fn_name="getOnePercentDepthAbove",
+                            args=[pair_index],
+                        ),
+                    ),
+                    (
+                        PairInfos.address,
+                        PairInfos.encodeABI(
+                            fn_name="getOnePercentDepthBelow",
+                            args=[pair_index],
+                        ),
+                    ),
+                ]
+            )
+
+        response = await Multicall.functions.aggregate(calls).call()
+
+        decoded_response = [
+            int.from_bytes(value, byteorder="big") / 10**6 for value in response[1]
+        ]
+
+        return Depth(
+            above=map_output_to_pairs(pairs_info, decoded_response[::2]),
+            below=map_output_to_pairs(pairs_info, decoded_response[1::2]),
+        )

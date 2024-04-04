@@ -18,17 +18,28 @@ class PairInfo(BaseModel):
     to: str
     feed: PairInfoFeed
     backupFeed: PairInfoFeed
-    spreadP: int
-    priceImpactMultiplier: int
-    skewImpactMultiplier: int
-    groupIndex: int
-    feeIndex: int
-    groupOpenInterestPecentage: int
-    maxWalletOI: int
+    constant_spread_bps: float = Field(..., alias="spreadP")
+    price_impact_parameter: float = Field(..., alias="priceImpactMultiplier")
+    skew_impact_parameter: float = Field(..., alias="skewImpactMultiplier")
+    group_index: int = Field(..., alias="groupIndex")
+    fee_index: int = Field(..., alias="feeIndex")
+    group_open_interest_percentage: float = Field(
+        ..., alias="groupOpenInterestPecentage"
+    )
+    max_wallet_oi: float = Field(..., alias="maxWalletOI")
 
-    @validator("spreadP", pre=True, allow_reuse=True)
-    def convert_spreadP(cls, v):
+    @validator(
+        "price_impact_parameter", "skew_impact_parameter", pre=True, allow_reuse=True
+    )
+    def convert_to_float_10(cls, v):
         return v / 10**10
+
+    @validator("constant_spread_bps", pre=True, allow_reuse=True)
+    def convert_to_float_10_bps(cls, v):
+        return v / 10**10 * 100
+
+    class Config:
+        allow_population_by_field_name = True
 
 
 class OpenInterest(BaseModel):
@@ -50,23 +61,43 @@ class Skew(BaseModel):
 
 class MarginFee(BaseModel):
     hourly_base_fee_parameter: Dict[str, float]
-    margin_long: Dict[str, float]
-    margin_short: Dict[str, float]
+    hourly_margin_fee_long_bps: Dict[str, float]
+    hourly_margin_fee_short_bps: Dict[str, float]
 
 
 class MarginFeeSingle(BaseModel):
     hourly_base_fee_parameter: float
-    margin_long: float
-    margin_short: float
+    hourly_margin_fee_long_bps: float
+    hourly_margin_fee_short_bps: float
+
+
+class DepthSingle(BaseModel):
+    above: float
+    below: float
 
 
 class PairInfoExtended(PairInfo):
-    open_interest_limit: int
-    open_interest: Dict[str, int]
-    utilization: int
-    skew: int
-    spread: int
+    asset_open_interest_limit: float
+    asset_open_interest: Dict[str, float]
+    asset_utilization: float
+    asset_skew: float
+    blended_utilization: float
+    blended_skew: float
     margin_fee: MarginFeeSingle
+    one_percent_depth: DepthSingle
+    new_1k_long_opening_fee_bps: float  # Opening fee for new $1,000 long position
+    new_1k_short_opening_fee_bps: float  # Opening fee for new $1,000 short position
+    new_1k_long_opening_spread_bps: float  # Opening spread for new $1,000 long position
+    new_1k_short_opening_spread_bps: (
+        float  # Opening spread for new $1,000 short position
+    )
+    price_impact_spread_long_bps: float
+    price_impact_spread_short_bps: float
+    skew_impact_spread_long_bps: float
+    skew_impact_spread_short_bps: float
+
+    class Config:
+        allow_population_by_field_name = True
 
 
 class PairSpread(BaseModel):
@@ -104,6 +135,17 @@ class Spread(BaseModel):
     def check_at_least_one(cls, v, values, field, config, **kwargs):
         if "long" not in field.name and "short" not in field.name:
             raise ValueError('At least one of "long" or "short" must be present.')
+        return v
+
+
+class Depth(BaseModel):
+    above: Optional[Dict[str, float]] = None
+    below: Optional[Dict[str, float]] = None
+
+    @validator("above", "below", always=True)
+    def check_at_least_one(cls, v, values, field, config, **kwargs):
+        if "above" not in field.name and "below" not in field.name:
+            raise ValueError('At least one of "above" or "below" must be present.')
         return v
 
 
@@ -207,11 +249,13 @@ class SnapshotOpenInterest(BaseModel):
     short: float
 
 
-class SnapshotCategory(BaseModel):
-    open_interest_limit: float
-    open_interest: SnapshotOpenInterest
+class SnapshotGroup(BaseModel):
+    group_open_interest_limit: float
+    group_open_interest: SnapshotOpenInterest
+    group_utilization: float
+    group_skew: float
     pairs: Dict[str, PairInfoExtended]
 
 
 class Snapshot(BaseModel):
-    categories: Dict[conint(ge=0), SnapshotCategory]
+    groups: Dict[conint(ge=0), SnapshotGroup]

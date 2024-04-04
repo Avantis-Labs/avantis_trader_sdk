@@ -24,7 +24,7 @@ class FeeParametersRPC:
         Retrieves the margin fee for all trading pairs.
 
         Returns:
-            A MarginFee instance containing the margin fee for each trading pair.
+            A MarginFee instance containing the margin fee for each trading pair in bps.
         """
         Multicall = self.client.contracts.get("Multicall")
         pairs_info = await self.client.pairs_cache.get_pairs_info()
@@ -32,26 +32,26 @@ class FeeParametersRPC:
         decoded = self.client.utils["decoder"](Multicall, "getMargins", raw_data)
 
         for key, value in decoded.items():
-            decoded[key] = [val * 30 * 60 / 10**10 for val in value]
+            decoded[key] = [val * 30 * 60 / 10**10 * 100 for val in value]
 
         return MarginFee(
             hourly_base_fee_parameter=map_output_to_pairs(
                 pairs_info, decoded["rolloverFeePerBlockP"]
             ),
-            margin_long=map_output_to_pairs(
+            hourly_margin_fee_long_bps=map_output_to_pairs(
                 pairs_info, decoded["rolloverFeePerBlockLong"]
             ),
-            margin_short=map_output_to_pairs(
+            hourly_margin_fee_short_bps=map_output_to_pairs(
                 pairs_info, decoded["rolloverFeePerBlockShort"]
             ),
         )
 
     async def constant_spread_parameter(self):
         """
-        Retrieves the spread percentage % for all trading pairs.
+        Retrieves the spread for all trading pairs.
 
         Returns:
-            A PairSpread instance containing the spread % for each trading pair.
+            A PairSpread instance containing the spread for each trading pair in bps.
         """
         PairStorage = self.client.contracts.get("PairStorage")
         Multicall = self.client.contracts.get("Multicall")
@@ -63,7 +63,8 @@ class FeeParametersRPC:
 
         response = await Multicall.functions.aggregate(calls).call()
         decoded_response = [
-            int.from_bytes(value, byteorder="big") / 10**10 for value in response[1]
+            int.from_bytes(value, byteorder="big") / 10**10 * 100
+            for value in response[1]
         ]
 
         return PairSpread(spread=map_output_to_pairs(pairs_info, decoded_response))
@@ -80,7 +81,7 @@ class FeeParametersRPC:
             pair: The trading pair for which the opening fee is to be calculated. Defaults to None. If None, the opening fee for all trading pairs will be returned.
 
         Returns:
-            A Fee instance containing the opening Fee for each trading pair.
+            A Fee instance containing the opening Fee for each trading pair in bps.
         """
         position_size = int(position_size * 10**6)
 
@@ -153,7 +154,7 @@ class FeeParametersRPC:
             response = await Multicall.functions.aggregate(calls).call()
             if is_long is None:
                 decoded_response = [
-                    int.from_bytes(value, byteorder="big") / 10**10
+                    int.from_bytes(value, byteorder="big") / 10**10 * 100
                     for value in response[1]
                 ]
                 if pair is None:
@@ -170,7 +171,7 @@ class FeeParametersRPC:
                 decoded_response = map_output_to_pairs(
                     pairs_info,
                     [
-                        int.from_bytes(value, byteorder="big") / 10**10
+                        int.from_bytes(value, byteorder="big") / 10**10 * 100
                         for value in response[1]
                     ],
                 )
@@ -179,12 +180,12 @@ class FeeParametersRPC:
                 decoded_response = map_output_to_pairs(
                     pairs_info,
                     [
-                        int.from_bytes(value, byteorder="big") / 10**10
+                        int.from_bytes(value, byteorder="big") / 10**10 * 100
                         for value in response[1]
                     ],
                 )
                 return Fee(short=decoded_response)
         elif is_long:
-            return Fee(long={pair: response / 10**10})
+            return Fee(long={pair: response / 10**10 * 100})
         else:
-            return Fee(short={pair: response / 10**10})
+            return Fee(short={pair: response / 10**10 * 100})

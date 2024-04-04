@@ -15,10 +15,13 @@ async def main():
     result = await trader_client.pairs_cache.get_pairs_info()
     print(result)
 
+    print("----- GETTING SNAPSHOT -----")
     result = await trader_client.snapshot.get_snapshot()
-    print("-------------------------")
-    print("Snapshot:", result)
-    print("-------------------------")
+    print(result)
+
+    # Optionally, you can convert the result to a JSON string
+    # json_response = json.dumps(result, default=lambda x: x.__dict__)
+    # print(json_response)
 
     print("----- GETTING DATA -----")
     (
@@ -26,8 +29,8 @@ async def main():
         oi,
         utilization,
         skew,
-        spread,
         margin_fee,
+        depth,
         group_oi_limits,
         group_oi,
         group_utilization,
@@ -42,8 +45,8 @@ async def main():
         trader_client.asset_parameters.get_oi(),
         trader_client.asset_parameters.get_utilization(),
         trader_client.asset_parameters.get_asset_skew(),
-        trader_client.fee_parameters.get_pair_spread(),
         trader_client.fee_parameters.get_margin_fee(),
+        trader_client.asset_parameters.get_one_percent_depth(),
         trader_client.category_parameters.get_oi_limits(),
         trader_client.category_parameters.get_oi(),
         trader_client.category_parameters.get_utilization(),
@@ -72,9 +75,9 @@ async def main():
     print("-------------------------")
     print("Skew:", skew)
     print("-------------------------")
-    print("Spread:", spread)
-    print("-------------------------")
     print("Margin Fee:", margin_fee)
+    print("-------------------------")
+    print("One Percent Depth:", depth)
     print("-------------------------")
     print("Group OI Limits:", group_oi_limits)
     print("-------------------------")
@@ -101,6 +104,7 @@ async def main():
         ws_url, on_error=ws_error_handler, on_close=ws_error_handler
     )
 
+    # You can use the feed id or pair name to register callbacks
     feed_client.register_price_feed_callback(
         "0x09f7c1d7dfbb7df2b8fe3d3d87ee94a2259d212da4f30c1f0540d066dfa44723",
         lambda data: print(data),
@@ -108,6 +112,8 @@ async def main():
     feed_client.register_price_feed_callback("ETH/USD", lambda data: print(data))
 
     await feed_client.listen_for_price_updates()
+
+    # Optionally, you can run the websocket in a separate task
     # asyncio.create_task(feed_client.listen_for_price_updates())
 
 

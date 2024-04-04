@@ -34,10 +34,10 @@ class BlendedRPC:
         utilization = {}
 
         for _, pair in pairs_info.items():
-            if str(pair.groupIndex) in category_utilization.utilization:
+            if str(pair.group_index) in category_utilization.utilization:
                 utilization[pair.from_ + "/" + pair.to] = (
                     asset_utilization.utilization[pair.from_ + "/" + pair.to] * 25
-                    + category_utilization.utilization[str(pair.groupIndex)] * 75
+                    + category_utilization.utilization[str(pair.group_index)] * 75
                 ) / 100
             else:
                 utilization[pair.from_ + "/" + pair.to] = 0
@@ -60,10 +60,10 @@ class BlendedRPC:
         skew = {}
 
         for _, pair in pairs_info.items():
-            if str(pair.groupIndex) in category_skew.skew:
+            if str(pair.group_index) in category_skew.skew:
                 skew[pair.from_ + "/" + pair.to] = (
                     asset_skew.skew[pair.from_ + "/" + pair.to] * 25
-                    + category_skew.skew[str(pair.groupIndex)] * 75
+                    + category_skew.skew[str(pair.group_index)] * 75
                 ) / 100
             else:
                 skew[pair.from_ + "/" + pair.to] = 0

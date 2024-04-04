@@ -33,8 +33,8 @@ class CategoryParametersRPC:
         pair_indexes = []
         for group_index in group_indexes:
             for _, pair in pairs_info.items():
-                if pair.groupIndex == group_index:
-                    pair_indexes.append(pair.feeIndex)
+                if pair.group_index == group_index:
+                    pair_indexes.append(pair.fee_index)
                     break
 
         calls = []
@@ -65,7 +65,7 @@ class CategoryParametersRPC:
 
         long_calls = []
         short_calls = []
-        for group_index in range(len(group_indexes)):
+        for group_index in group_indexes:
             call_data = PairStorage.encodeABI(fn_name="groupOIs", args=[group_index, 0])
             long_calls.append((PairStorage.address, call_data))
 
@@ -96,47 +96,101 @@ class CategoryParametersRPC:
 
         return OpenInterest(long=long_response, short=short_response)
 
+    # async def get_oi(self):
+    #     """
+    #     Retrieves the current open interest for all categories.
+
+    #     Returns:
+    #         An OpenInterest instance containing the long and short open interest
+    #     """
+    #     pair_info = await self.client.pairs_cache.get_pairs_info()
+    #     pair_oi = await self.client.asset_parameters.get_oi()
+    #     group_indexes = await self.client.pairs_cache.get_group_indexes()
+
+    #     long_response = {}
+    #     short_response = {}
+
+    #     for group_index in group_indexes:
+    #         long_response[group_index] = 0
+    #         short_response[group_index] = 0
+
+    #     for pair_key, oi in pair_oi.long.items():
+    #         if pair_key in self.client.pairs_cache._pair_mapping:
+    #             pair_index = self.client.pairs_cache._pair_mapping[pair_key]
+    #             pair = pair_info[pair_index]
+    #             group_index = pair.group_index
+    #             long_response[group_index] += oi
+    #             # Assuming pair_oi.short has the same keys as pair_oi.long
+    #             short_response[group_index] += pair_oi.short[pair_key]
+    #         else:
+    #             print(f"Warning: {pair_key} not found in pair_info")
+
+    #     return OpenInterest(long=long_response, short=short_response)
+
+    # async def get_utilization(self):
+    #     """
+    #     Calculates the category utilization for all categories.
+
+    #     Returns:
+    #         A Utilization instance containing the category utilization
+    #         percentage % for each category.
+    #     """
+    #     PairStorage = self.client.contracts.get("PairStorage")
+    #     Multicall = self.client.contracts.get("Multicall")
+    #     pairs_info = await self.client.pairs_cache.get_pairs_info()
+    #     group_indexes = await self.client.pairs_cache.get_group_indexes()
+
+    #     pair_indexes = []
+    #     for group_index in group_indexes:
+    #         for _, pair in pairs_info.items():
+    #             if pair.group_index == group_index:
+    #                 pair_indexes.append(pair.fee_index)
+    #                 break
+
+    #     calls = []
+    #     for pair_index in pair_indexes:
+    #         call_data = PairStorage.encodeABI(fn_name="groupOI", args=[pair_index])
+    #         calls.append((PairStorage.address, call_data))
+
+    #     oi_limits_task = self.get_oi_limits()
+    #     aggregate_task = Multicall.functions.aggregate(calls).call()
+
+    #     oi_limits, aggregate_response = await asyncio.gather(
+    #         oi_limits_task, aggregate_task
+    #     )
+
+    #     utilization = {}
+
+    #     for pair_index in range(len(aggregate_response[1])):
+    #         current_oi = (
+    #             int.from_bytes(aggregate_response[1][pair_index], byteorder="big")
+    #             / 10**6
+    #         )
+    #         limit = oi_limits.limits[str(pair_index)]
+    #         print(current_oi, limit)
+    #         utilization[pair_index] = current_oi * 100 / limit if limit else 0
+
+    #     return Utilization(utilization=utilization)
+
     async def get_utilization(self):
         """
         Calculates the category utilization for all categories.
 
         Returns:
             A Utilization instance containing the category utilization
-            percentage % for each category.
+            absolute value for each category.
         """
-        PairStorage = self.client.contracts.get("PairStorage")
-        Multicall = self.client.contracts.get("Multicall")
-        pairs_info = await self.client.pairs_cache.get_pairs_info()
-        group_indexes = await self.client.pairs_cache.get_group_indexes()
-
-        pair_indexes = []
-        for group_index in group_indexes:
-            for _, pair in pairs_info.items():
-                if pair.groupIndex == group_index:
-                    pair_indexes.append(pair.feeIndex)
-                    break
-
-        calls = []
-        for pair_index in range(len(pair_indexes)):
-            call_data = PairStorage.encodeABI(fn_name="groupOI", args=[pair_index])
-            calls.append((PairStorage.address, call_data))
-
         oi_limits_task = self.get_oi_limits()
-        aggregate_task = Multicall.functions.aggregate(calls).call()
+        oi_task = self.get_oi()
 
-        oi_limits, aggregate_response = await asyncio.gather(
-            oi_limits_task, aggregate_task
-        )
+        oi_limits, oi = await asyncio.gather(oi_limits_task, oi_task)
 
         utilization = {}
 
-        for pair_index in range(len(aggregate_response[1])):
-            current_oi = (
-                int.from_bytes(aggregate_response[1][pair_index], byteorder="big")
-                / 10**6
-            )
-            limit = oi_limits.limits[str(pair_index)]
-            utilization[pair_index] = current_oi * 100 / limit if limit else 0
+        for group_index in range(len(oi.long)):
+            current_oi = oi.long[str(group_index)] + oi.short[str(group_index)]
+            limit = oi_limits.limits[str(group_index)]
+            utilization[group_index] = current_oi / limit if limit else 0
 
         return Utilization(utilization=utilization)
 
@@ -146,7 +200,7 @@ class CategoryParametersRPC:
 
         Returns:
             An Skew instance containing the category skew
-            percentage % for each category.
+            absolute value for each category.
         """
         oi = await self.get_oi()
 
@@ -154,7 +208,7 @@ class CategoryParametersRPC:
         for group_index, long_ratio in oi.long.items():
             short_ratio = oi.short[group_index]
             skew[group_index] = (
-                long_ratio * 100 / (long_ratio + short_ratio)
+                long_ratio / (long_ratio + short_ratio)
                 if long_ratio + short_ratio
                 else 0
             )
