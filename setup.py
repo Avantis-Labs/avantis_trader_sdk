@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="avantis_trader_sdk",
-    version="0.1.0",
+    version="0.1.1",
     author="Avantis Labs",
     author_email="admin@avantisfi.com",
     description="SDK for interacting with Avantis trading contracts.",
@@ -20,7 +20,7 @@ setup(
     include_package_data=True,
     package_data={
         "": ["*.txt", "*.rst", "*.json"],
-        "hello": ["*.msg"],
+        "avantis_trader_sdk": ["abis/*.json"],
     },
     keywords="trading sdk blockchain ethereum web3 avantis",
     license="MIT",  # Choose the appropriate license after discussing with brank
