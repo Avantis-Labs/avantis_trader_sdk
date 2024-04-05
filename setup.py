@@ -9,7 +9,6 @@ setup(
     long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
     url="https://avantisfi.com/",
-    include_package_data=True,
     packages=find_packages(),
     install_requires=["web3>=6.15.1", "pydantic>=1.10.2", "websockets>=12.0"],
     classifiers=[
