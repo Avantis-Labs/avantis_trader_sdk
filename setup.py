@@ -13,7 +13,7 @@ setup(
     install_requires=["web3>=6.15.1", "pydantic>=1.10.2", "websockets>=12.0"],
     classifiers=[
         "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: MIT License",  # Choose the appropriate license after discussing with brank
+        "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
     python_requires=">=3.6",
@@ -27,5 +27,5 @@ setup(
         ],
     },
     keywords="trading sdk blockchain ethereum web3 avantis",
-    license="MIT",  # Choose the appropriate license after discussing with brank
+    license="MIT",
 )

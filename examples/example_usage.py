@@ -11,9 +11,18 @@ async def main():
     provider_url = "https://mainnet.base.org"
     trader_client = TraderClient(provider_url)
 
+    feed_client = FeedClient("wss://test")
+
     print("----- GETTING PAIR INFO -----")
     result = await trader_client.pairs_cache.get_pairs_info()
     print(result)
+
+    print("----- PAIR CONSTANT SPREAD -----")
+    for index in result:
+        print(result[index].constant_spread_bps)
+
+    constant_spread = await trader_client.fee_parameters.constant_spread_parameter()
+    print(constant_spread)
 
     print("----- GETTING SNAPSHOT -----")
     result = await trader_client.snapshot.get_snapshot()
@@ -113,7 +122,7 @@ async def main():
 
     await feed_client.listen_for_price_updates()
 
-    # Optionally, you can run the websocket in a separate task
+    # Optionally, you can run the websocket in a separate (background) task
     # asyncio.create_task(feed_client.listen_for_price_updates())
 
 
