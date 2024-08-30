@@ -5,6 +5,7 @@ from ..types import (
     TradeResponse,
     TradeInfo,
     PendingLimitOrderExtendedResponse,
+    MarginUpdateType,
 )
 import math
 
@@ -14,12 +15,13 @@ class TradeRPC:
     The TradeRPC class contains methods for retrieving trading parameters from the Avantis Protocol.
     """
 
-    def __init__(self, client):
+    def __init__(self, client, FeedClient):
         """
         Constructor for the TradeRPC class.
 
         Args:
             client: The TraderClient object.
+            FeedClient: The FeedClient object.
         """
         self.client = client
 
@@ -253,6 +255,56 @@ class TradeRPC:
             {
                 "from": trader,
                 "chainId": self.client.chain_id,
+                "nonce": await self.client.get_transaction_count(trader),
+            }
+        )
+
+        return transaction
+
+    async def build_trade_margin_update_tx(
+        self,
+        trader: str,
+        pair_index: int,
+        trade_index: int,
+        margin_update_type: MarginUpdateType,
+        collateral_change: float,
+    ):
+        """
+        Builds a transaction to update the margin of a trade.
+
+        Args:
+            pair_index: The pair index.
+            trade_index: The trade index.
+            margin_update_type: The margin update type.
+            collateral_change: The collateral change.
+
+        Returns:
+            A transaction object.
+        """
+        Trading = self.client.contracts.get("Trading")
+
+        collateral_change = int(collateral_change * 10**6)
+        fee_in_wei = 1 * 10**18
+
+        feed_client = self.FeedClient()
+
+        pair_name = self.client.pairs_cache.get_pair_name_from_index(pair_index)
+
+        price_data = await feed_client.get_latest_price_updates([pair_name])
+
+        price_update_data = "0x" + price_data.binary.data[0]
+
+        transaction = await Trading.functions.updateMargin(
+            pair_index,
+            trade_index,
+            margin_update_type.value,
+            collateral_change,
+            price_update_data,
+        ).build_transaction(
+            {
+                "from": trader,
+                "chainId": self.client.chain_id,
+                "value": fee_in_wei,
                 "nonce": await self.client.get_transaction_count(trader),
             }
         )

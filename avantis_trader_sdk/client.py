@@ -11,6 +11,7 @@ from .rpc.trading_parameters import TradingParametersRPC
 from .rpc.snapshot import SnapshotRPC
 from .rpc.trade import TradeRPC
 from .utils import decoder
+from .feed.feed_client import FeedClient
 
 
 class TraderClient:
@@ -54,7 +55,7 @@ class TraderClient:
         self.fee_parameters = FeeParametersRPC(self)
         self.trading_parameters = TradingParametersRPC(self)
         self.snapshot = SnapshotRPC(self)
-        self.trade = TradeRPC(self)
+        self.trade = TradeRPC(self, FeedClient)
 
     def load_contract(self, name):
         """

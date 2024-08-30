@@ -1,7 +1,9 @@
 import json
 import websockets
 from pathlib import Path
-from ..types import PriceFeedResponse
+from ..types import PriceFeedResponse, PriceFeedUpdatesResponse
+from typing import List
+import requests
 
 
 class FeedClient:
@@ -9,16 +11,20 @@ class FeedClient:
     Client for interacting with the Pyth price feed websocket.
     """
 
-    def __init__(self, ws_url, on_error=None, on_close=None):
+    def __init__(self, ws_url=None, on_error=None, on_close=None):
         """
         Constructor for the FeedClient class.
 
         Args:
-            ws_url: The websocket URL to connect to.
+            ws_url: Optional - The websocket URL to connect to.
             on_error: Optional callback for handling websocket errors.
             on_close: Optional callback for handling websocket close events.
         """
-        if not ws_url.startswith("ws://") and not ws_url.startswith("wss://"):
+        if (
+            ws_url is not None
+            and not ws_url.startswith("ws://")
+            and not ws_url.startswith("wss://")
+        ):
             raise ValueError("ws_url must start with ws:// or wss://")
 
         self.ws_url = ws_url
@@ -149,3 +155,46 @@ class FeedClient:
             self.price_feed_callbacks[price_feed_id].remove(callback)
             if not self.price_feed_callbacks[price_feed_id]:
                 del self.price_feed_callbacks[price_feed_id]
+
+    async def get_latest_price_updates(self, identifiers: List[str]):
+        """
+        Retrieves the latest price updates for the specified feed ids.
+
+        Args:
+            feedIds: The list of feed ids to retrieve the latest price updates for.
+
+        Returns:
+            A PriceFeedUpdatesResponse object containing the latest price updates.
+        """
+        url = "https://hermes.pyth.network/v2/updates/price/latest"
+
+        feedIds = []
+
+        for identifier in identifiers:
+            if identifier in self.pair_feeds:
+                price_feed_id = self.pair_feeds[identifier]["id"]
+            elif identifier in self.feed_pairs:
+                price_feed_id = identifier
+            else:
+                raise ValueError(f"Unknown identifier: {identifier}")
+
+            if price_feed_id.startswith("0x"):
+                price_feed_id = price_feed_id[2:]
+
+            feedIds.append(price_feed_id)
+
+        params = {"ids[]": feedIds}
+
+        response = requests.get(url, params=params)
+
+        if response.status_code == 200:
+            data = response.json()
+
+            for i in range(len(data["parsed"])):
+                data["parsed"][i] = PriceFeedResponse(**data["parsed"][i])
+
+            print(data["parsed"])
+
+            return PriceFeedUpdatesResponse(**data)
+        else:
+            response.raise_for_status()

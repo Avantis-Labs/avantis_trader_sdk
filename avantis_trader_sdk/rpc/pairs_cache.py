@@ -96,3 +96,16 @@ class PairsCache:
             if pair_info.from_ + "/" + pair_info.to == pair:
                 return index
         raise ValueError(f"Pair {pair} not found in pairs info.")
+
+    async def get_pair_name_from_index(self, pair_index):
+        """
+        Retrieves the pair name from the index.
+
+        Args:
+            pair_index: The pair index.
+
+        Returns:
+            The pair name.
+        """
+        pairs_info = await self.get_pairs_info()
+        return pairs_info[pair_index].from_ + "/" + pairs_info[pair_index].to

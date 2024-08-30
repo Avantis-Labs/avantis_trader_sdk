@@ -7,7 +7,7 @@ from pydantic import (
     model_validator,
 )
 from enum import Enum
-from typing import Dict, Optional
+from typing import Dict, Optional, List, Union
 import time
 import re
 
@@ -112,25 +112,38 @@ class PairSpread(BaseModel):
 
 class PriceFeedResponse(BaseModel):
     id: str
-    price: Dict[str, str]
-    ema_price: Dict[str, str]
-    pair: str
+    price: Optional[Union[Dict[str, str], Dict[str, float]]] = None
+    ema_price: Optional[Union[Dict[str, str], Dict[str, float]]] = None
+    pair: Optional[str] = None
+    metadata: Optional[Union[Dict[str, str], Dict[str, float]]] = None
     converted_price: float = 0.0
     converted_ema_price: float = 0.0
 
-    @field_validator("converted_price", mode="before")
-    def convert_price(cls, v, values):
-        price_info = values.data.get("price")
+    @model_validator(mode="before")
+    def convert_price(cls, values):
+        price_info = values.get("price")
         if price_info:
-            return float(price_info["price"]) / 10 ** -int(price_info["expo"])
-        return v
+            values["converted_price"] = float(price_info["price"]) / 10 ** -int(
+                price_info["expo"]
+            )
 
-    @field_validator("converted_ema_price", mode="before")
-    def convert_ema_price(cls, v, values):
-        ema_price_info = values.data.get("ema_price")
+        ema_price_info = values.get("ema_price")
         if ema_price_info:
-            return float(ema_price_info["price"]) / 10 ** -int(ema_price_info["expo"])
-        return v
+            values["converted_ema_price"] = float(ema_price_info["price"]) / 10 ** -int(
+                ema_price_info["expo"]
+            )
+
+        return values
+
+
+class PriceFeesUpdateBinary(BaseModel):
+    encoding: str
+    data: List[str]
+
+
+class PriceFeedUpdatesResponse(BaseModel):
+    binary: PriceFeesUpdateBinary
+    parsed: List[PriceFeedResponse]
 
 
 class Spread(BaseModel):
@@ -341,6 +354,11 @@ class PendingLimitOrderExtendedResponse(PendingLimitOrderResponse):
     @field_validator("liquidation_price", mode="before")
     def convert_liq_to_float_10(cls, v):
         return v / 10**10
+
+
+class MarginUpdateType(Enum):
+    DEPOSIT = 0
+    WITHDRAW = 1
 
 
 class SnapshotOpenInterest(BaseModel):
