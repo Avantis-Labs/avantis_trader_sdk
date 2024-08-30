@@ -1,6 +1,6 @@
 import asyncio
 from .rpc_helpers import map_output_to_pairs
-from ..types import MarginFee, PairSpread, Fee, TradeInput
+from ..types import MarginFee, PairSpread, Fee
 from typing import Optional
 
 

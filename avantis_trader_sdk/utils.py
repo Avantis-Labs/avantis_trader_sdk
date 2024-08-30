@@ -69,6 +69,7 @@ def decoder(web3, contract, function_name, raw_output):
     abi_outputs = [
         output for output in contract.abi if output.get("name") == function_name
     ][0]["outputs"]
+
     output_types = process_output_types(abi_outputs)
     decoded_output = raw_output
     if not isinstance(raw_output, list):
