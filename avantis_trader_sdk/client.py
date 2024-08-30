@@ -144,9 +144,7 @@ class TraderClient:
         Returns:
             The signed transaction object.
         """
-        return await self.async_web3.eth.account.sign_transaction(
-            transaction, private_key
-        )
+        return self.async_web3.eth.account.sign_transaction(transaction, private_key)
 
     async def send_and_get_transaction_hash(self, signed_txn):
         """

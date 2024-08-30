@@ -31,7 +31,7 @@ async def main():
     # Prepare trade input
     trade_input = TradeInput(
         trader=trader,  # Trader's wallet address
-        open_price=1500,  # Open price of the trade
+        open_price=1500,  # Open price of the trade (Desired execution price)
         pair_index=pair_index_of_eth_usd,  # Pair index
         collateral_in_trade=10,  # Amount of collateral in trade (in USDC)
         is_long=True,  # True for long, False for short

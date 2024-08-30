@@ -152,7 +152,7 @@ class Spread(BaseModel):
 
     @model_validator(mode="before")
     def check_at_least_one(cls, values):
-        if not values.data.get("long") and not values.data.get("short"):
+        if not values.get("long") and not values.get("short"):
             raise ValueError('At least one of "long" or "short" must be present.')
         return values
 
@@ -163,7 +163,7 @@ class Depth(BaseModel):
 
     @model_validator(mode="before")
     def check_at_least_one(cls, values):
-        if not values.data.get("above") and not values.data.get("below"):
+        if not values.get("above") and not values.get("below"):
             raise ValueError('At least one of "above" or "below" must be present.')
         return values
 
@@ -174,7 +174,7 @@ class Fee(BaseModel):
 
     @model_validator(mode="before")
     def check_at_least_one(cls, values):
-        if not values.data.get("long") and not values.data.get("short"):
+        if not values.get("long") and not values.get("short"):
             raise ValueError('At least one of "long" or "short" must be present.')
         return values
 
@@ -190,7 +190,7 @@ class TradeInput(BaseModel):
     leverage: int
     tp: Optional[int] = 0
     sl: Optional[int] = 0
-    timestamp: Optional[int] = None
+    timestamp: Optional[int] = 0
 
     @field_validator("trader")
     def validate_eth_address(cls, v):
@@ -318,7 +318,7 @@ class TradeExtendedResponse(BaseModel):
 class PendingLimitOrderResponse(BaseModel):
     trader: str
     pair_index: int = Field(..., alias="pairIndex")
-    index: int
+    trade_index: int = Field(0, alias="index")
     open_collateral: float = Field(..., alias="positionSize")
     buy: bool
     leverage: int

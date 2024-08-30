@@ -66,10 +66,10 @@ async def main():
     order_to_cancel = pendingOpenLimitOrders[0]
 
     # Close trade
-    close_transaction = trader_client.trade.build_order_cancel_tx(
+    close_transaction = await trader_client.trade.build_order_cancel_tx(
         trader=trader,
         pair_index=order_to_cancel.pair_index,
-        trade_index=order_to_cancel.index,
+        trade_index=order_to_cancel.trade_index,
     )
 
     receipt = await trader_client.sign_and_get_receipt(private_key, close_transaction)

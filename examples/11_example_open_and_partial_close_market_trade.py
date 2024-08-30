@@ -32,6 +32,7 @@ async def main():
     # Prepare trade input
     trade_input = TradeInput(
         trader=trader,  # Trader's wallet address
+        open_price=None,  # (Optional) Open price of the trade. If None then it will default to the current price
         pair_index=pair_index_of_eth_usd,  # Pair index
         collateral_in_trade=10,  # Amount of collateral in trade (in USDC)
         is_long=True,  # True for long, False for short
@@ -69,10 +70,10 @@ async def main():
     trade_to_close = trades[0]
 
     # Close trade
-    close_transaction = trader_client.trade.build_trade_close_tx(
+    close_transaction = await trader_client.trade.build_trade_close_tx(
         trader=trader,
         pair_index=trade_to_close.trade.pair_index,
-        trade_index=trade_to_close.trade.index,
+        trade_index=trade_to_close.trade.trade_index,
         collateral_to_close=trade_to_close.trade.open_collateral
         / 2,  # Close half of the trade
     )

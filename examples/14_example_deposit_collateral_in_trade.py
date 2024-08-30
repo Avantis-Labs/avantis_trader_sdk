@@ -22,19 +22,19 @@ async def main():
     trader_client = TraderClient(provider_url)
 
     # Get opentrades
-    (trades,) = await trader_client.trade.get_trades(trader)
+    (trades, _) = await trader_client.trade.get_trades(trader)
     print("Trades: ", trades)
 
     # Select first trade to update
     trade_to_update = trades[0]
 
     # Update trade
-    deposit_transaction = trader_client.trade.build_trade_margin_update_tx(
+    deposit_transaction = await trader_client.trade.build_trade_margin_update_tx(
         trader=trader,
         pair_index=trade_to_update.trade.pair_index,
-        trade_index=trade_to_update.trade.index,
+        trade_index=trade_to_update.trade.trade_index,
         margin_update_type=MarginUpdateType.DEPOSIT,  # Type of margin update (DEPOSIT or WITHDRAW)
-        collateral_change=10,  # Amount of collateral to deposit or withdraw
+        collateral_change=5,  # Amount of collateral to deposit or withdraw
     )
 
     receipt = await trader_client.sign_and_get_receipt(private_key, deposit_transaction)

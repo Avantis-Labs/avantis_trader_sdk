@@ -15,13 +15,6 @@ async def main():
     result = await trader_client.pairs_cache.get_pairs_info()
     print(result)
 
-    print("----- PAIR CONSTANT SPREAD -----")
-    for index in result:
-        print(result[index].constant_spread_bps)
-
-    constant_spread = await trader_client.fee_parameters.constant_spread_parameter()
-    print(constant_spread)
-
     print("----- GETTING SNAPSHOT -----")
     result = await trader_client.snapshot.get_snapshot()
     print(result)

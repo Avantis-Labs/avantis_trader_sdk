@@ -29,10 +29,10 @@ async def main():
     trade_to_update = trades[0]
 
     # Update trade
-    deposit_transaction = trader_client.trade.build_trade_margin_update_tx(
+    deposit_transaction = await trader_client.trade.build_trade_margin_update_tx(
         trader=trader,
         pair_index=trade_to_update.trade.pair_index,
-        trade_index=trade_to_update.trade.index,
+        trade_index=trade_to_update.trade.trade_index,
         margin_update_type=MarginUpdateType.WITHDRAW,  # Type of margin update (DEPOSIT or WITHDRAW)
         collateral_change=10,  # Amount of collateral to deposit or withdraw
     )

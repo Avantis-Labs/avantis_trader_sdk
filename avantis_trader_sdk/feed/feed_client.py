@@ -193,8 +193,6 @@ class FeedClient:
             for i in range(len(data["parsed"])):
                 data["parsed"][i] = PriceFeedResponse(**data["parsed"][i])
 
-            print(data["parsed"])
-
             return PriceFeedUpdatesResponse(**data)
         else:
             response.raise_for_status()

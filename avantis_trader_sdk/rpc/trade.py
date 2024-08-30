@@ -24,6 +24,7 @@ class TradeRPC:
             FeedClient: The FeedClient object.
         """
         self.client = client
+        self.FeedClient = FeedClient
 
     async def build_trade_open_tx(
         self,
@@ -45,6 +46,24 @@ class TradeRPC:
         Trading = self.client.contracts.get("Trading")
 
         execution_fee = await self.get_trade_execution_fee()
+
+        if (
+            trade_input_order_type == TradeInputOrderType.MARKET
+            and not trade_input.openPrice
+        ):
+            feed_client = self.FeedClient()
+            pair_name = await self.client.pairs_cache.get_pair_name_from_index(
+                trade_input.pairIndex
+            )
+            price_data = await feed_client.get_latest_price_updates([pair_name])
+            price = int(price_data.parsed[0].converted_price * 10**10)
+            trade_input.openPrice = price
+
+        if (
+            trade_input_order_type == TradeInputOrderType.LIMIT
+            or trade_input_order_type == TradeInputOrderType.STOP_LIMIT
+        ) and not trade_input.openPrice:
+            raise Exception("Open price is required for LIMIT/STOP LIMIT order type")
 
         transaction = await Trading.functions.openTrade(
             trade_input.model_dump(),
@@ -288,7 +307,7 @@ class TradeRPC:
 
         feed_client = self.FeedClient()
 
-        pair_name = self.client.pairs_cache.get_pair_name_from_index(pair_index)
+        pair_name = await self.client.pairs_cache.get_pair_name_from_index(pair_index)
 
         price_data = await feed_client.get_latest_price_updates([pair_name])
 
@@ -299,7 +318,7 @@ class TradeRPC:
             trade_index,
             margin_update_type.value,
             collateral_change,
-            price_update_data,
+            [price_update_data],
         ).build_transaction(
             {
                 "from": trader,

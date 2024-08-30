@@ -26,6 +26,7 @@ class TradingParametersRPC:
             The loss protection tier as an integer.
         """
         PairInfos = self.client.contracts.get("PairInfos")
+
         response = await PairInfos.functions.lossProtectionTier(
             (
                 trade.trader,
