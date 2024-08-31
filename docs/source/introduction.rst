@@ -20,6 +20,6 @@ The Avantis Trader SDK is designed to simplify and enhance the experience of int
 - Access real-time price feeds for supported trading pairs.
 - Retrieve and analyze key parameters for assets, categories, and trading strategies.
 - Integrate live price updates into applications or trading algorithms.
-- Execute trades and manage positions on the Avantis platform. (Coming soon)
+- Execute trades and manage positions on the Avantis platform.
 
 Whether you are a developer building decentralized finance (DeFi) applications, a trader seeking to automate your strategies, or a market maker looking to optimize your operations, the Avantis Trader SDK offers the functionality you need to succeed in the rapidly evolving world of decentralized trading.

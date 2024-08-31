@@ -181,6 +181,7 @@ class AssetParametersRPC:
             pairs_info = await self.client.pairs_cache.get_pairs_info()
             PairInfos = self.client.contracts.get("PairInfos")
             for pair_index in range(len(pairs_info)):
+
                 if is_long is None:
                     calls.extend(
                         [
@@ -212,11 +213,15 @@ class AssetParametersRPC:
                     )
 
         if response is None:
-            response = await Multicall.functions.aggregate(calls).call()
+            response = await Multicall.functions.tryAggregate(False, calls).call()
             if is_long is None:
                 decoded_response = [
-                    int.from_bytes(value, byteorder="big") / 10**10 * 100
-                    for value in response[1]
+                    (
+                        (int.from_bytes(value, byteorder="big") / 10**10 * 100)
+                        if success
+                        else 0
+                    )
+                    for success, value in response
                 ]
                 if pair is None:
                     return Spread(
@@ -232,8 +237,12 @@ class AssetParametersRPC:
                 decoded_response = map_output_to_pairs(
                     pairs_info,
                     [
-                        int.from_bytes(value, byteorder="big") / 10**10 * 100
-                        for value in response[1]
+                        (
+                            (int.from_bytes(value, byteorder="big") / 10**10 * 100)
+                            if success
+                            else 0
+                        )
+                        for success, value in response
                     ],
                 )
                 return Spread(long=decoded_response)
@@ -241,8 +250,12 @@ class AssetParametersRPC:
                 decoded_response = map_output_to_pairs(
                     pairs_info,
                     [
-                        int.from_bytes(value, byteorder="big") / 10**10 * 100
-                        for value in response[1]
+                        (
+                            (int.from_bytes(value, byteorder="big") / 10**10 * 100)
+                            if success
+                            else 0
+                        )
+                        for success, value in response
                     ],
                 )
                 return Spread(short=decoded_response)

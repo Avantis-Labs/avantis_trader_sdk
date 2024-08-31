@@ -47,7 +47,7 @@ class CategoryParametersRPC:
             int.from_bytes(value, byteorder="big") / 10**6 for value in response[1]
         ]
         decoded_response = {
-            group_index: value
+            str(group_index): value
             for group_index, value in zip(group_indexes, decoded_response)
         }
         return OpenInterestLimits(limits=decoded_response)
@@ -86,11 +86,11 @@ class CategoryParametersRPC:
         ]
 
         long_response = {
-            group_index: value
+            str(group_index): value
             for group_index, value in zip(group_indexes, long_response)
         }
         short_response = {
-            group_index: value
+            str(group_index): value
             for group_index, value in zip(group_indexes, short_response)
         }
 
@@ -190,7 +190,7 @@ class CategoryParametersRPC:
         for group_index in range(len(oi.long)):
             current_oi = oi.long[str(group_index)] + oi.short[str(group_index)]
             limit = oi_limits.limits[str(group_index)]
-            utilization[group_index] = current_oi / limit if limit else 0
+            utilization[str(group_index)] = current_oi / limit if limit else 0
 
         return Utilization(utilization=utilization)
 

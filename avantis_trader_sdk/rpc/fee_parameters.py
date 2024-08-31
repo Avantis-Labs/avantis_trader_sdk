@@ -70,7 +70,12 @@ class FeeParametersRPC:
         return PairSpread(spread=map_output_to_pairs(pairs_info, decoded_response))
 
     async def get_opening_fee(
-        self, position_size: int = 0, is_long: Optional[bool] = None, pair: str = None
+        self,
+        position_size: int = 0,
+        is_long: Optional[bool] = None,
+        pair_index: int = None,
+        pair: str = None,
+        trade_input: TradeInput = None,
     ):
         """
         Retrieves the opening fee for all trading pairs.
@@ -78,11 +83,20 @@ class FeeParametersRPC:
         Args:
             is_long: A boolean indicating if the position is a buy or sell. Defaults to None. If None, the opening fee for both buy and sell will be returned.
             position_size: The size of the position (collateral * leverage). Supports upto 6 decimals. Defaults to 0.
+            pair_index: The pair index for which the opening fee is to be calculated. Defaults to None. If None, the opening fee for all trading pairs will be returned.
             pair: The trading pair for which the opening fee is to be calculated. Defaults to None. If None, the opening fee for all trading pairs will be returned.
+            trade_input: The trade input object. Defaults to None. If provided, the pair index will be extracted from the trade input.
 
         Returns:
-            A Fee instance containing the opening Fee for each trading pair in bps.
+            A Fee instance containing the opening Fee for each trading pair in bps or final opening fee in USDC if trade_input is provided.
         """
+        if trade_input is not None:
+            position_size = (
+                trade_input.positionSizeUSDC / 10**6 * trade_input.leverage / 10**10
+            )
+            pair_index = trade_input.pairIndex
+            is_long = trade_input.buy
+
         position_size = int(position_size * 10**6)
 
         Multicall = self.client.contracts.get("Multicall")
@@ -90,8 +104,13 @@ class FeeParametersRPC:
         calls = []
         response = None
 
-        if pair is not None:
-            pair_index = await self.client.pairs_cache.get_pair_index(pair)
+        if pair is not None or pair_index is not None:
+            if pair_index is None:
+                pair_index = await self.client.pairs_cache.get_pair_index(pair)
+            if pair is None:
+                pair = await self.client.pairs_cache.get_pair_name_from_index(
+                    pair_index
+                )
             PriceAggregator = self.client.contracts.get("PriceAggregator")
             if is_long is None:
                 calls.extend(
@@ -185,6 +204,15 @@ class FeeParametersRPC:
                     ],
                 )
                 return Fee(short=decoded_response)
+        elif trade_input is not None:
+            referral_rebate_percentage = await self.client.trading_parameters.get_trade_referral_rebate_percentage(
+                trade_input.trader
+            )
+            referral_rebate_percentage = 1 - (referral_rebate_percentage / 100)
+            return round(
+                response / 10**12 * position_size / 10**6 * referral_rebate_percentage,
+                18,
+            )
         elif is_long:
             return Fee(long={pair: response / 10**10 * 100})
         else:

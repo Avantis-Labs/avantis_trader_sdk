@@ -31,6 +31,32 @@ To get started with the Avantis Trader SDK, follow these steps to install the pa
 
    If the installation was successful, this command should print the version number of the Avantis Trader SDK.
 
+4. Get pair information:
+
+   .. code-block:: python
+
+      import asyncio
+      from avantis_trader_sdk import TraderClient, __version__
+
+      import avantis_trader_sdk
+
+      print(avantis_trader_sdk.__version__)
+
+
+      async def main():
+         provider_url = "https://mainnet.base.org"
+         trader_client = TraderClient(provider_url)
+
+         print("----- GETTING PAIR INFO -----")
+         result = await trader_client.pairs_cache.get_pairs_info()
+         print(result)
+
+
+      if __name__ == "__main__":
+         asyncio.run(main())
+
+   This command should print a list of trading pairs with their information available on the Avantis platform.
+
 Next Steps
 ----------
 

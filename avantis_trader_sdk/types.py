@@ -1,14 +1,22 @@
-from pydantic import BaseModel, Field, conint, validator, ValidationError
-from typing import Dict, Optional
+from pydantic import (
+    BaseModel,
+    Field,
+    conint,
+    field_validator,
+    ValidationError,
+    model_validator,
+)
+from enum import Enum
+from typing import Dict, Optional, List, Union
 import time
 import re
 
 
 class PairInfoFeed(BaseModel):
-    maxDeviationP: int
-    feedId: str
+    max_deviation_percentage: float = Field(..., alias="maxDeviationP")
+    feed_id: str = Field(..., alias="feedId")
 
-    @validator("maxDeviationP", pre=True, allow_reuse=True)
+    @field_validator("max_deviation_percentage", mode="before")
     def convert_max_deviation(cls, v):
         return v / 10**10
 
@@ -17,7 +25,7 @@ class PairInfo(BaseModel):
     from_: str = Field(..., alias="from")
     to: str
     feed: PairInfoFeed
-    backupFeed: PairInfoFeed
+    backup_feed: PairInfoFeed = Field(..., alias="backupFeed")
     constant_spread_bps: float = Field(..., alias="spreadP")
     price_impact_parameter: float = Field(..., alias="priceImpactMultiplier")
     skew_impact_parameter: float = Field(..., alias="skewImpactMultiplier")
@@ -28,18 +36,16 @@ class PairInfo(BaseModel):
     )
     max_wallet_oi: float = Field(..., alias="maxWalletOI")
 
-    @validator(
-        "price_impact_parameter", "skew_impact_parameter", pre=True, allow_reuse=True
-    )
+    @field_validator("price_impact_parameter", "skew_impact_parameter", mode="before")
     def convert_to_float_10(cls, v):
         return v / 10**10
 
-    @validator("constant_spread_bps", pre=True, allow_reuse=True)
+    @field_validator("constant_spread_bps", mode="before")
     def convert_to_float_10_bps(cls, v):
         return v / 10**10 * 100
 
     class Config:
-        allow_population_by_field_name = True
+        populate_by_name = True
 
 
 class OpenInterest(BaseModel):
@@ -97,7 +103,7 @@ class PairInfoExtended(PairInfo):
     skew_impact_spread_short_bps: float
 
     class Config:
-        allow_population_by_field_name = True
+        populate_by_name = True
 
 
 class PairSpread(BaseModel):
@@ -106,142 +112,260 @@ class PairSpread(BaseModel):
 
 class PriceFeedResponse(BaseModel):
     id: str
-    price: Dict[str, str]
-    ema_price: Dict[str, str]
-    pair: str
+    price: Optional[Union[Dict[str, str], Dict[str, float]]] = None
+    ema_price: Optional[Union[Dict[str, str], Dict[str, float]]] = None
+    pair: Optional[str] = None
+    metadata: Optional[Union[Dict[str, str], Dict[str, float]]] = None
     converted_price: float = 0.0
     converted_ema_price: float = 0.0
 
-    @validator("converted_price", always=True, pre=True)
-    def convert_price(cls, v, values):
+    @model_validator(mode="before")
+    def convert_price(cls, values):
         price_info = values.get("price")
         if price_info:
-            return float(price_info["price"]) / 10 ** -int(price_info["expo"])
-        return v
+            values["converted_price"] = float(price_info["price"]) / 10 ** -int(
+                price_info["expo"]
+            )
 
-    @validator("converted_ema_price", always=True, pre=True)
-    def convert_ema_price(cls, v, values):
         ema_price_info = values.get("ema_price")
         if ema_price_info:
-            return float(ema_price_info["price"]) / 10 ** -int(ema_price_info["expo"])
-        return v
+            values["converted_ema_price"] = float(ema_price_info["price"]) / 10 ** -int(
+                ema_price_info["expo"]
+            )
+
+        return values
+
+
+class PriceFeesUpdateBinary(BaseModel):
+    encoding: str
+    data: List[str]
+
+
+class PriceFeedUpdatesResponse(BaseModel):
+    binary: PriceFeesUpdateBinary
+    parsed: List[PriceFeedResponse]
 
 
 class Spread(BaseModel):
     long: Optional[Dict[str, float]] = None
     short: Optional[Dict[str, float]] = None
 
-    @validator("long", "short", always=True)
-    def check_at_least_one(cls, v, values, field, config, **kwargs):
-        if "long" not in field.name and "short" not in field.name:
+    @model_validator(mode="before")
+    def check_at_least_one(cls, values):
+        if not values.get("long") and not values.get("short"):
             raise ValueError('At least one of "long" or "short" must be present.')
-        return v
+        return values
 
 
 class Depth(BaseModel):
     above: Optional[Dict[str, float]] = None
     below: Optional[Dict[str, float]] = None
 
-    @validator("above", "below", always=True)
-    def check_at_least_one(cls, v, values, field, config, **kwargs):
-        if "above" not in field.name and "below" not in field.name:
+    @model_validator(mode="before")
+    def check_at_least_one(cls, values):
+        if not values.get("above") and not values.get("below"):
             raise ValueError('At least one of "above" or "below" must be present.')
-        return v
+        return values
 
 
 class Fee(BaseModel):
     long: Optional[Dict[str, float]] = None
     short: Optional[Dict[str, float]] = None
 
-    @validator("long", "short", always=True)
-    def check_at_least_one(cls, v, values, field, config, **kwargs):
-        if "long" not in field.name and "short" not in field.name:
+    @model_validator(mode="before")
+    def check_at_least_one(cls, values):
+        if not values.get("long") and not values.get("short"):
             raise ValueError('At least one of "long" or "short" must be present.')
-        return v
-
-
-# struct Trade {
-#         address trader;
-#         uint pairIndex;
-#         uint index;
-#         uint initialPosToken; // 1e6
-#         uint positionSizeUSDC; // 1e6
-#         uint openPrice; // 1e10 PRECISION
-#         bool buy;
-#         uint leverage;
-#         uint tp; // 1e10 PRECISION
-#         uint sl; // 1e10 PRECISION
-#         uint timestamp;
-#     }
+        return values
 
 
 class TradeInput(BaseModel):
     trader: str = "0x1234567890123456789012345678901234567890"
     pairIndex: int = Field(..., alias="pair_index")
     index: int = Field(0, alias="trade_index")
-    initialPosToken: int = Field(..., alias="collateral")
-    positionSizeUSDC: int = Field(0, alias="position_size_usdc")
+    initialPosToken: Optional[int] = Field(None, alias="open_collateral")
+    positionSizeUSDC: Optional[int] = Field(None, alias="collateral_in_trade")
     openPrice: int = Field(0, alias="open_price")
     buy: bool = Field(..., alias="is_long")
     leverage: int
     tp: Optional[int] = 0
     sl: Optional[int] = 0
-    timestamp: Optional[int] = None
+    timestamp: Optional[int] = 0
 
-    @validator("trader")
+    @field_validator("trader")
     def validate_eth_address(cls, v):
         if not re.match(r"^0x[a-fA-F0-9]{40}$", v):
             raise ValueError("Invalid Ethereum address")
         return v
 
-    @validator("tp", always=True)
-    def validate_tp(cls, v, values, **kwargs):
-        if values.get("openPrice") not in [0, None] and v in [0, None]:
+    @field_validator("tp")
+    def validate_tp(cls, v, values):
+        if values.data.get("openPrice") not in [0, None] and v in [0, None]:
             raise ValueError("tp is required when openPrice is provided and is not 0")
         return v
 
-    @validator("openPrice", "tp", "sl", "leverage", pre=True)
+    @field_validator("openPrice", "tp", "sl", "leverage", mode="before")
     def convert_to_float_10(cls, v):
+        if v is None:
+            return 0
         return int(v * 10**10)
 
-    @validator("initialPosToken", "positionSizeUSDC", pre=True, allow_reuse=True)
+    @model_validator(mode="before")
+    def assign_and_validate_collateral_and_position_size_usdc(cls, values):
+        collateral_in_trade = values.pop("position_size_usdc", None)
+        if collateral_in_trade is not None:
+            values["positionSizeUSDC"] = collateral_in_trade
+
+        initialPosToken = values.get("initialPosToken") or values.get("open_collateral")
+        positionSizeUSDC = values.get("positionSizeUSDC") or values.get(
+            "collateral_in_trade"
+        )
+
+        if initialPosToken is None and positionSizeUSDC is None:
+            raise ValueError(
+                "Either 'open_collateral' or 'collateral_in_trade' must be provided."
+            )
+
+        if initialPosToken is not None and positionSizeUSDC is None:
+            values["positionSizeUSDC"] = 0
+        elif positionSizeUSDC is not None and initialPosToken is None:
+            values["initialPosToken"] = 0
+
+        return values
+
+    @field_validator("initialPosToken", "positionSizeUSDC", mode="before")
     def convert_to_float_6(cls, v):
         return int(v * 10**6)
 
-    @validator("timestamp", pre=True, always=True)
+    @field_validator("timestamp", mode="before")
     def set_default_timestamp(cls, v):
-        return v or int(time.time())
+        if v is None:
+            return int(time.time())
+        return v
 
     class Config:
-        allow_population_by_field_name = True
+        populate_by_name = True
+
+
+class TradeInputOrderType(Enum):
+    MARKET = 0
+    STOP_LIMIT = 1
+    LIMIT = 2
 
 
 class TradeResponse(BaseModel):
     trader: str
-    pairIndex: int
-    index: int
-    initialPosToken: int
-    positionSizeUSDC: int
-    openPrice: int
-    buy: bool
-    leverage: int
-    tp: int
-    sl: int
+    pair_index: int = Field(..., alias="pairIndex")
+    trade_index: int = Field(0, alias="index")
+    open_collateral: float = Field(None, alias="initialPosToken")
+    collateral_in_trade: float = Field(None, alias="positionSizeUSDC")
+    open_price: float = Field(0, alias="openPrice")
+    is_long: bool = Field(..., alias="buy")
+    leverage: float
+    tp: float
+    sl: float
     timestamp: int
 
-    @validator("trader")
+    @field_validator("trader")
     def validate_eth_address(cls, v):
         if not re.match(r"^0x[a-fA-F0-9]{40}$", v):
             raise ValueError("Invalid Ethereum address")
         return v
 
-    @validator("openPrice", "tp", "sl", "leverage", pre=True)
+    @field_validator("open_price", "tp", "sl", "leverage", mode="before")
     def convert_to_float_10(cls, v):
         return v / 10**10
 
-    @validator("initialPosToken", "positionSizeUSDC", pre=True, allow_reuse=True)
+    @field_validator("open_collateral", "collateral_in_trade", mode="before")
     def convert_to_float_6(cls, v):
         return v / 10**6
+
+    class Config:
+        populate_by_name = True
+
+
+class TradeInfo(BaseModel):
+    open_interest_usdc: float = Field(..., alias="openInterestUSDC")
+    tp_last_updated: float = Field(..., alias="tpLastUpdated")
+    sl_last_updated: float = Field(..., alias="slLastUpdated")
+    being_market_closed: bool = Field(..., alias="beingMarketClosed")
+    loss_protection_percentage: float = Field(..., alias="lossProtectionPercentage")
+
+    @field_validator("open_interest_usdc", mode="before")
+    def convert_to_float_6(cls, v):
+        return v / 10**6
+
+    class Config:
+        populate_by_name = True
+
+
+class TradeExtendedResponse(BaseModel):
+    trade: TradeResponse
+    additional_info: TradeInfo
+    margin_fee: float
+    liquidation_price: float
+
+    @field_validator("margin_fee", mode="before")
+    def convert_to_float_6(cls, v):
+        return v / 10**6
+
+    @field_validator("liquidation_price", mode="before")
+    def convert_to_float_10(cls, v):
+        return v / 10**10
+
+    class Config:
+        populate_by_name = True
+
+
+class PendingLimitOrderResponse(BaseModel):
+    trader: str
+    pair_index: int = Field(..., alias="pairIndex")
+    trade_index: int = Field(0, alias="index")
+    open_collateral: float = Field(..., alias="positionSize")
+    buy: bool
+    leverage: int
+    tp: float
+    sl: float
+    price: float
+    slippage_percentage: float = Field(..., alias="slippageP")
+    block: int
+
+    @field_validator("trader")
+    def validate_eth_address(cls, v):
+        if not re.match(r"^0x[a-fA-F0-9]{40}$", v):
+            raise ValueError("Invalid Ethereum address")
+        return v
+
+    @field_validator(
+        "price", "tp", "sl", "leverage", "slippage_percentage", mode="before"
+    )
+    def convert_to_float_10(cls, v):
+        return v / 10**10
+
+    @field_validator("open_collateral", mode="before")
+    def convert_to_float_6(cls, v):
+        return v / 10**6
+
+    class Config:
+        populate_by_name = True
+
+
+class PendingLimitOrderExtendedResponse(PendingLimitOrderResponse):
+    liquidation_price: float
+
+    @field_validator("liquidation_price", mode="before")
+    def convert_liq_to_float_10(cls, v):
+        return v / 10**10
+
+
+class MarginUpdateType(Enum):
+    DEPOSIT = 0
+    WITHDRAW = 1
+
+
+class LossProtectionInfo(BaseModel):
+    percentage: float
+    amount: float
 
 
 class SnapshotOpenInterest(BaseModel):
