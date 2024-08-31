@@ -435,6 +435,107 @@ Trading Parameters
 
 The ``trading_parameters`` module provides methods to retrieve and calculate various trading parameters related to opening and closing positions. Reference: :meth:`~avantis_trader_sdk.rpc.trading_parameters.TradingParametersRPC`:
 
+get_loss_protection_percentage
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``get_loss_protection_percentage`` method retrieves the loss protection percentage for a trade. The percentage is determined based on the trade's loss protection tier and the trading pair's index. Loss protection percentages represent the portion of potential losses that are covered under Avantis's reward system.
+
+Read more about loss protection tiers in the `Avantis documentation <https://docs.avantisfi.com/rewards/loss-protection>`_
+
+**Parameters:**
+
+- ``trade`` (:class:`~avantis_trader_sdk.types.TradeInput`): A TradeInput instance containing the trade details.
+
+**Returns:**
+
+- The loss protection percentage as a float.
+
+**Example Usage:**
+
+.. code-block:: python
+
+   trade_input = TradeInput(
+      pair_index=await trader_client.pairs_cache.get_pair_index("ARB/USD"),
+      open_collateral=1,
+      is_long=False,
+      leverage=2,
+   )
+   loss_protection_percentage = await trader_client.trading_parameters.get_loss_protection_percentage(trade_input)
+   print("Loss Protection Percentage:", loss_protection_percentage)
+
+**Notes:**
+
+- The loss protection percentage is calculated based on the trade's loss protection tier and specific market conditions.
+- The percentage reflects the portion of the trade's potential loss that is covered by Avantis's reward system.
+- A higher percentage indicates a greater level of protection against potential losses.
+- To understand how tiers influence percentages, read more about loss protection tiers and percentages `here <https://docs.avantisfi.com/rewards/loss-protection>`_.
+
+get_loss_protection_percentage_by_tier
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``get_loss_protection_percentage_by_tier`` method retrieves the loss protection percentage based on the specified tier and trading pair index. This method is used internally to determine the percentage of loss protection a trade qualifies for, based on its tier and pair index.
+
+**Parameters:**
+
+- ``tier`` (int): The loss protection tier, which determines the level of protection against losses.
+- ``pair_index`` (int): The index of the trading pair. Certain pairs may have specific rules regarding loss protection.
+
+**Returns:**
+
+- The loss protection percentage as an integer.
+
+**Example Usage:**
+
+.. code-block:: python
+
+   tier = 2
+   pair_index = await trader_client.pairs_cache.get_pair_index("ARB/USD")
+   loss_protection_percentage = await trader_client.trading_parameters.get_loss_protection_percentage_by_tier(tier, pair_index)
+   print("Loss Protection Percentage by Tier:", loss_protection_percentage)
+
+**Notes:**
+
+- For pair indexes 0 and 1, tiers 1, 2, and 3 yield a 20% loss protection. Other tiers result in 0% protection.
+- For other pairs, all tiers from 1 and above provide a 10% loss protection.
+- The percentage returned by this method is used in conjunction with the trade's parameters to calculate the overall loss protection amount in USDC.
+- This method helps to standardize the loss protection logic across different trading pairs and tiers.
+
+get_loss_protection_for_trade_input
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``get_loss_protection_for_trade_input`` method retrieves the loss protection details for a given trade. It calculates the loss protection percentage and the corresponding amount in USDC based on the trade's parameters and the associated fees.
+
+**Parameters:**
+
+- ``trade`` (:class:`~avantis_trader_sdk.types.TradeInput`): A TradeInput instance containing the trade details.
+- ``opening_fee_usdc`` (float, optional): The opening fee in USDC. If not provided, it will be retrieved using the client's fee parameters.
+
+**Returns:**
+
+- A :class:`~avantis_trader_sdk.types.LossProtectionInfo` instance containing the loss protection percentage and the amount in USDC.
+
+**Example Usage:**
+
+.. code-block:: python
+
+   trade_input = TradeInput(
+      pair_index=await trader_client.pairs_cache.get_pair_index("ARB/USD"),
+      open_collateral=1,
+      is_long=False,
+      leverage=2,
+   )
+   loss_protection_info = await trader_client.trading_parameters.get_loss_protection_for_trade_input(trade_input)
+   print("Loss Protection Percentage:", loss_protection_info.percentage)
+   print("Loss Protection Amount in USDC:", loss_protection_info.amount)
+
+**Notes:**
+
+- The method first calculates the loss protection percentage using the trade's details.
+- If the loss protection percentage is 0, the method returns a LossProtectionInfo instance with both percentage and amount set to 0.
+- If the opening fee in USDC is not provided, it is retrieved from the client's fee parameters.
+- The loss protection amount in USDC is calculated based on the trade's collateral after deducting the opening fee and applying the loss protection percentage.
+- To understand how loss protection is calculated, refer to the `loss protection documentation <https://docs.avantisfi.com/rewards/loss-protection>`_.
+
 
 get_loss_protection_tier
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -467,6 +568,38 @@ The ``get_loss_protection_tier`` method retrieves the loss protection tier for a
 - The loss protection tier is determined based on the trade's parameters and the current market conditions.
 - A higher tier generally indicates a greater level of protection against losses.
 - Read more about loss protection tiers `here <https://docs.avantisfi.com/rewards/loss-protection>`_.
+
+get_trade_referral_rebate_percentage
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``get_trade_referral_rebate_percentage`` method retrieves the trade referral rebate percentage for a given trader. This percentage is based on the referrer's tier and provides a discount on trading fees.
+
+Read more about trade referral rebates in the `Avantis documentation <https://docs.avantisfi.com/rewards/referrals>`_.
+
+**Parameters:**
+
+- ``trader`` (str): The trader's wallet address.
+
+**Returns:**
+
+- The trade referral rebate percentage as a float.
+
+**Example Usage:**
+
+.. code-block:: python
+
+   trader_address = "0xmywalletaddress"
+   rebate_percentage = await trader_client.trading_parameters.get_trade_referral_rebate_percentage(trader_address)
+   print("Trade Referral Rebate Percentage:", rebate_percentage)
+
+**Notes:**
+
+- The method checks if the trader is linked to a referrer. If no valid referrer is found, the rebate percentage is set to 0.
+- If the trader has a valid referrer, the referrer's tier is used to determine the rebate percentage.
+- The rebate percentage is derived from the `feeDiscountPct` field of the referrer's tier information.
+- This method interacts with the `Referral` contract to retrieve necessary information about the trader's referral status and the referrer's tier.
+- The rebate applies to opening and closing fees, providing a discount on the total fee amount.
+
 
 Fee Parameters
 --------------
@@ -521,17 +654,19 @@ The ``get_pair_spread`` method retrieves the spread percentage for all trading p
 get_opening_fee
 ^^^^^^^^^^^^^^^
 
-The ``get_opening_fee`` method retrieves the opening fee for all trading pairs. The opening fee is a fee charged when opening a new position.
+The ``get_opening_fee`` method retrieves the opening fee for trading pairs. The opening fee is charged when opening a new position and can be calculated for specific pairs, long or short positions, or based on a provided `trade_input`.
 
 **Parameters:**
 
-- ``position_size`` (int): The size of the position (collateral * leverage). Supports up to 6 decimals. Defaults to 0.
-- ``is_long`` (Optional[bool]): A boolean indicating if the position is a buy (long) or sell (short). Defaults to None. If None, the opening fee for both buy and sell will be returned.
+- ``position_size`` (int, optional): The size of the position (collateral * leverage). Supports up to 6 decimals. Defaults to 0.
+- ``is_long`` (Optional[bool], optional): A boolean indicating if the position is a buy (long) or sell (short). Defaults to None. If None, the opening fee for both buy and sell will be returned.
+- ``pair_index`` (int, optional): The pair index for which the opening fee is to be calculated. Defaults to None. If None, the opening fee for all trading pairs will be returned.
 - ``pair`` (str, optional): The trading pair for which the opening fee is to be calculated. Defaults to None. If None, the opening fee for all trading pairs will be returned.
+- ``trade_input`` (:class:`~avantis_trader_sdk.types.TradeInput`, optional): A TradeInput instance containing the trade details. If provided, the pair index, position size, and is_long will be derived from this object.
 
 **Returns:**
 
-- A :class:`~avantis_trader_sdk.types.Fee` instance containing the opening fee for each trading pair. The ``long`` and ``short`` dictionaries within the ``Fee`` instance map each trading pair (e.g., "ETH/USD") to its corresponding opening fee for long and short positions, respectively.
+- A :class:`~avantis_trader_sdk.types.Fee` instance containing the opening fee for each trading pair in basis points (bps). If `trade_input` is provided, the method returns the final opening fee in USDC.
 
 **Example Usage:**
 
@@ -555,10 +690,22 @@ The ``get_opening_fee`` method retrieves the opening fee for all trading pairs. 
    print("Opening Fee for all pairs (Long):", opening_fee.long)
    print("Opening Fee for all pairs (Short):", opening_fee.short)
 
+   # Example 5: Use trade_input to get the opening fee for a specific trade
+   trade_input = TradeInput(
+       pair_index=await trader_client.pairs_cache.get_pair_index("ETH/USD"),
+       open_collateral=1,
+       is_long=True,
+       leverage=2,
+   )
+   opening_fee = await trader_client.fee_parameters.get_opening_fee(trade_input=trade_input)
+   print("Opening Fee for trade (in USDC):", opening_fee)
+
 **Notes:**
 
-- The opening fee is expressed as a percentage of the position size.
-- The fee is applied when opening a new position and is deducted from the position's initial margin.
+- If `trade_input` is provided, the method automatically calculates the position size, pair index, and whether the position is long or short based on the trade input.
+- The method can return either the opening fee for specific pairs and directions (long/short) or the final opening fee in USDC if a `trade_input` is provided.
+- The opening fee is expressed as a percentage of the position size and is applied when opening a new position.
+- For more precise calculations, the method also accounts for referral rebates when calculating the final opening fee in USDC.
 
 
 Price Feed
