@@ -8,7 +8,7 @@ print(avantis_trader_sdk.__version__)
 
 
 async def main():
-    provider_url = "https://mainnet.base.org"
+    provider_url = "https://mainnet.base.org"  # Find provider URL for Base Mainnet Chain from https://chainlist.org/chain/8453 or use a dedicated node (Alchemy, Infura, etc.)
     trader_client = TraderClient(provider_url)
 
     print("----- GETTING PAIR INFO -----")
@@ -31,7 +31,7 @@ async def main():
         skew_impact_spread,
         opening_price_impact_spread,
         opening_fee,
-        loss_protection_tier,
+        loss_protection_percentage,
     ) = await asyncio.gather(
         trader_client.asset_parameters.get_oi_limits(),
         trader_client.asset_parameters.get_oi(),
@@ -49,7 +49,7 @@ async def main():
             "ETH/USD", 100.5, 3200, True
         ),
         trader_client.fee_parameters.get_opening_fee(1000),
-        trader_client.trading_parameters.get_loss_protection_tier(
+        trader_client.trading_parameters.get_loss_protection_percentage(
             TradeInput(
                 pair_index=await trader_client.pairs_cache.get_pair_index("ARB/USD"),
                 open_collateral=1,
@@ -87,7 +87,10 @@ async def main():
     print("-------------------------")
     print("Opening Fee:", opening_fee)
     print("-------------------------")
-    print("Loss Protection Tier:", loss_protection_tier)
+    print(
+        "Loss Protection Percentage (Read more: https://docs.avantisfi.com/rewards/loss-protection):",
+        loss_protection_percentage,
+    )
     print("-------------------------")
 
 

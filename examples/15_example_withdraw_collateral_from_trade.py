@@ -18,7 +18,7 @@ trader = "0xmywalletaddress"
 
 async def main():
     # Initialize TraderClient
-    provider_url = "https://mainnet.base.org"
+    provider_url = "https://mainnet.base.org"  # Find provider URL for Base Mainnet Chain from https://chainlist.org/chain/8453 or use a dedicated node (Alchemy, Infura, etc.)
     trader_client = TraderClient(provider_url)
 
     # Get opentrades
@@ -27,6 +27,11 @@ async def main():
 
     # Select first trade to update
     trade_to_update = trades[0]
+
+    # ---------------------------------------------
+    # NOTE: Any accrued margin fee on the trade will
+    # be deducted from the remaining collateral
+    # ---------------------------------------------
 
     # Update trade
     deposit_transaction = await trader_client.trade.build_trade_margin_update_tx(

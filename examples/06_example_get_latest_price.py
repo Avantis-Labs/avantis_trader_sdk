@@ -14,6 +14,13 @@ async def main():
     print("ETH/USD: ", price_data.parsed[0])
     print("BTC/USD: ", price_data.parsed[1])
 
+    # If you would like to use the feed ids instead
+    # Get the feed ID from https://pyth.network/developers/price-feed-ids
+    price_data = await feed_client.get_latest_price_updates(
+        ["0x09f7c1d7dfbb7df2b8fe3d3d87ee94a2259d212da4f30c1f0540d066dfa44723"]
+    )
+    print("ETH/USD: ", price_data.parsed[0])
+
 
 if __name__ == "__main__":
     asyncio.run(main())

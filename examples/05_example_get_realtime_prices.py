@@ -20,6 +20,7 @@ async def main():
     )
 
     # You can use the feed id or pair name to register callbacks
+    # Get the feed ID from https://pyth.network/developers/price-feed-ids
     feed_client.register_price_feed_callback(
         "0x09f7c1d7dfbb7df2b8fe3d3d87ee94a2259d212da4f30c1f0540d066dfa44723",
         lambda data: print(data),

@@ -17,6 +17,7 @@ Contents:
    getting_started
    configuration
    usage
+   trade
    price_feed_integration
    advanced_topics
    api_reference

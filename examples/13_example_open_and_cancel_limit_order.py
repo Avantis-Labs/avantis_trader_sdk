@@ -18,7 +18,7 @@ trader = "0xmywalletaddress"
 # We will first prepare trade input, then open a order, get opened order's info and finally cancel the order
 async def main():
     # Initialize TraderClient
-    provider_url = "https://mainnet.base.org"
+    provider_url = "https://mainnet.base.org"  # Find provider URL for Base Mainnet Chain from https://chainlist.org/chain/8453 or use a dedicated node (Alchemy, Infura, etc.)
     trader_client = TraderClient(provider_url)
 
     # Get trader's USDC balance
@@ -41,6 +41,29 @@ async def main():
         sl=0,  # Stop loss price
         timestamp=0,  # Timestamp of the trade. 0 for now
     )
+
+    # ---------------------------------------------
+    # Get opening fee data
+    # Read more: https://docs.avantisfi.com/trading/trading-fees/crypto#dynamic-opening-fee-0.04-0.1-position-size
+    opening_fee_usdc = await trader_client.fee_parameters.get_opening_fee(
+        trade_input=trade_input
+    )
+    print(f"Opening fee for this trade: {opening_fee_usdc} USDC")
+
+    # Get loss protection percentage
+    # Read more: https://docs.avantisfi.com/rewards/loss-protection
+    loss_protection_info = (
+        await trader_client.trading_parameters.get_loss_protection_for_trade_input(
+            trade_input, opening_fee_usdc=opening_fee_usdc
+        )
+    )  # Opening fee is optional (it will be calculated if not provided)
+    print(
+        f"Loss protection percentage for this trade (Read more: https://docs.avantisfi.com/rewards/loss-protection): {loss_protection_info.percentage}%"
+    )
+    print(
+        f"You'll receive up to ${loss_protection_info.amount} as a loss rebate if the trade goes against you."
+    )
+    # ---------------------------------------------
 
     # 1% slippage
     slippage_percentage = 1

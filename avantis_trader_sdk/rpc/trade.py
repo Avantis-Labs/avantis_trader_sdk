@@ -153,7 +153,7 @@ class TradeRPC:
                     "tpLastUpdated": trade_info[1],
                     "slLastUpdated": trade_info[2],
                     "beingMarketClosed": trade_info[3],
-                    "lossProtectionPercentage": await self.get_loss_protection_percentage_by_tier(
+                    "lossProtectionPercentage": await self.client.trading_parameters.get_loss_protection_percentage_by_tier(
                         trade_info[4], trade[1]
                     ),
                 },
@@ -196,30 +196,6 @@ class TradeRPC:
             )
 
         return trades, pendingOpenLimitOrders
-
-    async def get_loss_protection_percentage_by_tier(self, tier: int, pair_index: int):
-        """
-        Gets the loss protection tier.
-
-        Args:
-            tier: The tier.
-            pair_index: The pair index.
-
-        Returns:
-            The loss protection percentage.
-        """
-        if pair_index in [0, 1]:
-            if tier in [1, 2, 3]:
-                return 20
-            else:
-                return 0
-        if tier == 1:
-            return 10
-        if tier == 2:
-            return 10
-        if tier >= 3:
-            return 10
-        return 0
 
     async def build_trade_close_tx(
         self, trader: str, pair_index: int, trade_index: int, collateral_to_close: float

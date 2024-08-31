@@ -1,5 +1,5 @@
-Usage
-=====
+Get Information and Parameters
+==============================
 
 The Avantis Trader SDK provides various methods to interact with Avantis contracts and retrieve trading parameters. Below are examples for each category.
 
@@ -23,7 +23,7 @@ The ``get_snapshot`` method retrieves the current snapshot of the trading parame
    snapshot = await trader_client.snapshot.get_snapshot()
    print("Snapshot:", snapshot)
 
-Pairs Cache
+Pairs Info
 -----------
 
 The ``pairs_cache`` module provides methods to retrieve trading pairs and their details. Reference: :meth:`~avantis_trader_sdk.rpc.pairs_cache.PairsCache`:
@@ -455,7 +455,7 @@ The ``get_loss_protection_tier`` method retrieves the loss protection tier for a
 
    trade_input = TradeInput(
       pair_index=await trader_client.pairs_cache.get_pair_index("ARB/USD"),
-      collateral=1,
+      open_collateral=1,
       is_long=False,
       leverage=2,
    )

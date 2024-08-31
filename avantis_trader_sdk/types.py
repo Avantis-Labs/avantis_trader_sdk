@@ -13,10 +13,10 @@ import re
 
 
 class PairInfoFeed(BaseModel):
-    maxDeviationP: float
-    feedId: str
+    max_deviation_percentage: float = Field(..., alias="maxDeviationP")
+    feed_id: str = Field(..., alias="feedId")
 
-    @field_validator("maxDeviationP", mode="before")
+    @field_validator("max_deviation_percentage", mode="before")
     def convert_max_deviation(cls, v):
         return v / 10**10
 
@@ -25,7 +25,7 @@ class PairInfo(BaseModel):
     from_: str = Field(..., alias="from")
     to: str
     feed: PairInfoFeed
-    backupFeed: PairInfoFeed
+    backup_feed: PairInfoFeed = Field(..., alias="backupFeed")
     constant_spread_bps: float = Field(..., alias="spreadP")
     price_impact_parameter: float = Field(..., alias="priceImpactMultiplier")
     skew_impact_parameter: float = Field(..., alias="skewImpactMultiplier")
@@ -184,7 +184,7 @@ class TradeInput(BaseModel):
     pairIndex: int = Field(..., alias="pair_index")
     index: int = Field(0, alias="trade_index")
     initialPosToken: Optional[int] = Field(None, alias="open_collateral")
-    positionSizeUSDC: Optional[int] = Field(None, alias="position_size_usdc")
+    positionSizeUSDC: Optional[int] = Field(None, alias="collateral_in_trade")
     openPrice: int = Field(0, alias="open_price")
     buy: bool = Field(..., alias="is_long")
     leverage: int
@@ -206,11 +206,13 @@ class TradeInput(BaseModel):
 
     @field_validator("openPrice", "tp", "sl", "leverage", mode="before")
     def convert_to_float_10(cls, v):
+        if v is None:
+            return 0
         return int(v * 10**10)
 
     @model_validator(mode="before")
     def assign_and_validate_collateral_and_position_size_usdc(cls, values):
-        collateral_in_trade = values.pop("collateral_in_trade", None)
+        collateral_in_trade = values.pop("position_size_usdc", None)
         if collateral_in_trade is not None:
             values["positionSizeUSDC"] = collateral_in_trade
 
@@ -359,6 +361,11 @@ class PendingLimitOrderExtendedResponse(PendingLimitOrderResponse):
 class MarginUpdateType(Enum):
     DEPOSIT = 0
     WITHDRAW = 1
+
+
+class LossProtectionInfo(BaseModel):
+    percentage: float
+    amount: float
 
 
 class SnapshotOpenInterest(BaseModel):
