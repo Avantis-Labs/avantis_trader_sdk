@@ -12,6 +12,7 @@ Contents:
 - [Getting Started](#getting_started)
   - [Installation](#installation)
   - [Next Steps](#next-steps)
+  - [Examples](#examples)
 
 # Introduction
 
@@ -73,5 +74,11 @@ Once you have installed the Avantis Trader SDK, you can start using it to intera
 - Explore the SDK’s features and capabilities.
 - Access real-time price feeds for various trading pairs.
 - Integrate the SDK into your trading algorithms or DeFi applications.
+
+## Examples
+
+You can find practical examples and sample code for using the Avantis Trader SDK in our GitHub repository. These examples are designed to help you get started quickly and explore the capabilities of the SDK.
+
+📂 [Browse the Examples on GitHub](https://github.com/Avantis-Labs/avantis_trader_sdk/tree/main/examples)
 
 ## 📚 [Read the Full Documentation Here](https://sdk.avantisfi.com/)

@@ -16,6 +16,7 @@ Contents:
    introduction
    getting_started
    configuration
+   examples
    trade
    get_information_and_parameters
    price_feed_integration
