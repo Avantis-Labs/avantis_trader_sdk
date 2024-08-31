@@ -51,3 +51,8 @@ Methods
     :members:
     :undoc-members:
     :show-inheritance:
+
+.. autoclass:: avantis_trader_sdk.rpc.trade.TradeRPC
+    :members:
+    :undoc-members:
+    :show-inheritance:
