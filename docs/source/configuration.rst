@@ -34,9 +34,9 @@ The final file should look like this:
    provider_url = "https://mainnet.base.org" # Replace with the provider URL for the Base Mainnet Chain
    trader_client = TraderClient(provider_url)
 
-Feed Configuration
-------------------
-Used for getting real-time price updates. (This step can be skipped if you don't need real-time price updates.)
+Feed Configuration (Optional)
+--------------------------
+Used for getting real-time price updates. This step can be skipped if you don't need real-time price updates.
 
 1. Create an instance of the `FeedClient` class with the WebSocket URL for real-time price feeds.
 
