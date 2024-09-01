@@ -71,7 +71,7 @@ class FeeParametersRPC:
 
     async def get_opening_fee(
         self,
-        position_size: int = 0,
+        position_size: float = 0,
         is_long: Optional[bool] = None,
         pair_index: int = None,
         pair: str = None,

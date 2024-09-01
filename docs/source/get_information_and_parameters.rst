@@ -658,7 +658,7 @@ The ``get_opening_fee`` method retrieves the opening fee for trading pairs. The 
 
 **Parameters:**
 
-- ``position_size`` (int, optional): The size of the position (collateral * leverage). Supports up to 6 decimals. Defaults to 0.
+- ``position_size`` (float, optional): The size of the position (collateral * leverage). Supports up to 6 decimals. Defaults to 0.
 - ``is_long`` (Optional[bool], optional): A boolean indicating if the position is a buy (long) or sell (short). Defaults to None. If None, the opening fee for both buy and sell will be returned.
 - ``pair_index`` (int, optional): The pair index for which the opening fee is to be calculated. Defaults to None. If None, the opening fee for all trading pairs will be returned.
 - ``pair`` (str, optional): The trading pair for which the opening fee is to be calculated. Defaults to None. If None, the opening fee for all trading pairs will be returned.
