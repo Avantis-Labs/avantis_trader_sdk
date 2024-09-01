@@ -10,7 +10,7 @@ The ``read_contract`` method allows you to call a read-only function of a contra
 - ``contract_name`` (str): The name of the contract.
 - ``function_name`` (str): The name of the function.
 - ``args``: The arguments to the function.
-- ``decode`` (bool, optional): A boolean indicating whether to decode the result.
+- ``decode`` (bool, optional, default is True): A boolean indicating whether to decode the result.
 
 **Returns:**
 
@@ -20,6 +20,6 @@ The ``read_contract`` method allows you to call a read-only function of a contra
 
 .. code-block:: python
 
-   pairs_count = await trader_client.read_contract("PairStorage", "pairsCount")
+   pairs_count = await trader_client.read_contract("PairStorage", "pairsCount", decode=False)
    print("Pairs Count:", pairs_count)
 
