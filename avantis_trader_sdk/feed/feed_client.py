@@ -11,7 +11,13 @@ class FeedClient:
     Client for interacting with the Pyth price feed websocket.
     """
 
-    def __init__(self, ws_url=None, on_error=None, on_close=None):
+    def __init__(
+        self,
+        ws_url=None,
+        on_error=None,
+        on_close=None,
+        hermes_url="https://hermes.pyth.network/v2/updates/price/latest",
+    ):
         """
         Constructor for the FeedClient class.
 
@@ -28,6 +34,7 @@ class FeedClient:
             raise ValueError("ws_url must start with ws:// or wss://")
 
         self.ws_url = ws_url
+        self.hermes_url = hermes_url
         self.pair_feeds = {}
         self.feed_pairs = {}
         self.price_feed_callbacks = {}
@@ -166,7 +173,7 @@ class FeedClient:
         Returns:
             A PriceFeedUpdatesResponse object containing the latest price updates.
         """
-        url = "https://hermes.pyth.network/v2/updates/price/latest"
+        url = self.hermes_url
 
         feedIds = []
 
