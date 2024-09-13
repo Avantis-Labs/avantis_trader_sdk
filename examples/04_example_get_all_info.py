@@ -102,7 +102,7 @@ async def main():
     )
     print("-------------------------")
 
-    ws_url = "<YOUR WEBSOCKET URL>"
+    ws_url = "wss://hermes.pyth.network/ws"
 
     feed_client = FeedClient(
         ws_url, on_error=ws_error_handler, on_close=ws_error_handler

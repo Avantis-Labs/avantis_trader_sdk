@@ -13,7 +13,7 @@ class FeedClient:
 
     def __init__(
         self,
-        ws_url=None,
+        ws_url="wss://hermes.pyth.network/ws",
         on_error=None,
         on_close=None,
         hermes_url="https://hermes.pyth.network/v2/updates/price/latest",
