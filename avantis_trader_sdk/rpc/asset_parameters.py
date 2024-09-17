@@ -160,11 +160,11 @@ class AssetParametersRPC:
                   [
                         (
                             PairInfos.address,
-                            (await PairInfos.functions.getSkewImpactSpread(pair_index, True, position_size).build_transaction())['data'],
+                            (await PairInfos.functions.getPriceImpactSpread(pair_index, True, position_size).build_transaction())['data'],
                         ),
                         (
                             PairInfos.address,
-                            (await PairInfos.functions.getSkewImpactSpread(pair_index, False, position_size).build_transaction())['data'],
+                            (await PairInfos.functions.getPriceImpactSpread(pair_index, False, position_size).build_transaction())['data'],
                         ),
                     ]
                 )
@@ -276,11 +276,11 @@ class AssetParametersRPC:
                     [
                         (
                             PairInfos.address,
-                            (await PairInfos.functions.getPriceImpactSpread(pair_index, True, position_size).build_transaction())['data'],
+                            (await PairInfos.functions.getSkewImpactSpread(pair_index, True, position_size).build_transaction())['data'],
                         ),
                         (
                             PairInfos.address,
-                            (await PairInfos.functions.getPriceImpactSpread(pair_index, False, position_size).build_transaction())['data'],
+                            (await PairInfos.functions.getSkewImpactSpread(pair_index, False, position_size).build_transaction())['data'],
                         ),
                     ]
                 )
@@ -297,11 +297,11 @@ class AssetParametersRPC:
                         [
                             (
                                 PairInfos.address,
-                                (await PairInfos.functions.getPriceImpactSpread(pair_index, True, position_size).build_transaction())['data'],
+                                (await PairInfos.functions.getSkewImpactSpread(pair_index, True, position_size).build_transaction())['data'],
                             ),
                             (
                                 PairInfos.address,
-                                (await PairInfos.functions.getPriceImpactSpread(pair_index, False, position_size).build_transaction())['data'],
+                                (await PairInfos.functions.getSkewImpactSpread(pair_index, False, position_size).build_transaction())['data'],
                             ),
                         ]
                     )
@@ -309,7 +309,7 @@ class AssetParametersRPC:
                     calls.append(
                         (
                             PairInfos.address,
-                            (await PairInfos.functions.getPriceImpactSpread(pair_index, is_long, position_size).build_transaction())['data'],
+                            (await PairInfos.functions.getSkewImpactSpread(pair_index, is_long, position_size).build_transaction())['data'],
                         )
                     )
 
@@ -389,11 +389,11 @@ class AssetParametersRPC:
                 [
                     (
                         PairInfos.address,
-                        (await PairInfos.functions.getPriceImpactSpread(pair_index, True, position_size).build_transaction())['data'],
+                        (await PairInfos.functions.getTradePriceImpact(pair_index, True, position_size).build_transaction())['data'],
                     ),
                     (
                         PairInfos.address,
-                        (await PairInfos.functions.getPriceImpactSpread(pair_index, False, position_size).build_transaction())['data'],
+                        (await PairInfos.functions.getTradePriceImpact(pair_index, False, position_size).build_transaction())['data'],
                     ),
                 ]
             )
