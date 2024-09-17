@@ -203,8 +203,12 @@ class AssetParametersRPC:
             response = await Multicall.functions.tryAggregate(False, calls).call()
             if is_long is None:
                 decoded_response = [
-                    int.from_bytes(value, byteorder="big", signed=True) / 10**10 * 100
-                    for value in response[1]
+                    (
+                        (int.from_bytes(value, byteorder="big") / 10**10 * 100)
+                        if success
+                        else 0
+                    )
+                    for success, value in response
                 ]
                 if pair is None:
                     return Spread(
