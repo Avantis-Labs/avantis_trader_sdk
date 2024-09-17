@@ -39,7 +39,8 @@ class AssetParametersRPC:
         pairs_info = await self.client.pairs_cache.get_pairs_info()
         calls = []
         for pair_index in range(len(pairs_info)):
-            call_data = PairStorage.encodeABI(fn_name="pairMaxOI", args=[pair_index])
+            tx = PairStorage.functions.pairMaxOI(pair_index).build_transaction()
+            call_data = tx['data']
             calls.append((PairStorage.address, call_data))
 
         response = await Multicall.functions.aggregate(calls).call()
@@ -88,7 +89,7 @@ class AssetParametersRPC:
         pairs_info = await self.client.pairs_cache.get_pairs_info()
         calls = []
         for pair_index in range(len(pairs_info)):
-            call_data = TradingStorage.encodeABI(fn_name="pairOI", args=[pair_index])
+            call_data = TradingStorage.functions.pairOI(pair_index).build_transaction()['data']
             calls.append((TradingStorage.address, call_data))
 
         oi_limits_task = self.get_oi_limits()
@@ -156,23 +157,18 @@ class AssetParametersRPC:
             PairInfos = self.client.contracts.get("PairInfos")
             if is_long is None:
                 calls.extend(
-                    [
+                  [
                         (
                             PairInfos.address,
-                            PairInfos.encodeABI(
-                                fn_name="getPriceImpactSpread",
-                                args=[pair_index, True, position_size],
-                            ),
+                            (await PairInfos.functions.getSkewImpactSpread(pair_index, True, position_size).build_transaction())['data'],
                         ),
                         (
                             PairInfos.address,
-                            PairInfos.encodeABI(
-                                fn_name="getPriceImpactSpread",
-                                args=[pair_index, False, position_size],
-                            ),
+                            (await PairInfos.functions.getSkewImpactSpread(pair_index, False, position_size).build_transaction())['data'],
                         ),
                     ]
                 )
+
             else:
                 response = await PairInfos.functions.getPriceImpactSpread(
                     pair_index, is_long, position_size
@@ -187,17 +183,11 @@ class AssetParametersRPC:
                         [
                             (
                                 PairInfos.address,
-                                PairInfos.encodeABI(
-                                    fn_name="getPriceImpactSpread",
-                                    args=[pair_index, True, position_size],
-                                ),
+                                (await PairInfos.functions.getPriceImpactSpread(pair_index, True, position_size).build_transaction())['data'],
                             ),
                             (
                                 PairInfos.address,
-                                PairInfos.encodeABI(
-                                    fn_name="getPriceImpactSpread",
-                                    args=[pair_index, False, position_size],
-                                ),
+                                (await PairInfos.functions.getPriceImpactSpread(pair_index, False, position_size).build_transaction())['data'],
                             ),
                         ]
                     )
@@ -205,10 +195,7 @@ class AssetParametersRPC:
                     calls.append(
                         (
                             PairInfos.address,
-                            PairInfos.encodeABI(
-                                fn_name="getPriceImpactSpread",
-                                args=[pair_index, is_long, position_size],
-                            ),
+                            (await PairInfos.functions.getPriceImpactSpread(pair_index, is_long, position_size).build_transaction())['data'],
                         )
                     )
 
@@ -216,12 +203,8 @@ class AssetParametersRPC:
             response = await Multicall.functions.tryAggregate(False, calls).call()
             if is_long is None:
                 decoded_response = [
-                    (
-                        (int.from_bytes(value, byteorder="big") / 10**10 * 100)
-                        if success
-                        else 0
-                    )
-                    for success, value in response
+                    int.from_bytes(value, byteorder="big", signed=True) / 10**10 * 100
+                    for value in response[1]
                 ]
                 if pair is None:
                     return Spread(
@@ -293,17 +276,11 @@ class AssetParametersRPC:
                     [
                         (
                             PairInfos.address,
-                            PairInfos.encodeABI(
-                                fn_name="getSkewImpactSpread",
-                                args=[pair_index, True, position_size],
-                            ),
+                            (await PairInfos.functions.getPriceImpactSpread(pair_index, True, position_size).build_transaction())['data'],
                         ),
                         (
                             PairInfos.address,
-                            PairInfos.encodeABI(
-                                fn_name="getSkewImpactSpread",
-                                args=[pair_index, False, position_size],
-                            ),
+                            (await PairInfos.functions.getPriceImpactSpread(pair_index, False, position_size).build_transaction())['data'],
                         ),
                     ]
                 )
@@ -320,17 +297,11 @@ class AssetParametersRPC:
                         [
                             (
                                 PairInfos.address,
-                                PairInfos.encodeABI(
-                                    fn_name="getSkewImpactSpread",
-                                    args=[pair_index, True, position_size],
-                                ),
+                                (await PairInfos.functions.getPriceImpactSpread(pair_index, True, position_size).build_transaction())['data'],
                             ),
                             (
                                 PairInfos.address,
-                                PairInfos.encodeABI(
-                                    fn_name="getSkewImpactSpread",
-                                    args=[pair_index, False, position_size],
-                                ),
+                                (await PairInfos.functions.getPriceImpactSpread(pair_index, False, position_size).build_transaction())['data'],
                             ),
                         ]
                     )
@@ -338,10 +309,7 @@ class AssetParametersRPC:
                     calls.append(
                         (
                             PairInfos.address,
-                            PairInfos.encodeABI(
-                                fn_name="getSkewImpactSpread",
-                                args=[pair_index, is_long, position_size],
-                            ),
+                            (await PairInfos.functions.getPriceImpactSpread(pair_index, is_long, position_size).build_transaction())['data'],
                         )
                     )
 
@@ -421,17 +389,11 @@ class AssetParametersRPC:
                 [
                     (
                         PairInfos.address,
-                        PairInfos.encodeABI(
-                            fn_name="getTradePriceImpact",
-                            args=[open_price, pair_index, True, position_size],
-                        ),
+                        (await PairInfos.functions.getPriceImpactSpread(pair_index, True, position_size).build_transaction())['data'],
                     ),
                     (
                         PairInfos.address,
-                        PairInfos.encodeABI(
-                            fn_name="getTradePriceImpact",
-                            args=[open_price, pair_index, False, position_size],
-                        ),
+                        (await PairInfos.functions.getPriceImpactSpread(pair_index, False, position_size).build_transaction())['data'],
                     ),
                 ]
             )
@@ -472,17 +434,11 @@ class AssetParametersRPC:
                 [
                     (
                         PairInfos.address,
-                        PairInfos.encodeABI(
-                            fn_name="getOnePercentDepthAbove",
-                            args=[pair_index],
-                        ),
+                        (await PairInfos.functions.getOnePercentDepthAbove(pair_index).build_transaction())['data'],
                     ),
                     (
                         PairInfos.address,
-                        PairInfos.encodeABI(
-                            fn_name="getOnePercentDepthBelow",
-                            args=[pair_index],
-                        ),
+                        (await PairInfos.functions.getOnePercentDepthBelow(pair_index).build_transaction())['data'],
                     ),
                 ]
             )
