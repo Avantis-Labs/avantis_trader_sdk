@@ -1,6 +1,6 @@
 MAINNET_ADDRESSES = {
     "TradingStorage": "0x8a311D7048c35985aa31C131B9A13e03a5f7422d",
-    "Multicall": "0x118f99aBD7101b528B17AB91c7d7aeFD2Cc1E5c0",
+    "Multicall": "0x06b145b672dc04bba9821e2172728feea0d12ec5",
     "PairStorage": "0x92Ed158d5e423CFdc9eed5Bd7328FFF7CeD6fF94",
     "PairInfos": "0x81F22d0Cc22977c91bEfE648C9fddf1f2bd977e5",
     "PriceAggregator": "0x64e2625621970F8cfA17B294670d61CB883dA511",
