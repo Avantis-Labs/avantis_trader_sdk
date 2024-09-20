@@ -20,6 +20,7 @@ class FeeParametersRPC:
         self.client = client
 
     async def get_margin_fee(self):
+
         """
         Retrieves the margin fee for all trading pairs.
 
@@ -28,7 +29,16 @@ class FeeParametersRPC:
         """
         Multicall = self.client.contracts.get("Multicall")
         pairs_info = await self.client.pairs_cache.get_pairs_info()
-        raw_data = await Multicall.functions.getMargins().call()
+
+        try:
+            raw_data = await Multicall.functions.getMargins().call()
+            # Log the raw data to inspect it
+            print(f"Raw data from getMargins(): {raw_data}")
+        except Exception as e:
+            # Log the error to understand why it's failing
+            print(f"Error while calling getMargins: {e}")
+            raise
+
         decoded = self.client.utils["decoder"](Multicall, "getMargins", raw_data)
 
         for key, value in decoded.items():
@@ -44,7 +54,8 @@ class FeeParametersRPC:
             hourly_margin_fee_short_bps=map_output_to_pairs(
                 pairs_info, decoded["rolloverFeePerBlockShort"]
             ),
-        )
+    )
+
 
     async def constant_spread_parameter(self):
         """
@@ -58,7 +69,8 @@ class FeeParametersRPC:
         pairs_info = await self.client.pairs_cache.get_pairs_info()
         calls = []
         for pair_index in range(len(pairs_info)):
-            call_data = (await PairStorage.functions.pairSpreadP(pair_index).build_transaction())['data']
+            tx = (await PairStorage.functions.pairSpreadP(pair_index).build_transaction())
+            call_data = tx['data']
             calls.append((PairStorage.address, call_data))
 
 
