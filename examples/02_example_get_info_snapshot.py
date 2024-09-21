@@ -7,7 +7,7 @@ print(avantis_trader_sdk.__version__)
 
 
 async def main():
-    provider_url = "https://base-mainnet.g.alchemy.com/v2/bryKu25u57tCOIaIjua3t8_no7V4_MYN"  # Find provider URL for Base Mainnet Chain from https://chainlist.org/chain/8453 or use a dedicated node (Alchemy, Infura, etc.)
+    provider_url = "https://mainnet.base.org"  # Find provider URL for Base Mainnet Chain from https://chainlist.org/chain/8453 or use a dedicated node (Alchemy, Infura, etc.)
     trader_client = TraderClient(provider_url)
 
     print("----- GETTING SNAPSHOT -----")
@@ -21,5 +21,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-# https://base-mainnet.g.alchemy.com/v2/bryKu25u57tCOIaIjua3t8_no7V4_MYN

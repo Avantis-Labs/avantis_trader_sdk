@@ -9,16 +9,16 @@ print(avantis_trader_sdk.__version__)
 
 async def main():
     # Initialize TraderClient
-    provider_url = "https://base-mainnet.g.alchemy.com/v2/bryKu25u57tCOIaIjua3t8_no7V4_MYN"  # Find provider URL for Base Mainnet Chain from https://chainlist.org/chain/8453 or use a dedicated node (Alchemy, Infura, etc.)
+    provider_url = "https://mainnet.base.org"  # Find provider URL for Base Mainnet Chain from https://chainlist.org/chain/8453 or use a dedicated node (Alchemy, Infura, etc.)
     trader_client = TraderClient(provider_url)
 
-    # print("----- GETTING PAIR INFO -----")
-    # result = await trader_client.pairs_cache.get_pairs_info()
-    # print(result)
+    print("----- GETTING PAIR INFO -----")
+    result = await trader_client.pairs_cache.get_pairs_info()
+    print(result)
 
-    # print("----- GETTING SNAPSHOT -----")
-    # result = await trader_client.snapshot.get_snapshot()
-    # print(result)
+    print("----- GETTING SNAPSHOT -----")
+    result = await trader_client.snapshot.get_snapshot()
+    print(result)
 
     # Optionally, you can convert the result to a JSON string
     # json_response = json.dumps(result, default=lambda x: x.__dict__)
