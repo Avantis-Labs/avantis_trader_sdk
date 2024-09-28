@@ -55,18 +55,11 @@ class TradingParametersRPC:
         Returns:
             The loss protection percentage.
         """
-        if pair_index in [0, 1]:
-            if tier in [1, 2, 3]:
-                return 20
-            else:
-                return 0
-        if tier == 1:
-            return 10
-        if tier == 2:
-            return 10
-        if tier >= 3:
-            return 10
-        return 0
+        PairStorage = self.client.contracts.get("PairStorage")
+        data = await PairStorage.functions.lossProtectionMultiplier(
+            pair_index, tier
+        ).call()
+        return 100 - data
 
     async def get_loss_protection_percentage(self, trade: TradeInput):
         """
@@ -82,7 +75,7 @@ class TradingParametersRPC:
         return await self.get_loss_protection_percentage_by_tier(tier, trade.pairIndex)
 
     async def get_loss_protection_for_trade_input(
-        self, trade: TradeInput, opening_fee_usdc: float = None
+        self, trade: TradeInput, opening_fee_usdc: float | None = None
     ):
         """
         Retrieves the loss protection for a trade.
