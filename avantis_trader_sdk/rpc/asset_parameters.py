@@ -146,7 +146,7 @@ class AssetParametersRPC:
         Returns:
             A Spread instance containing the price impact spread for each trading pair in bps.
         """
-        position_size = int(position_size)
+        position_size = int(position_size * 10**6)
 
         Multicall = self.client.contracts.get("Multicall")
 
@@ -260,7 +260,7 @@ class AssetParametersRPC:
         Returns:
             A Spread instance containing the skew impact spread for each trading pair in bps.
         """
-        position_size = int(position_size)
+        position_size = int(position_size * 10**6)
 
         Multicall = self.client.contracts.get("Multicall")
 
