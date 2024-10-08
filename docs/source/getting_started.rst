@@ -12,6 +12,12 @@ To get started with the Avantis Trader SDK, follow these steps to install the pa
 
    .. code-block:: bash
 
+      pip install avantis-trader-sdk==0.2.1
+
+   or
+
+   .. code-block:: bash
+
       pip install git+https://github.com/Avantis-Labs/avantis_trader_sdk.git
 
    Alternatively, if you have a local copy of the source:
