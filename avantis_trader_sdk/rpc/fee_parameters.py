@@ -29,16 +29,7 @@ class FeeParametersRPC:
         """
         Multicall = self.client.contracts.get("Multicall")
         pairs_info = await self.client.pairs_cache.get_pairs_info()
-
-        try:
-            raw_data = await Multicall.functions.getMargins().call()
-            # Log the raw data to inspect it
-            print(f"Raw data from getMargins(): {raw_data}")
-        except Exception as e:
-            # Log the error to understand why it's failing
-            print(f"Error while calling getMargins: {e}")
-            raise
-
+        raw_data = await Multicall.functions.getMargins().call()
         decoded = self.client.utils["decoder"](Multicall, "getMargins", raw_data)
 
         for key, value in decoded.items():
