@@ -156,7 +156,7 @@ class TraderClient:
         Returns:
             The transaction hash.
         """
-        return await self.async_web3.eth.send_raw_transaction(signed_txn.rawTransaction)
+        return await self.async_web3.eth.send_raw_transaction(signed_txn.raw_transaction)
 
     async def wait_for_transaction_receipt(self, tx_hash):
         """
