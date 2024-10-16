@@ -3,6 +3,10 @@ Changelog
 
 This section outlines the changes made in each version of the Avantis Trader SDK
 
+**Version 0.2.2 (2024-10-16)**
+   - Added support for Python v3.6
+   - Handled de-listed pairs gracefully
+
 **Version 0.2.1 (2024-08-31)**
    - Added support for trading.
    - Improved error handling and logging.
