@@ -1,4 +1,5 @@
 from ..types import TradeInput, LossProtectionInfo
+from typing import Optional
 
 
 class TradingParametersRPC:
@@ -75,7 +76,7 @@ class TradingParametersRPC:
         return await self.get_loss_protection_percentage_by_tier(tier, trade.pairIndex)
 
     async def get_loss_protection_for_trade_input(
-        self, trade: TradeInput, opening_fee_usdc: float | None = None
+        self, trade: TradeInput, opening_fee_usdc: Optional[float] = None
     ):
         """
         Retrieves the loss protection for a trade.

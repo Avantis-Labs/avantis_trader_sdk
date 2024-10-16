@@ -45,11 +45,15 @@ class PairsCache:
                 decoded = self.client.utils["decoder"](PairStorage, "pairs", data)
                 decoded_data.append(PairInfo(**decoded))
 
-            for index, pair_info in enumerate(decoded_data):
+            for index, pair_info in enumerate(decoded_data):                
+                if not pair_info.from_:
+                    pair_info.from_ = f"DELISTED_{index}"
+                    pair_info.to = f"DELISTED_{index}"
                 self._pair_info_cache[index] = pair_info
 
             group_indexes = set([pair.group_index for pair in decoded_data])
             self._group_indexes_cache = group_indexes
+            
             self._pair_mapping = {
                 f"{info.from_}/{info.to}": index
                 for index, info in self._pair_info_cache.items()
