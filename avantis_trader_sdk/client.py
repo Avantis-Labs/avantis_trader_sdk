@@ -13,7 +13,9 @@ from .rpc.snapshot import SnapshotRPC
 from .rpc.trade import TradeRPC
 from .utils import decoder
 from .feed.feed_client import FeedClient
-web3_major_version = int(web3_version.split('.')[0])
+
+web3_major_version = int(web3_version.split(".")[0])
+
 
 class TraderClient:
     """
@@ -30,17 +32,18 @@ class TraderClient:
         self.web3 = Web3(
             Web3.HTTPProvider(provider_url, request_kwargs={"timeout": 60})
         )
-        
+
         self.l1_web3 = Web3(
             Web3.HTTPProvider(l1_provider_url, request_kwargs={"timeout": 60})
         )
 
         if web3_major_version >= 6:
             from web3 import AsyncWeb3
+
             self.async_web3 = AsyncWeb3(AsyncWeb3.AsyncHTTPProvider(provider_url))
             self.l1_async_web3 = AsyncWeb3(AsyncWeb3.AsyncHTTPProvider(l1_provider_url))
         else:
-            self.async_web3 =  None
+            self.async_web3 = None
             self.l1_async_web3 = None
 
         self.web3_wrapper = AsyncWeb3Wrapper(self.web3, self.async_web3)

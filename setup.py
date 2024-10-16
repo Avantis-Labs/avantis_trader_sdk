@@ -10,7 +10,7 @@ setup(
     long_description_content_type="text/markdown",
     url="https://avantisfi.com/",
     packages=find_packages(),
-    install_requires=[ "web3>=5.31.4,<7.0", "pydantic>=2.8.2", "websockets>=9.1,<13.0"],
+    install_requires=["web3>=5.31.4,<7.0", "pydantic>=2.8.2", "websockets>=9.1,<13.0"],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",

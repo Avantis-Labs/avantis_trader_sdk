@@ -2,7 +2,8 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from web3 import __version__ as web3_version
 
-web3_major_version = int(web3_version.split('.')[0])
+web3_major_version = int(web3_version.split(".")[0])
+
 
 class AsyncWeb3Wrapper:
     def __init__(self, web3, async_web3=None):
@@ -53,9 +54,13 @@ class AsyncWeb3Wrapper:
         Sends a transaction (write operation) to the contract.
         """
         if web3_major_version >= 6:
-            transaction = await getattr(contract.functions, function_name)(*args).build_transaction(kwargs)
+            transaction = await getattr(contract.functions, function_name)(
+                *args
+            ).build_transaction(kwargs)
         else:
-            transaction = contract.functions[function_name](*args).build_transaction(kwargs)
+            transaction = contract.functions[function_name](*args).build_transaction(
+                kwargs
+            )
 
         return transaction
 
@@ -71,7 +76,8 @@ class AsyncContractFunctionCallWrapper:
         """
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(self.executor, self.function_call.call)
-    
+
+
 class AsyncContractFunctionWrapper:
     def __init__(self, function):
         self.function = function
@@ -85,6 +91,7 @@ class AsyncContractFunctionWrapper:
 
         return AsyncContractFunctionCallWrapper(function_call)
 
+
 class AsyncContractFunctionsWrapper:
     def __init__(self, contract_functions):
         self.contract_functions = contract_functions
@@ -95,6 +102,7 @@ class AsyncContractFunctionsWrapper:
         """
         contract_function = getattr(self.contract_functions, item)
         return AsyncContractFunctionWrapper(contract_function)
+
 
 class AsyncContractWrapper:
     def __init__(self, contract):
