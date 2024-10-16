@@ -1,6 +1,7 @@
 from ..types import TradeInput, LossProtectionInfo
 from typing import Optional
 
+
 class TradingParametersRPC:
     """
     The TradingParametersRPC class contains methods for retrieving trading parameters from the Avantis Protocol.
