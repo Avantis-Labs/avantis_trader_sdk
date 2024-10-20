@@ -105,17 +105,21 @@ class TradingParametersRPC:
             percentage=loss_protection_percentage, amount=loss_protection_usdc
         )
 
-    async def get_trade_referral_rebate_percentage(self, trader: str):
+    async def get_trade_referral_rebate_percentage(self, trader: Optional[str] = None):
         """
         Retrieves the trade referral rebate percentage for a trader.
 
         Args:
-            trader: The trader's wallet address.
+            trader (optional): The trader's wallet address.
 
         Returns:
             The trade referral rebate percentage.
         """
         Referral = self.client.contracts.get("Referral")
+
+        if trader is None:
+            trader = self.client.get_signer().get_ethereum_address()
+
         trader_referral_info = await Referral.functions.getTraderReferralInfo(
             trader
         ).call()

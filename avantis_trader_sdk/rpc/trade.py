@@ -7,6 +7,7 @@ from ..types import (
     PendingLimitOrderExtendedResponse,
     MarginUpdateType,
 )
+from typing import Optional
 import math
 
 
@@ -31,6 +32,7 @@ class TradeRPC:
         trade_input: TradeInput,
         trade_input_order_type: TradeInputOrderType,
         slippage_percentage: int,
+        execution_fee: Optional[float] = None,
     ):
         """
         Builds a transaction to open a trade.
@@ -45,7 +47,16 @@ class TradeRPC:
         """
         Trading = self.client.contracts.get("Trading")
 
-        execution_fee = await self.get_trade_execution_fee()
+        if (
+            trade_input.trader == "0x1234567890123456789012345678901234567890"
+            and self.client.get_signer() is not None
+        ):
+            trade_input.trader = await self.client.get_signer().get_ethereum_address()
+
+        if execution_fee is not None:
+            execution_fee_wei = int(execution_fee * 10**18)
+        else:
+            execution_fee_wei = await self.get_trade_execution_fee()
 
         if (
             trade_input_order_type == TradeInputOrderType.MARKET
@@ -73,7 +84,7 @@ class TradeRPC:
         ).build_transaction(
             {
                 "from": trade_input.trader,
-                "value": execution_fee,
+                "value": execution_fee_wei,
                 "chainId": self.client.chain_id,
                 "nonce": await self.client.get_transaction_count(trade_input.trader),
             }
@@ -89,6 +100,7 @@ class TradeRPC:
             The trade execution fee
         """
         execution_fee = round(0.00035, 18)  # default value
+        execution_fee_wei = int(execution_fee * 10**18)
 
         try:
             feeScalar = 0.001
@@ -107,9 +119,9 @@ class TradeRPC:
             return feeEstimate
         except Exception as e:
             print("Error getting correct trade execution fee. Using fallback: ", e)
-            return execution_fee
+            return execution_fee_wei
 
-    async def get_trades(self, trader: str):
+    async def get_trades(self, trader: Optional[str] = None):
         """
         Gets the trades.
 
@@ -119,6 +131,9 @@ class TradeRPC:
         Returns:
             The trades.
         """
+        if trader is None:
+            trader = self.client.get_signer().get_ethereum_address()
+
         result = (
             await self.client.contracts.get("Multicall")
             .functions.getPositions(trader)
@@ -198,7 +213,11 @@ class TradeRPC:
         return trades, pendingOpenLimitOrders
 
     async def build_trade_close_tx(
-        self, trader: str, pair_index: int, trade_index: int, collateral_to_close: float
+        self,
+        pair_index: int,
+        trade_index: int,
+        collateral_to_close: float,
+        trader: Optional[str] = None,
     ):
         """
         Builds a transaction to close a trade.
@@ -207,11 +226,15 @@ class TradeRPC:
             pair_index: The pair index.
             trade_index: The trade index.
             collateral_to_close: The collateral to close.
+            trader (optional): The trader's wallet address.
 
         Returns:
             A transaction object.
         """
         Trading = self.client.contracts.get("Trading")
+
+        if trader is None:
+            trader = self.client.get_signer().get_ethereum_address()
 
         execution_fee = await self.get_trade_execution_fee()
 
@@ -229,7 +252,7 @@ class TradeRPC:
         return transaction
 
     async def build_order_cancel_tx(
-        self, trader: str, pair_index: int, trade_index: int
+        self, pair_index: int, trade_index: int, trader: Optional[str] = None
     ):
         """
         Builds a transaction to cancel an order.
@@ -237,12 +260,15 @@ class TradeRPC:
         Args:
             pair_index: The pair index.
             trade_index: The trade/order index.
-            position_size: The position size.
+            trader (optional): The trader's wallet address.
 
         Returns:
             A transaction object.
         """
         Trading = self.client.contracts.get("Trading")
+
+        if trader is None:
+            trader = self.client.get_signer().get_ethereum_address()
 
         transaction = await Trading.functions.cancelOpenLimitOrder(
             pair_index, trade_index
@@ -258,11 +284,11 @@ class TradeRPC:
 
     async def build_trade_margin_update_tx(
         self,
-        trader: str,
         pair_index: int,
         trade_index: int,
         margin_update_type: MarginUpdateType,
         collateral_change: float,
+        trader: Optional[str] = None,
     ):
         """
         Builds a transaction to update the margin of a trade.
@@ -272,11 +298,14 @@ class TradeRPC:
             trade_index: The trade index.
             margin_update_type: The margin update type.
             collateral_change: The collateral change.
-
+            trader (optional): The trader's wallet address.
         Returns:
             A transaction object.
         """
         Trading = self.client.contracts.get("Trading")
+
+        if trader is None:
+            trader = self.client.get_signer().get_ethereum_address()
 
         collateral_change = int(collateral_change * 10**6)
         fee_in_wei = 1 * 10**18
