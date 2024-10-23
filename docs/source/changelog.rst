@@ -3,6 +3,9 @@ Changelog
 
 This section outlines the changes made in each version of the Avantis Trader SDK
 
+**Version 0.3.1 (2024-10-23)**
+- Added feed ids for new pairs
+
 **Version 0.3.0 (2024-10-20)**
 
 - **Breaking Changes:**
