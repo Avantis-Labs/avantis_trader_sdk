@@ -1,7 +1,6 @@
 import asyncio
 
 from avantis_trader_sdk import TraderClient
-from avantis_trader_sdk.types import MarginUpdateType
 
 # Trader's private key
 # ---------------------------------------
@@ -26,32 +25,15 @@ async def main():
 
     trader = trader_client.get_signer().get_ethereum_address()
 
-    # Get opentrades
-    (trades,) = await trader_client.trade.get_trades(trader)
-    print("Trades: ", trades)
+    # Check allowance of USDC
+    allowance = await trader_client.get_usdc_allowance_for_trading()
+    print(f"Allowance of {trader} is {allowance} USDC")
 
-    # Select first trade to update
-    trade_to_update = trades[0]
+    # Approve USDC for trading
+    await trader_client.approve_usdc_for_trading(1000000)
 
-    # ---------------------------------------------
-    # NOTE: Any accrued margin fee on the trade will
-    # be deducted from the remaining collateral
-    # ---------------------------------------------
-
-    # Update trade
-    deposit_transaction = await trader_client.trade.build_trade_margin_update_tx(
-        pair_index=trade_to_update.trade.pair_index,
-        trade_index=trade_to_update.trade.trade_index,
-        margin_update_type=MarginUpdateType.WITHDRAW,  # Type of margin update (DEPOSIT or WITHDRAW)
-        collateral_change=10,  # Amount of collateral to deposit or withdraw
-        trader=trader,
-    )
-
-    receipt = await trader_client.sign_and_get_receipt(deposit_transaction)
-
-    print(receipt)
-
-    print("Trade updated successfully!")
+    allowance = await trader_client.get_usdc_allowance_for_trading()
+    print(f"New allowance of {trader} is {allowance} USDC")
 
 
 if __name__ == "__main__":

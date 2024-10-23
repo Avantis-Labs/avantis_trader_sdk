@@ -16,12 +16,28 @@ The ``open_trade`` method allows you to open a new trade. Follow the steps below
    from avantis_trader_sdk import TraderClient, TradeInput, TradeInputOrderType
 
    private_key = "0xmyprivatekey"
-   trader = "0xmywalletaddress"
 
    async def main():
        # Initialize TraderClient
        provider_url = "https://mainnet.base.org"  # Find provider URL for Base Mainnet Chain from https://chainlist.org/chain/8453 or use a dedicated node (Alchemy, Infura, etc.)
        trader_client = TraderClient(provider_url)
+
+       # Set local signer
+       trader_client.set_local_signer(private_key) # Alternatively, you can use set_aws_kms_signer() to use a key from AWS KMS or create your own signer by inheriting BaseSigner class
+
+       trader = trader_client.get_signer().get_ethereum_address()
+
+       # Check allowance of USDC
+       allowance = await trader_client.get_usdc_allowance_for_trading(trader)
+       print(f"Allowance of {trader} is {allowance} USDC")
+      
+       amount_of_collateral = 10
+
+       if allowance < amount_of_collateral:
+        print(f"Allowance of {trader} is less than {amount_of_collateral} USDC. Approving...")
+        await trader_client.approve_usdc_for_trading(amount_of_collateral)
+        allowance = await trader_client.get_usdc_allowance_for_trading(trader)
+        print(f"New allowance of {trader} is {allowance} USDC")
 
        # Get pair index of the pair. For example, ETH/USD
        pair_index_of_eth_usd = await trader_client.pairs_cache.get_pair_index("ETH/USD")
@@ -31,11 +47,11 @@ The ``open_trade`` method allows you to open a new trade. Follow the steps below
            trader=trader,  # Trader's wallet address
            open_price=None,  # (Optional) Open price of the trade. Current price in case of Market orders. If None then it will default to the current price
            pair_index=pair_index_of_eth_usd,  # Pair index
-           collateral_in_trade=10,  # Amount of collateral in trade (in USDC)
+           collateral_in_trade=amount_of_collateral,  # Amount of collateral in trade (in USDC)
            is_long=True,  # True for long, False for short
            leverage=25,  # Leverage for the trade
            index=0,  # This is the index of the trade for a pair (0 for the first trade, 1 for the second, etc.)
-           tp=4000,  # Take profit price. Max allowed is 500% of open price.
+           tp=4000.5,  # Take profit price. Max allowed is 500% of open price.
            sl=0,  # Stop loss price
            timestamp=0,  # Timestamp of the trade. 0 for now
        )
@@ -74,7 +90,7 @@ The ``open_trade`` method allows you to open a new trade. Follow the steps below
            trade_input, trade_input_order_type, slippage_percentage
        )
 
-       receipt = await trader_client.sign_and_get_receipt(private_key, open_transaction)
+       receipt = await trader_client.sign_and_get_receipt(open_transaction)
 
        print(receipt)
        print("Trade opened successfully!")
@@ -216,14 +232,14 @@ The ``close_trade`` method allows you to close an open trade. You can close a tr
 
    # Close trade
    close_transaction = await trader_client.trade.build_trade_close_tx(
-       trader=trader,
        pair_index=trade_to_close.trade.pair_index,
        trade_index=trade_to_close.trade.trade_index,
        collateral_to_close=trade_to_close.trade.open_collateral,  # Amount of collateral to close. Pass full amount to close the trade. Pass partial amount to partially close the trade.
        # collateral_to_close=trade_to_close.trade.open_collateral/2, # Uncomment this to close half of the trade
+       trader=trader,
    )
 
-   receipt = await trader_client.sign_and_get_receipt(private_key, close_transaction)
+   receipt = await trader_client.sign_and_get_receipt(close_transaction)
 
    print(receipt)
    print("Trade closed successfully!")
@@ -261,12 +277,32 @@ The ``open_limit_order`` method allows you to place a limit order. A limit order
    from avantis_trader_sdk import TraderClient, TradeInput, TradeInputOrderType
 
    private_key = "0xmyprivatekey"
-   trader = "0xmywalletaddress"
 
    async def main():
        # Initialize TraderClient
        provider_url = "https://mainnet.base.org"  # Find provider URL for Base Mainnet Chain from https://chainlist.org/chain/8453 or use a dedicated node (Alchemy, Infura, etc.)
        trader_client = TraderClient(provider_url)
+
+       # Set local signer
+       trader_client.set_local_signer(private_key) # Alternatively, you can use set_aws_kms_signer() to use a key from AWS KMS or create your own signer by inheriting BaseSigner class
+
+       trader = trader_client.get_signer().get_ethereum_address()
+
+       # Get trader's USDC balance
+       balance = await trader_client.get_usdc_balance(trader)
+       print(f"Balance of {trader} is {balance} USDC")
+
+       # Check allowance of USDC
+       allowance = await trader_client.get_usdc_allowance_for_trading(trader)
+       print(f"Allowance of {trader} is {allowance} USDC")
+    
+       amount_of_collateral = 10
+
+       if allowance < amount_of_collateral:
+           print(f"Allowance of {trader} is less than {amount_of_collateral} USDC. Approving...")
+           await trader_client.approve_usdc_for_trading(amount_of_collateral)
+           allowance = await trader_client.get_usdc_allowance_for_trading(trader)
+           print(f"New allowance of {trader} is {allowance} USDC")
 
        # Get pair index of the pair. For example, ETH/USD
        pair_index_of_eth_usd = await trader_client.pairs_cache.get_pair_index("ETH/USD")
@@ -276,11 +312,11 @@ The ``open_limit_order`` method allows you to place a limit order. A limit order
            trader=trader,  # Trader's wallet address
            open_price=1500,  # Open price of the trade (Desired execution price)
            pair_index=pair_index_of_eth_usd,  # Pair index
-           collateral_in_trade=10,  # Amount of collateral in trade (in USDC)
+           collateral_in_trade=amount_of_collateral,  # Amount of collateral in trade (in USDC)
            is_long=True,  # True for long, False for short
            leverage=25,  # Leverage for the trade
            index=0,  # This is the index of the trade for a pair (0 for the first trade, 1 for the second, etc.)
-           tp=4000,  # Take profit price. Max allowed is 500% of open price.
+           tp=4000.5,  # Take profit price. Max allowed is 500% of open price.
            sl=0,  # Stop loss price
            timestamp=0,  # Timestamp of the trade. 0 for now
        )
@@ -313,7 +349,7 @@ The ``open_limit_order`` method allows you to place a limit order. A limit order
            trade_input, trade_input_order_type, slippage_percentage
        )
 
-       receipt = await trader_client.sign_and_get_receipt(private_key, open_transaction)
+       receipt = await trader_client.sign_and_get_receipt(open_transaction)
 
        print(receipt)
        print("Order placed successfully!")
@@ -366,12 +402,16 @@ The ``cancel_limit_order`` method allows you to cancel a pending limit order. Th
    from avantis_trader_sdk import TraderClient
 
    private_key = "0xmyprivatekey"
-   trader = "0xmywalletaddress"
 
    async def main():
        # Initialize TraderClient
        provider_url = "https://mainnet.base.org"  # Find provider URL for Base Mainnet Chain from https://chainlist.org/chain/8453 or use a dedicated node (Alchemy, Infura, etc.)
        trader_client = TraderClient(provider_url)
+
+       # Set local signer
+       trader_client.set_local_signer(private_key) # Alternatively, you can use set_aws_kms_signer() to use a key from AWS KMS or create your own signer by inheriting BaseSigner class
+
+       trader = trader_client.get_signer().get_ethereum_address()
 
        # Get open and pending trades
        trades, pending_open_limit_orders = await trader_client.trade.get_trades(trader)
@@ -382,12 +422,12 @@ The ``cancel_limit_order`` method allows you to cancel a pending limit order. Th
 
        # Cancel the order
        close_transaction = await trader_client.trade.build_order_cancel_tx(
-        trader=trader,
         pair_index=order_to_cancel.pair_index,
         trade_index=order_to_cancel.trade_index,
+        trader=trader,
        )
 
-       receipt = await trader_client.sign_and_get_receipt(private_key, cancel_transaction)
+       receipt = await trader_client.sign_and_get_receipt(cancel_transaction)
 
        print(receipt)
        print("Order canceled successfully!")
@@ -433,12 +473,16 @@ The ``update_margin`` method allows you to deposit or withdraw collateral from a
    from avantis_trader_sdk import TraderClient, MarginUpdateType
 
    private_key = "0xmyprivatekey"
-   trader = "0xmywalletaddress"
 
    async def main():
        # Initialize TraderClient
        provider_url = "https://mainnet.base.org"  # Find provider URL for Base Mainnet Chain from https://chainlist.org/chain/8453 or use a dedicated node (Alchemy, Infura, etc.)
        trader_client = TraderClient(provider_url)
+
+       # Set local signer
+       trader_client.set_local_signer(private_key) # Alternatively, you can use set_aws_kms_signer() to use a key from AWS KMS or create your own signer by inheriting BaseSigner class
+
+       trader = trader_client.get_signer().get_ethereum_address()
 
        # Get open trades
        trades, _ = await trader_client.trade.get_trades(trader)
@@ -446,6 +490,18 @@ The ``update_margin`` method allows you to deposit or withdraw collateral from a
 
        # Select first trade to update
        trade_to_update = trades[0]
+
+       # Check allowance of USDC
+       allowance = await trader_client.get_usdc_allowance_for_trading(trader)
+       print(f"Allowance of {trader} is {allowance} USDC")
+
+       amount_of_collateral = 5
+    
+       if allowance < amount_of_collateral:
+           print(f"Allowance of {trader} is less than {amount_of_collateral} USDC. Approving...")
+           await trader_client.approve_usdc_for_trading(amount_of_collateral)
+           allowance = await trader_client.get_usdc_allowance_for_trading(trader)
+           print(f"New allowance of {trader} is {allowance} USDC")
 
        # ---------------------------------------------
        # NOTE: Any accrued margin fee on the trade will
@@ -459,7 +515,7 @@ The ``update_margin`` method allows you to deposit or withdraw collateral from a
            trade_index=trade_to_update.trade.trade_index,
            margin_update_type=MarginUpdateType.DEPOSIT,  # Type of margin update (DEPOSIT or WITHDRAW)
            # margin_update_type=MarginUpdateType.WITHDRAW, # Uncomment this to withdraw collateral
-           collateral_change=5,  # Amount of collateral to deposit or withdraw
+           collateral_change=amount_of_collateral,  # Amount of collateral to deposit or withdraw
        )
 
        receipt = await trader_client.sign_and_get_receipt(private_key, deposit_transaction)

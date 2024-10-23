@@ -3,16 +3,15 @@ import asyncio
 from avantis_trader_sdk import TraderClient
 from avantis_trader_sdk.types import TradeInput, TradeInputOrderType
 
-# Trader's private key and wallet address
+# Trader's private key
 # ---------------------------------------
 # ---------------------------------------
 # ---------------------------------------
-# Change the following values to your own private key and wallet address
+# Change the following values to your own private key
 # ---------------------------------------
 # ---------------------------------------
 # ---------------------------------------
 private_key = "0xmyprivatekey"
-trader = "0xmywalletaddress"
 
 
 # We will first prepare trade input, then open a order, get opened order's info and finally cancel the order
@@ -21,9 +20,30 @@ async def main():
     provider_url = "https://mainnet.base.org"  # Find provider URL for Base Mainnet Chain from https://chainlist.org/chain/8453 or use a dedicated node (Alchemy, Infura, etc.)
     trader_client = TraderClient(provider_url)
 
+    # Set local signer
+    trader_client.set_local_signer(
+        private_key
+    )  # Alternatively, you can use set_aws_kms_signer() to use a key from AWS KMS or create your own signer by inheriting BaseSigner class
+
+    trader = trader_client.get_signer().get_ethereum_address()
+
     # Get trader's USDC balance
     balance = await trader_client.get_usdc_balance(trader)
     print(f"Balance of {trader} is {balance} USDC")
+
+    # Check allowance of USDC
+    allowance = await trader_client.get_usdc_allowance_for_trading(trader)
+    print(f"Allowance of {trader} is {allowance} USDC")
+
+    amount_of_collateral = 10
+
+    if allowance < amount_of_collateral:
+        print(
+            f"Allowance of {trader} is less than {amount_of_collateral} USDC. Approving..."
+        )
+        await trader_client.approve_usdc_for_trading(amount_of_collateral)
+        allowance = await trader_client.get_usdc_allowance_for_trading(trader)
+        print(f"New allowance of {trader} is {allowance} USDC")
 
     # Get pair index of the pair. For example, ETH/USD
     pair_index_of_eth_usd = await trader_client.pairs_cache.get_pair_index("ETH/USD")
@@ -76,7 +96,7 @@ async def main():
         trade_input, trade_input_order_type, slippage_percentage
     )
 
-    receipt = await trader_client.sign_and_get_receipt(private_key, open_transaction)
+    receipt = await trader_client.sign_and_get_receipt(open_transaction)
 
     print(receipt)
     print("Order placed successfully!")
@@ -90,12 +110,12 @@ async def main():
 
     # Close trade
     close_transaction = await trader_client.trade.build_order_cancel_tx(
-        trader=trader,
         pair_index=order_to_cancel.pair_index,
         trade_index=order_to_cancel.trade_index,
+        trader=trader,
     )
 
-    receipt = await trader_client.sign_and_get_receipt(private_key, close_transaction)
+    receipt = await trader_client.sign_and_get_receipt(close_transaction)
 
     print(receipt)
 

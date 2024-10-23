@@ -47,6 +47,9 @@ class PairsCache:
                 decoded_data.append(PairInfo(**decoded))
 
             for index, pair_info in enumerate(decoded_data):
+                if not pair_info.from_:
+                    pair_info.from_ = f"DELISTED_{index}"
+                    pair_info.to = f"DELISTED_{index}"
                 self._pair_info_cache[index] = pair_info
 
             group_indexes = set([pair.group_index for pair in decoded_data])

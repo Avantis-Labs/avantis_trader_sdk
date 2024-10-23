@@ -27,6 +27,10 @@ extensions = [
     "sphinx_markdown_builder",
 ]
 
+autodoc_typehints = "description"
+autodoc_typehints_format = "short"
+autodoc_preserve_defaults = True
+
 templates_path = ["_templates"]
 exclude_patterns = ["utils.py", "config.py"]
 

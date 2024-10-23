@@ -182,5 +182,33 @@
   "XAU/USD": {
     "id": "0x765d2ba906dbc32ca17cc11f5310a89e9ee1f6420508c63861f2f8ba4ee34bb2",
     "group": "metal"
+  },
+  "ZRO/USD": {
+    "id": "0x3bd860bea28bf982fa06bcf358118064bb114086cc03993bd76197eaab0b8018",
+    "group": "crypto"
+  },
+  "INJ/USD": {
+    "id": "0x7a5bc1d2b56ad029048cd63964b3ad2776eadf812edc1a43a31406cb54bff592",
+    "group": "crypto"
+  },
+  "ZK/USD": {
+    "id": "0xcc03dc09298fb447e0bf9afdb760d5b24340fd2167fd33d8967dd8f9a141a2e8",
+    "group": "crypto"
+  },
+  "AAVE/USD": {
+    "id": "0x2b9ab1e972a281585084148ba1389800799bd4be63b957507db1349314e47445",
+    "group": "crypto"
+  },
+  "SUI/USD": {
+    "id": "0x23d7315113f5b1d3ba7a83604c44b94d79f4fd69af77f804fc7f920a6dc65744",
+    "group": "crypto"
+  },
+  "TAO/USD": {
+    "id": "0x410f41de235f2db824e562ea7ab2d3d3d4ff048316c61d629c0b93f58584e1af",
+    "group": "crypto"
+  },
+  "EIGEN/USD": {
+    "id": "0xc65db025687356496e8653d0d6608eec64ce2d96e2e28c530e574f0e4f712380",
+    "group": "crypto"
   }
 }
