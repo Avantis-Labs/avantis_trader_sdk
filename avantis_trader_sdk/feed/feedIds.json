@@ -182,5 +182,9 @@
   "XAU/USD": {
     "id": "0x765d2ba906dbc32ca17cc11f5310a89e9ee1f6420508c63861f2f8ba4ee34bb2",
     "group": "metal"
+  },
+  "ZRO/USD": {
+    "id": "0x3bd860bea28bf982fa06bcf358118064bb114086cc03993bd76197eaab0b8018",
+    "group": "crypto"
   }
 }
