@@ -39,7 +39,8 @@ class AssetParametersRPC:
         pairs_info = await self.client.pairs_cache.get_pairs_info()
         calls = []
         for pair_index in range(len(pairs_info)):
-            call_data = PairStorage.encodeABI(fn_name="pairMaxOI", args=[pair_index])
+            tx = await PairStorage.functions.pairMaxOI(pair_index).build_transaction()
+            call_data = tx['data']
             calls.append((PairStorage.address, call_data))
 
         response = await Multicall.functions.aggregate(calls).call()
@@ -88,7 +89,8 @@ class AssetParametersRPC:
         pairs_info = await self.client.pairs_cache.get_pairs_info()
         calls = []
         for pair_index in range(len(pairs_info)):
-            call_data = TradingStorage.encodeABI(fn_name="pairOI", args=[pair_index])
+            tx = await TradingStorage.functions.pairOI(pair_index).build_transaction()
+            call_data = tx['data']
             calls.append((TradingStorage.address, call_data))
 
         oi_limits_task = self.get_oi_limits()
@@ -155,24 +157,16 @@ class AssetParametersRPC:
             pair_index = await self.client.pairs_cache.get_pair_index(pair)
             PairInfos = self.client.contracts.get("PairInfos")
             if is_long is None:
-                calls.extend(
-                    [
-                        (
-                            PairInfos.address,
-                            PairInfos.encodeABI(
-                                fn_name="getPriceImpactSpread",
-                                args=[pair_index, True, position_size],
-                            ),
-                        ),
-                        (
-                            PairInfos.address,
-                            PairInfos.encodeABI(
-                                fn_name="getPriceImpactSpread",
-                                args=[pair_index, False, position_size],
-                            ),
-                        ),
-                    ]
-                )
+
+                tx = await PairInfos.functions.getPriceImpactSpread(pair_index, True, position_size).build_transaction()
+                call_data1 = tx['data']
+
+                tx = await PairInfos.functions.getPriceImpactSpread(pair_index, False, position_size).build_transaction()
+                call_data2 = tx['data']
+
+
+                calls.extend([( PairInfos.address,call_data1 ),( PairInfos.address,call_data2 )])
+
             else:
                 response = await PairInfos.functions.getPriceImpactSpread(
                     pair_index, is_long, position_size
@@ -183,32 +177,20 @@ class AssetParametersRPC:
             for pair_index in range(len(pairs_info)):
 
                 if is_long is None:
-                    calls.extend(
-                        [
-                            (
-                                PairInfos.address,
-                                PairInfos.encodeABI(
-                                    fn_name="getPriceImpactSpread",
-                                    args=[pair_index, True, position_size],
-                                ),
-                            ),
-                            (
-                                PairInfos.address,
-                                PairInfos.encodeABI(
-                                    fn_name="getPriceImpactSpread",
-                                    args=[pair_index, False, position_size],
-                                ),
-                            ),
-                        ]
-                    )
+
+                    tx = await PairInfos.functions.getPriceImpactSpread(pair_index, True, position_size).build_transaction()
+                    call_data1 = tx['data']
+
+                    tx = await PairInfos.functions.getPriceImpactSpread(pair_index, False, position_size).build_transaction()
+                    call_data2 = tx['data']
+
+
+                    calls.extend([( PairInfos.address,call_data1 ),( PairInfos.address,call_data2 )])
                 else:
                     calls.append(
                         (
                             PairInfos.address,
-                            PairInfos.encodeABI(
-                                fn_name="getPriceImpactSpread",
-                                args=[pair_index, is_long, position_size],
-                            ),
+                            (await PairInfos.functions.getPriceImpactSpread(pair_index, is_long, position_size).build_transaction())['data'],
                         )
                     )
 
@@ -289,24 +271,15 @@ class AssetParametersRPC:
             pair_index = await self.client.pairs_cache.get_pair_index(pair)
             PairInfos = self.client.contracts.get("PairInfos")
             if is_long is None:
-                calls.extend(
-                    [
-                        (
-                            PairInfos.address,
-                            PairInfos.encodeABI(
-                                fn_name="getSkewImpactSpread",
-                                args=[pair_index, True, position_size],
-                            ),
-                        ),
-                        (
-                            PairInfos.address,
-                            PairInfos.encodeABI(
-                                fn_name="getSkewImpactSpread",
-                                args=[pair_index, False, position_size],
-                            ),
-                        ),
-                    ]
-                )
+                
+                tx = await PairInfos.functions.getSkewImpactSpread(pair_index, True, position_size).build_transaction()
+                call_data1 = tx['data']
+
+                tx = await PairInfos.functions.getSkewImpactSpread(pair_index, False, position_size).build_transaction()
+                call_data2 = tx['data']
+
+
+                calls.extend([( PairInfos.address,call_data1 ),( PairInfos.address,call_data2 )])
             else:
                 response = await PairInfos.functions.getSkewImpactSpread(
                     pair_index, is_long, position_size
@@ -316,34 +289,19 @@ class AssetParametersRPC:
             PairInfos = self.client.contracts.get("PairInfos")
             for pair_index in range(len(pairs_info)):
                 if is_long is None:
-                    calls.extend(
-                        [
-                            (
-                                PairInfos.address,
-                                PairInfos.encodeABI(
-                                    fn_name="getSkewImpactSpread",
-                                    args=[pair_index, True, position_size],
-                                ),
-                            ),
-                            (
-                                PairInfos.address,
-                                PairInfos.encodeABI(
-                                    fn_name="getSkewImpactSpread",
-                                    args=[pair_index, False, position_size],
-                                ),
-                            ),
-                        ]
-                    )
+
+                    tx = await PairInfos.functions.getSkewImpactSpread(pair_index, True, position_size).build_transaction()
+                    call_data1 = tx['data']
+
+                    tx = await PairInfos.functions.getSkewImpactSpread(pair_index, False, position_size).build_transaction()
+                    call_data2 = tx['data']
+
+
+                    calls.extend([( PairInfos.address,call_data1 ),( PairInfos.address,call_data2 )])
                 else:
-                    calls.append(
-                        (
-                            PairInfos.address,
-                            PairInfos.encodeABI(
-                                fn_name="getSkewImpactSpread",
-                                args=[pair_index, is_long, position_size],
-                            ),
-                        )
-                    )
+                    tx = await PairInfos.functions.getSkewImpactSpread(pair_index, is_long, position_size).build_transaction()
+                    call_data = tx['data']
+                    calls.append(PairInfos.address,call_data)
 
         if response is None:
             response = await Multicall.functions.aggregate(calls).call()
@@ -417,24 +375,13 @@ class AssetParametersRPC:
         pair_index = await self.client.pairs_cache.get_pair_index(pair)
         PairInfos = self.client.contracts.get("PairInfos")
         if is_long is None:
-            calls.extend(
-                [
-                    (
-                        PairInfos.address,
-                        PairInfos.encodeABI(
-                            fn_name="getTradePriceImpact",
-                            args=[open_price, pair_index, True, position_size],
-                        ),
-                    ),
-                    (
-                        PairInfos.address,
-                        PairInfos.encodeABI(
-                            fn_name="getTradePriceImpact",
-                            args=[open_price, pair_index, False, position_size],
-                        ),
-                    ),
-                ]
-            )
+            tx = await PairInfos.functions.getTradePriceImpact(pair_index, True, position_size).build_transaction()
+            call_data1 = tx['data']
+
+            tx = await PairInfos.functions.getTradePriceImpact(pair_index, False, position_size).build_transaction()
+            call_data2 = tx['data']
+
+            calls.extend([( PairInfos.address,call_data1 ),( PairInfos.address,call_data2 )])
         else:
             response = await PairInfos.functions.getTradePriceImpact(
                 open_price, pair_index, is_long, position_size
@@ -468,24 +415,14 @@ class AssetParametersRPC:
         pairs_info = await self.client.pairs_cache.get_pairs_info()
         calls = []
         for pair_index in range(len(pairs_info)):
-            calls.extend(
-                [
-                    (
-                        PairInfos.address,
-                        PairInfos.encodeABI(
-                            fn_name="getOnePercentDepthAbove",
-                            args=[pair_index],
-                        ),
-                    ),
-                    (
-                        PairInfos.address,
-                        PairInfos.encodeABI(
-                            fn_name="getOnePercentDepthBelow",
-                            args=[pair_index],
-                        ),
-                    ),
-                ]
-            )
+            tx = await PairInfos.functions.getOnePercentDepthAbove(pair_index).build_transaction()
+            call_data1 = tx['data']
+
+            tx = await PairInfos.functions.getOnePercentDepthAbove(pair_index ).build_transaction()
+            call_data2 = tx['data']
+
+
+            calls.extend([( PairInfos.address,call_data1 ),( PairInfos.address,call_data2 )])
 
         response = await Multicall.functions.aggregate(calls).call()
 
