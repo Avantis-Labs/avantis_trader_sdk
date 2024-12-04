@@ -52,8 +52,8 @@ async def main():
         trader_client.category_parameters.get_oi(),
         trader_client.category_parameters.get_utilization(),
         trader_client.category_parameters.get_category_skew(),
-        trader_client.asset_parameters.get_price_impact_spread(1000.5),
-        trader_client.asset_parameters.get_skew_impact_spread(1000.5),
+        trader_client.asset_parameters.get_price_impact_spread(20),
+        trader_client.asset_parameters.get_skew_impact_spread(20),
         trader_client.asset_parameters.get_opening_price_impact_spread(
             "ETH/USD", 100.5, 3200, True
         ),

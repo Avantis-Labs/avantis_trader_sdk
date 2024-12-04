@@ -20,6 +20,7 @@ class FeeParametersRPC:
         self.client = client
 
     async def get_margin_fee(self):
+
         """
         Retrieves the margin fee for all trading pairs.
 
@@ -44,7 +45,8 @@ class FeeParametersRPC:
             hourly_margin_fee_short_bps=map_output_to_pairs(
                 pairs_info, decoded["rolloverFeePerBlockShort"]
             ),
-        )
+    )
+
 
     async def constant_spread_parameter(self):
         """
@@ -58,8 +60,10 @@ class FeeParametersRPC:
         pairs_info = await self.client.pairs_cache.get_pairs_info()
         calls = []
         for pair_index in range(len(pairs_info)):
-            call_data = PairStorage.encodeABI(fn_name="pairSpreadP", args=[pair_index])
+            tx = (await PairStorage.functions.pairSpreadP(pair_index).build_transaction())
+            call_data = tx['data']
             calls.append((PairStorage.address, call_data))
+
 
         response = await Multicall.functions.aggregate(calls).call()
         decoded_response = [
@@ -105,23 +109,20 @@ class FeeParametersRPC:
             PriceAggregator = self.client.contracts.get("PriceAggregator")
             if is_long is None:
                 calls.extend(
+                   
                     [
-                        (
-                            PriceAggregator.address,
-                            PriceAggregator.encodeABI(
-                                fn_name="openFeeP",
-                                args=[pair_index, position_size, True],
+                            (
+                                PriceAggregator.address,
+                                (await PriceAggregator.functions.openFeeP(pair_index, position_size, True).build_transaction())['data'],
                             ),
-                        ),
-                        (
-                            PriceAggregator.address,
-                            PriceAggregator.encodeABI(
-                                fn_name="openFeeP",
-                                args=[pair_index, position_size, False],
+                            (
+                                PriceAggregator.address,
+                                (await PriceAggregator.functions.openFeeP(pair_index, position_size, False).build_transaction())['data'],
                             ),
-                        ),
                     ]
                 )
+
+                
             else:
                 response = await PriceAggregator.functions.openFeeP(
                     pair_index, position_size, is_long
@@ -132,33 +133,27 @@ class FeeParametersRPC:
             for pair_index in range(len(pairs_info)):
                 if is_long is None:
                     calls.extend(
-                        [
-                            (
-                                PriceAggregator.address,
-                                PriceAggregator.encodeABI(
-                                    fn_name="openFeeP",
-                                    args=[pair_index, position_size, True],
+                                            
+                            [
+                                (
+                                    PriceAggregator.address,
+                                    (await PriceAggregator.functions.openFeeP(pair_index, position_size, True).build_transaction())['data'],
                                 ),
-                            ),
-                            (
-                                PriceAggregator.address,
-                                PriceAggregator.encodeABI(
-                                    fn_name="openFeeP",
-                                    args=[pair_index, position_size, False],
+                                (
+                                    PriceAggregator.address,
+                                    (await PriceAggregator.functions.openFeeP(pair_index, position_size, False).build_transaction())['data'],
                                 ),
-                            ),
-                        ]
-                    )
+                            ]
+                        )
+                        
                 else:
                     calls.append(
                         (
-                            PriceAggregator.address,
-                            PriceAggregator.encodeABI(
-                                fn_name="openFeeP",
-                                args=[pair_index, position_size, is_long],
-                            ),
-                        )
-                    )
+                             PriceAggregator.address,
+                                    (await PriceAggregator.functions.openFeeP(pair_index, position_size, is_long).build_transaction())['data'],
+                                )
+                            )
+
 
         if response is None:
             response = await Multicall.functions.aggregate(calls).call()
