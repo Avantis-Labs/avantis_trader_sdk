@@ -65,8 +65,8 @@ async def main():
     # ---------------------------------------------
     # Get opening fee data
     # Read more: https://docs.avantisfi.com/trading/trading-fees/crypto#dynamic-opening-fee-0.04-0.1-position-size
-    opening_fee_usdc = await trader_client.fee_parameters.get_opening_fee(
-        trade_input=trade_input
+    opening_fee_usdc = await trader_client.fee_parameters.get_new_trade_opening_fee(
+        trade_input
     )
     print(f"Opening fee for this trade: {opening_fee_usdc} USDC")
 

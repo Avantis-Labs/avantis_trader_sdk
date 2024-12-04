@@ -3,6 +3,20 @@ Changelog
 
 This section outlines the changes made in each version of the Avantis Trader SDK
 
+**Version 0.4.0 (2024-12-02)**
+- **Breaking Changes:**
+  - **Modified Methods**:
+    - **`get_opening_fee`**:
+    - **Previous Behavior**: Returned a `Fee` instance with fee details based on input parameters. If the parameters included `trade_input`, it would calculate and return the final fee in USDC.
+    - **New Behavior**: Now strictly returns fee details in **basis points (bps)** based on input parameters. It no longer accepts `trade_input` as an argument. This ensures consistent behavior and avoids ambiguity.
+
+  - **New Methods**:
+    - **`get_new_trade_opening_fee`**:
+      - **Description**: Introduced a new method specifically for calculating the **final opening fee in USDC** for a trade, based on the provided `trade_input`.
+      - **Purpose**: To handle trade-specific fee calculations consistently and separately from the broader `get_opening_fee` method.
+      - **Input**: Accepts a `TradeInput` object.
+      - **Output**: Returns the calculated opening fee in USDC, adjusted for referral rebates.
+
 **Version 0.3.1 (2024-10-23)**
    - Added feed ids for new pairs
 

@@ -79,28 +79,19 @@ class FeeParametersRPC:
         is_long: Optional[bool] = None,
         pair_index: int = None,
         pair: str = None,
-        trade_input: TradeInput = None,
     ):
         """
-        Retrieves the opening fee for all trading pairs.
+        Retrieves the opening fee for all trading pairs in bps.
 
         Args:
             is_long: A boolean indicating if the position is a buy or sell. Defaults to None. If None, the opening fee for both buy and sell will be returned.
             position_size: The size of the position (collateral * leverage). Supports upto 6 decimals. Defaults to 0.
             pair_index: The pair index for which the opening fee is to be calculated. Defaults to None. If None, the opening fee for all trading pairs will be returned.
             pair: The trading pair for which the opening fee is to be calculated. Defaults to None. If None, the opening fee for all trading pairs will be returned.
-            trade_input: The trade input object. Defaults to None. If provided, the pair index will be extracted from the trade input.
 
         Returns:
-            A Fee instance containing the opening Fee for each trading pair in bps or final opening fee in USDC if trade_input is provided.
+            A Fee instance containing the opening Fee for each trading pair in bps.
         """
-        if trade_input is not None:
-            position_size = (
-                trade_input.positionSizeUSDC / 10**6 * trade_input.leverage / 10**10
-            )
-            pair_index = trade_input.pairIndex
-            is_long = trade_input.buy
-
         position_size = int(position_size * 10**6)
 
         Multicall = self.client.contracts.get("Multicall")
@@ -199,16 +190,43 @@ class FeeParametersRPC:
                     ],
                 )
                 return Fee(short=decoded_response)
-        elif trade_input is not None:
-            referral_rebate_percentage = await self.client.trading_parameters.get_trade_referral_rebate_percentage(
-                trade_input.trader
-            )
-            referral_rebate_percentage = 1 - (referral_rebate_percentage / 100)
-            return round(
-                response / 10**12 * position_size / 10**6 * referral_rebate_percentage,
-                18,
-            )
         elif is_long:
             return Fee(long={pair: response / 10**10 * 100})
         else:
             return Fee(short={pair: response / 10**10 * 100})
+
+    async def get_new_trade_opening_fee(
+        self,
+        trade_input: TradeInput,
+    ):
+        """
+        Retrieves the opening fee for a trade with referral rebate in USDC.
+
+        Args:
+            trade_input: The trade input object.
+
+        Returns:
+            Final opening fee in USDC
+        """
+        position_size = (
+            trade_input.positionSizeUSDC / 10**6 * trade_input.leverage / 10**10
+        )
+
+        position_size = int(position_size * 10**6)
+
+        PriceAggregator = self.client.contracts.get("PriceAggregator")
+
+        response = await PriceAggregator.functions.openFeeP(
+            trade_input.pairIndex, position_size, trade_input.buy
+        ).call()
+
+        referral_rebate_percentage = (
+            await self.client.trading_parameters.get_trade_referral_rebate_percentage(
+                trade_input.trader
+            )
+        )
+        referral_rebate_percentage = 1 - (referral_rebate_percentage / 100)
+        return round(
+            response / 10**12 * position_size / 10**6 * referral_rebate_percentage,
+            18,
+        )
