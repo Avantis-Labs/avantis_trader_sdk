@@ -7,8 +7,8 @@ This section outlines the changes made in each version of the Avantis Trader SDK
 - **Breaking Changes:**
   - **Modified Methods**:
     - **`get_opening_fee`**:
-    - **Previous Behavior**: Returned a `Fee` instance with fee details based on input parameters. If the parameters included `trade_input`, it would calculate and return the final fee in USDC.
-    - **New Behavior**: Now strictly returns fee details in **basis points (bps)** based on input parameters. It no longer accepts `trade_input` as an argument. This ensures consistent behavior and avoids ambiguity.
+      - **Previous Behavior**: Returned a `Fee` instance with fee details based on input parameters. If the parameters included `trade_input`, it would calculate and return the final fee in USDC.
+      - **New Behavior**: Now strictly returns fee details in **basis points (bps)** based on input parameters. It no longer accepts `trade_input` as an argument. This ensures consistent behavior and avoids ambiguity.
 
   - **New Methods**:
     - **`get_new_trade_opening_fee`**:
