@@ -35,16 +35,29 @@ class PairsCache:
 
             calls = []
             for pair_index in range(pairs_count):
-                core_call_data = PairStorage.encodeABI(fn_name="pairs", args=[pair_index])
-                pair_data_call_data = PairStorage.encodeABI(fn_name="getPairData", args=[pair_index])
-                calls.extend([(PairStorage.address, core_call_data), (PairStorage.address, pair_data_call_data)])
+                core_call_data = PairStorage.encodeABI(
+                    fn_name="pairs", args=[pair_index]
+                )
+                pair_data_call_data = PairStorage.encodeABI(
+                    fn_name="getPairData", args=[pair_index]
+                )
+                calls.extend(
+                    [
+                        (PairStorage.address, core_call_data),
+                        (PairStorage.address, pair_data_call_data),
+                    ]
+                )
 
             _, raw_data = await Multicall.functions.aggregate(calls).call()
 
             decoded_data = []
             for i in range(0, len(raw_data), 2):
-                pair_info = self.client.utils["decoder"](PairStorage, "pairs", raw_data[i])
-                pair_data = self.client.utils["decoder"](PairStorage, "getPairData", raw_data[i+1])
+                pair_info = self.client.utils["decoder"](
+                    PairStorage, "pairs", raw_data[i]
+                )
+                pair_data = self.client.utils["decoder"](
+                    PairStorage, "getPairData", raw_data[i + 1]
+                )
                 pair_info.update(pair_data)
                 decoded_data.append(PairInfoWithData(**pair_info))
 

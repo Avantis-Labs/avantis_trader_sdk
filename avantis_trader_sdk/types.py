@@ -15,15 +15,18 @@ import re
 class PairInfoFeed(BaseModel):
     max_open_deviation_percentage: float = Field(..., alias="maxOpenDeviationP")
     max_close_deviation_percentage: float = Field(..., alias="maxCloseDeviationP")
-    
+
     feed_id: str = Field(..., alias="feedId")
 
-    @field_validator("max_open_deviation_percentage", "max_close_deviation_percentage", mode="before")
+    @field_validator(
+        "max_open_deviation_percentage", "max_close_deviation_percentage", mode="before"
+    )
     def convert_max_deviation(cls, v):
         return v / 10**10
 
     class Config:
         populate_by_name = True
+
 
 class PairInfoBackupFeed(BaseModel):
     max_deviation_percentage: float = Field(..., alias="maxDeviationP")
@@ -32,25 +35,36 @@ class PairInfoBackupFeed(BaseModel):
     @field_validator("max_deviation_percentage", mode="before")
     def convert_max_deviation(cls, v):
         return v / 10**10
-    
+
+
 class PairInfoLeverages(BaseModel):
     min_leverage: float = Field(..., alias="minLeverage")
     max_leverage: float = Field(..., alias="maxLeverage")
     pnl_min_leverage: float = Field(..., alias="pnlMinLeverage")
     pnl_max_leverage: float = Field(..., alias="pnlMaxLeverage")
 
-    @field_validator("min_leverage", "max_leverage", "pnl_min_leverage", "pnl_max_leverage", mode="before")
+    @field_validator(
+        "min_leverage",
+        "max_leverage",
+        "pnl_min_leverage",
+        "pnl_max_leverage",
+        mode="before",
+    )
     def convert_max_deviation(cls, v):
         return v / 10**10
+
 
 class PairInfoValues(BaseModel):
     max_gain_percentage: float = Field(..., alias="maxGainP")
     max_sl_percentage: float = Field(..., alias="maxSlP")
     max_long_oi_percentage: float = Field(..., alias="maxLongOiP")
     max_short_oi_percentage: float = Field(..., alias="maxShortOiP")
-    group_open_interest_percentage: float = Field(..., alias="groupOpenInterestPecentage")
+    group_open_interest_percentage: float = Field(
+        ..., alias="groupOpenInterestPecentage"
+    )
     max_wallet_oi: float = Field(..., alias="maxWalletOI")
     is_usdc_aligned: bool = Field(..., alias="isUSDCAligned")
+
 
 class PairInfo(BaseModel):
     feed: PairInfoFeed
@@ -75,23 +89,26 @@ class PairInfo(BaseModel):
     class Config:
         populate_by_name = True
 
+
 class PairData(BaseModel):
     from_: str = Field(..., alias="from")
     to: str
     num_tiers: int = Field(..., alias="numTiers")
     tier_thresholds: Dict[str, float] = Field(..., alias="tierThresholds")
-    tier_timers: Dict[str, float]  = Field(..., alias="timer")
-    
+    tier_timers: Dict[str, float] = Field(..., alias="timer")
+
     @field_validator("tier_thresholds", "tier_timers", mode="before")
     def convert_tuple_to_dict(cls, v):
         if isinstance(v, tuple):
             return {str(i): j for i, j in enumerate(v)}
         return v
 
+
 class PairInfoWithData(PairInfo, PairData):
     class Config:
         populate_by_name = True
         from_attributes = True
+
 
 class OpenInterest(BaseModel):
     long: Dict[str, float]
