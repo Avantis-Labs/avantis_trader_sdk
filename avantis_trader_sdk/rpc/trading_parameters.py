@@ -42,7 +42,7 @@ class TradingParametersRPC:
                 trade.sl,
                 trade.timestamp,
             ),
-            is_pnl
+            is_pnl,
         ).call()
         return response
 

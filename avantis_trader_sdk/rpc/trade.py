@@ -238,7 +238,9 @@ class TradeRPC:
         execution_fee = await self.get_trade_execution_fee()
 
         transaction = await Trading.functions.closeTradeMarket(
-            pair_index, trade_index, collateral_to_close,
+            pair_index,
+            trade_index,
+            collateral_to_close,
         ).build_transaction(
             {
                 "from": trader,
