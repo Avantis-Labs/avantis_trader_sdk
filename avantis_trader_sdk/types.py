@@ -62,7 +62,7 @@ class PairInfoValues(BaseModel):
     group_open_interest_percentage: float = Field(
         ..., alias="groupOpenInterestPecentage"
     )
-    max_wallet_oi: float = Field(..., alias="maxWalletOI")
+    max_wallet_oi_percentage: float = Field(..., alias="maxWalletOI")
     is_usdc_aligned: bool = Field(..., alias="isUSDCAligned")
 
 
