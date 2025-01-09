@@ -161,14 +161,14 @@ class AssetParametersRPC:
                             PairInfos.address,
                             PairInfos.encodeABI(
                                 fn_name="getPriceImpactSpread",
-                                args=[pair_index, True, position_size],
+                                args=[pair_index, True, position_size, False],
                             ),
                         ),
                         (
                             PairInfos.address,
                             PairInfos.encodeABI(
                                 fn_name="getPriceImpactSpread",
-                                args=[pair_index, False, position_size],
+                                args=[pair_index, False, position_size, False],
                             ),
                         ),
                     ]
@@ -189,14 +189,14 @@ class AssetParametersRPC:
                                 PairInfos.address,
                                 PairInfos.encodeABI(
                                     fn_name="getPriceImpactSpread",
-                                    args=[pair_index, True, position_size],
+                                    args=[pair_index, True, position_size, False],
                                 ),
                             ),
                             (
                                 PairInfos.address,
                                 PairInfos.encodeABI(
                                     fn_name="getPriceImpactSpread",
-                                    args=[pair_index, False, position_size],
+                                    args=[pair_index, False, position_size, False],
                                 ),
                             ),
                         ]
@@ -207,7 +207,7 @@ class AssetParametersRPC:
                             PairInfos.address,
                             PairInfos.encodeABI(
                                 fn_name="getPriceImpactSpread",
-                                args=[pair_index, is_long, position_size],
+                                args=[pair_index, is_long, position_size, False],
                             ),
                         )
                     )
@@ -295,21 +295,21 @@ class AssetParametersRPC:
                             PairInfos.address,
                             PairInfos.encodeABI(
                                 fn_name="getSkewImpactSpread",
-                                args=[pair_index, True, position_size],
+                                args=[pair_index, True, position_size, False],
                             ),
                         ),
                         (
                             PairInfos.address,
                             PairInfos.encodeABI(
                                 fn_name="getSkewImpactSpread",
-                                args=[pair_index, False, position_size],
+                                args=[pair_index, False, position_size, False],
                             ),
                         ),
                     ]
                 )
             else:
                 response = await PairInfos.functions.getSkewImpactSpread(
-                    pair_index, is_long, position_size
+                    pair_index, is_long, position_size, False
                 ).call()
         else:
             pairs_info = await self.client.pairs_cache.get_pairs_info()
@@ -322,14 +322,14 @@ class AssetParametersRPC:
                                 PairInfos.address,
                                 PairInfos.encodeABI(
                                     fn_name="getSkewImpactSpread",
-                                    args=[pair_index, True, position_size],
+                                    args=[pair_index, True, position_size, False],
                                 ),
                             ),
                             (
                                 PairInfos.address,
                                 PairInfos.encodeABI(
                                     fn_name="getSkewImpactSpread",
-                                    args=[pair_index, False, position_size],
+                                    args=[pair_index, False, position_size, False],
                                 ),
                             ),
                         ]
@@ -340,7 +340,7 @@ class AssetParametersRPC:
                             PairInfos.address,
                             PairInfos.encodeABI(
                                 fn_name="getSkewImpactSpread",
-                                args=[pair_index, is_long, position_size],
+                                args=[pair_index, is_long, position_size, False],
                             ),
                         )
                     )
