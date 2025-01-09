@@ -16,7 +16,7 @@ class TradingParametersRPC:
         """
         self.client = client
 
-    async def get_loss_protection_tier(self, trade: TradeInput):
+    async def get_loss_protection_tier(self, trade: TradeInput, is_pnl: bool = False):
         """
         Retrieves the loss protection tier for a trade. Read more about loss protection tiers here: https://docs.avantisfi.com/rewards/loss-protection
 
@@ -41,7 +41,8 @@ class TradingParametersRPC:
                 trade.tp,
                 trade.sl,
                 trade.timestamp,
-            )
+            ),
+            is_pnl
         ).call()
         return response
 

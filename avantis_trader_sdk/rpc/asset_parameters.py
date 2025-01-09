@@ -423,21 +423,21 @@ class AssetParametersRPC:
                         PairInfos.address,
                         PairInfos.encodeABI(
                             fn_name="getTradePriceImpact",
-                            args=[open_price, pair_index, True, position_size],
+                            args=[open_price, pair_index, True, position_size, False],
                         ),
                     ),
                     (
                         PairInfos.address,
                         PairInfos.encodeABI(
                             fn_name="getTradePriceImpact",
-                            args=[open_price, pair_index, False, position_size],
+                            args=[open_price, pair_index, False, position_size, False],
                         ),
                     ),
                 ]
             )
         else:
             response = await PairInfos.functions.getTradePriceImpact(
-                open_price, pair_index, is_long, position_size
+                open_price, pair_index, is_long, position_size, False
             ).call()
 
         if response is None:

@@ -80,7 +80,6 @@ class TradeRPC:
             trade_input.model_dump(),
             trade_input_order_type.value,
             slippage_percentage * 10**10,
-            0,
         ).build_transaction(
             {
                 "from": trade_input.trader,
@@ -239,7 +238,7 @@ class TradeRPC:
         execution_fee = await self.get_trade_execution_fee()
 
         transaction = await Trading.functions.closeTradeMarket(
-            pair_index, trade_index, collateral_to_close, 0
+            pair_index, trade_index, collateral_to_close,
         ).build_transaction(
             {
                 "from": trader,

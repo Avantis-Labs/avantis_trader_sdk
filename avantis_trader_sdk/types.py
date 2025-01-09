@@ -311,8 +311,9 @@ class TradeInput(BaseModel):
 
 class TradeInputOrderType(Enum):
     MARKET = 0
-    STOP_LIMIT = 1
-    LIMIT = 2
+    MARKET_PNL = 1
+    STOP_LIMIT = 2
+    LIMIT = 3
 
 
 class TradeResponse(BaseModel):
