@@ -144,7 +144,7 @@ class DepthSingle(BaseModel):
     below: float
 
 
-class PairInfoExtended(PairInfo):
+class PairInfoExtended(PairInfoWithData):
     asset_open_interest_limit: float
     asset_open_interest: Dict[str, float]
     asset_utilization: float
