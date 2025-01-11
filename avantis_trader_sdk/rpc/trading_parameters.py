@@ -132,6 +132,8 @@ class TradingParametersRPC:
         referrer_tier = await Referral.functions.referrerTiers(
             trader_referral_info[1]
         ).call()  # trader_referral_info[1] is the referrer address
-        tier_info = await self.client.read_contract("Referral", "referralTiers", referrer_tier)
+        tier_info = await self.client.read_contract(
+            "Referral", "referralTiers", referrer_tier
+        )
         discount_percentage = tier_info["feeDiscountPct"] / 100
         return discount_percentage
