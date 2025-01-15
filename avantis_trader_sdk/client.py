@@ -136,6 +136,12 @@ class TraderClient:
 
         if self.has_signer() and "from" not in kwargs:
             kwargs["from"] = self.get_signer().get_ethereum_address()
+        
+        if "chainId" not in kwargs:
+            kwargs["chainId"] = self.chain_id
+            
+        if "nonce" not in kwargs:
+            kwargs["nonce"] = await self.get_transaction_count(kwargs["from"])            
 
         transaction = await contract.functions[function_name](*args).build_transaction(
             kwargs
