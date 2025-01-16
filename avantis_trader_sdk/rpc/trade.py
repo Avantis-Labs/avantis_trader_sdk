@@ -238,6 +238,8 @@ class TradeRPC:
 
         execution_fee = await self.get_trade_execution_fee()
 
+        collateral_to_close = int(collateral_to_close * 10**6)
+
         transaction = await Trading.functions.closeTradeMarket(
             pair_index, trade_index, collateral_to_close, 0
         ).build_transaction(
