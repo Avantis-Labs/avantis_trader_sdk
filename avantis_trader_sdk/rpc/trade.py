@@ -236,6 +236,8 @@ class TradeRPC:
         if trader is None:
             trader = self.client.get_signer().get_ethereum_address()
 
+        collateral_to_close = int(collateral_to_close * 10**6)
+
         execution_fee = await self.get_trade_execution_fee()
 
         transaction = await Trading.functions.closeTradeMarket(
@@ -308,7 +310,6 @@ class TradeRPC:
             trader = self.client.get_signer().get_ethereum_address()
 
         collateral_change = int(collateral_change * 10**6)
-        fee_in_wei = 1 * 10**18
 
         feed_client = self.FeedClient()
 
@@ -328,8 +329,65 @@ class TradeRPC:
             {
                 "from": trader,
                 "chainId": self.client.chain_id,
-                "value": fee_in_wei,
+                "value": 1,
                 "nonce": await self.client.get_transaction_count(trader),
+            }
+        )
+
+        return transaction
+
+    async def build_trade_tp_sl_update_tx(
+        self,
+        pair_index: int,
+        trade_index: int,
+        take_profit_price: float,
+        stop_loss_price: float,
+        trader: str = None,
+    ):
+        """
+        Builds a transaction to update the stop loss and take profit of a trade.
+
+        Args:
+            pair_index: The pair index.
+            trade_index: The trade index.
+            take_profit_price: The take profit price.
+            stop_loss_price: The stop loss price. Pass 0 if you want to remove the stop loss.
+            trader (optional): The trader's wallet address.
+        Returns:
+            A transaction object.
+        """
+        Trading = self.client.contracts.get("Trading")
+
+        if take_profit_price == 0:
+            raise ValueError("Take profit price cannot be 0")
+
+        if trader is None:
+            trader = self.client.get_signer().get_ethereum_address()
+
+        feed_client = self.FeedClient()
+
+        pair_name = await self.client.pairs_cache.get_pair_name_from_index(pair_index)
+
+        price_data = await feed_client.get_latest_price_updates([pair_name])
+
+        price_update_data = "0x" + price_data.binary.data[0]
+
+        take_profit_price = int(take_profit_price * 10**10)
+        stop_loss_price = int(stop_loss_price * 10**10)
+
+        transaction = await Trading.functions.updateTpAndSl(
+            pair_index,
+            trade_index,
+            stop_loss_price,
+            take_profit_price,
+            [price_update_data],
+        ).build_transaction(
+            {
+                "from": trader,
+                "chainId": self.client.chain_id,
+                "value": 1,
+                "nonce": await self.client.get_transaction_count(trader),
+                "gas": 1_000_000,
             }
         )
 

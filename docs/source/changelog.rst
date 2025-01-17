@@ -3,6 +3,26 @@ Changelog
 
 This section outlines the changes made in each version of the Avantis Trader SDK
 
+**Version 0.5.0 (2024-12-02)**
+- **Breaking Changes:**
+  - **Modified Methods**:
+    - **`build_trade_close_tx`**:
+      - **Previous Behavior**: Required a 6 decimal precision float for collateral_to_close. e.g. 100500000 for 100.5 USDC
+      - **New Behavior**: Now requires a normal float value for collateral_to_close. e.g. 100.5 for 100.5 USDC
+
+  - **New Methods**:
+    - **`build_trade_tp_sl_update_tx`**:
+      - **Description**: Introduced a new method specifically for updating the take profit and stop loss of a trade.
+      - **Purpose**: To allow traders to update the take profit and stop loss of a trade without having to close and open a new trade.
+      - **Input**: Accepts a `pair_index`, `trade_index`, `take_profit_price`, `stop_loss_price`, and `trader` (optional).
+      - **Output**: Returns the transaction object to update the take profit and stop loss of a trade.
+
+- **Improvements:**
+   - Added warning for upcoming v1.5 contracts upgrade
+   - Fixed margin update and USDC approval methods
+   - Optimized fee values for margin updates
+   - `write_contract` will now auto fill the `nonce` and `chainId` if not provided
+
 **Version 0.4.0 (2024-12-02)**
 - **Breaking Changes:**
   - **Modified Methods**:
