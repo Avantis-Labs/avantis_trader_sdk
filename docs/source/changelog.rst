@@ -3,7 +3,7 @@ Changelog
 
 This section outlines the changes made in each version of the Avantis Trader SDK
 
-**Version 0.5.0 (2024-12-02)**
+**Version 0.5.0 (2025-01-17)**
 - **Breaking Changes:**
   - **Modified Methods**:
     - **`build_trade_close_tx`**:
