@@ -39,7 +39,8 @@ class CategoryParametersRPC:
 
         calls = []
         for pair_index in pair_indexes:
-            call_data = PairStorage.encodeABI(fn_name="groupMaxOI", args=[pair_index])
+            tx = await PairStorage.functions.groupMaxOI(pair_index).build_transaction()
+            call_data = tx['data']
             calls.append((PairStorage.address, call_data))
 
         response = await Multicall.functions.aggregate(calls).call()
@@ -66,10 +67,12 @@ class CategoryParametersRPC:
         long_calls = []
         short_calls = []
         for group_index in group_indexes:
-            call_data = PairStorage.encodeABI(fn_name="groupOIs", args=[group_index, 0])
+            tx = await PairStorage.functions.groupOIs(group_index, 0).build_transaction()
+            call_data = tx['data']
             long_calls.append((PairStorage.address, call_data))
 
-            call_data = PairStorage.encodeABI(fn_name="groupOIs", args=[group_index, 1])
+            tx = await PairStorage.functions.groupOIs(group_index, 1).build_transaction()
+            call_data = tx['data']
             short_calls.append((PairStorage.address, call_data))
 
         long_task = Multicall.functions.aggregate(long_calls).call()
@@ -149,7 +152,7 @@ class CategoryParametersRPC:
 
     #     calls = []
     #     for pair_index in pair_indexes:
-    #         call_data = PairStorage.encodeABI(fn_name="groupOI", args=[pair_index])
+    #         call_data = await PairStorage.functions.groupOI(pair_index).build_transaction()['data']
     #         calls.append((PairStorage.address, call_data))
 
     #     oi_limits_task = self.get_oi_limits()

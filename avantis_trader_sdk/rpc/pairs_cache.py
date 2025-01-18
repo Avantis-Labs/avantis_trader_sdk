@@ -35,7 +35,8 @@ class PairsCache:
 
             calls = []
             for pair_index in range(pairs_count):
-                call_data = PairStorage.encodeABI(fn_name="pairs", args=[pair_index])
+                tx = await PairStorage.functions.pairs(pair_index).build_transaction()
+                call_data = tx['data']
                 calls.append((PairStorage.address, call_data))
 
             _, raw_data = await Multicall.functions.aggregate(calls).call()
