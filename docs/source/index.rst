@@ -8,6 +8,8 @@ Welcome to Avantis Trader SDK's documentation!
 
 Avantis Trader SDK is a powerful and flexible toolkit for trading on the Avantis platform. This documentation will guide you through the installation process, basic usage, and advanced features of the SDK.
 
+.. include:: notice.rst
+
 Contents:
 
 .. toctree::
