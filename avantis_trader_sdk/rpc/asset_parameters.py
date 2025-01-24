@@ -175,7 +175,7 @@ class AssetParametersRPC:
                 )
             else:
                 response = await PairInfos.functions.getPriceImpactSpread(
-                    pair_index, is_long, position_size
+                    pair_index, is_long, position_size, False
                 ).call()
         else:
             pairs_info = await self.client.pairs_cache.get_pairs_info()
