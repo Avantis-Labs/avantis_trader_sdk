@@ -12,7 +12,7 @@ import sys
 sys.path.insert(0, os.path.abspath(".."))
 
 project = "Avantis Trader SDK"
-copyright = "2024, Avantis Labs"
+copyright = "2025, Avantis Labs"
 author = "Avantis Labs"
 
 # -- General configuration ---------------------------------------------------

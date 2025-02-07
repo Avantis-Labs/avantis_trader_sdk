@@ -3,6 +3,68 @@ Changelog
 
 This section outlines the changes made in each version of the Avantis Trader SDK
 
+**Version 0.6.0 (2025-01-24)**
+
+- **Breaking Changes:**
+  - **Modified ABI**:
+    - **`PairStorage` ABI**:
+      - **Previous Behavior**: The ABI had a simpler structure for accessing pair data.
+      - **New Behavior**: Updated to include more detailed and flexible structures for pair data access.
+
+  - **Modified Data Models**:
+    - **`PairInfo`**:
+      - **Previous Behavior**: Limited fields for leverage and pair metrics.
+      - **New Behavior**: Enhanced with additional fields to accommodate new metrics:
+        - **Leverages**:
+          - `min_leverage`: Minimum leverage for pairs.
+          - `max_leverage`: Maximum leverage for pairs.
+          - `pnl_min_leverage`: Minimum leverage for PnL calculations.
+          - `pnl_max_leverage`: Maximum leverage for PnL calculations.
+
+        - **Values**:
+          - `max_gain_percentage`: Maximum allowable gain percentage.
+          - `max_sl_percentage`: Maximum stop-loss percentage.
+          - `max_long_oi_percentage`: Maximum open interest percentage for long trades.
+          - `max_short_oi_percentage`: Maximum open interest percentage for short trades.
+          - `group_open_interest_percentage`: Group-level open interest percentage limit.
+          - `max_wallet_oi_percentage`: Maximum open interest percentage per wallet.
+          - `is_usdc_aligned`: Boolean indicating USDC alignment.
+          
+        - **Additional Fields**:
+          - `backup_feed`: Backup source for price feeds.
+          - `constant_pnl_spread_bps`: Basis points for constant PnL spreads.
+
+- **New Data Models**:
+  - **`PairInfoWithData`**:
+    - Combines detailed pair data (`PairInfo`) with additional metrics (`PairData`).
+    - Includes all new fields from `PairInfo` as well as the following:
+      - `PairData`: Contains essential details such as `from`, `to`, and pair-related attributes.
+
+- **Improvements:**
+  - Enhanced data model flexibility for pair configurations.
+  - Updated documentation to reflect the new ABI structure.
+
+
+**Version 0.5.0 (2025-01-17)**
+- **Breaking Changes:**
+  - **Modified Methods**:
+    - **`build_trade_close_tx`**:
+      - **Previous Behavior**: Required a 6 decimal precision float for collateral_to_close. e.g. 100500000 for 100.5 USDC
+      - **New Behavior**: Now requires a normal float value for collateral_to_close. e.g. 100.5 for 100.5 USDC
+
+  - **New Methods**:
+    - **`build_trade_tp_sl_update_tx`**:
+      - **Description**: Introduced a new method specifically for updating the take profit and stop loss of a trade.
+      - **Purpose**: To allow traders to update the take profit and stop loss of a trade without having to close and open a new trade.
+      - **Input**: Accepts a `pair_index`, `trade_index`, `take_profit_price`, `stop_loss_price`, and `trader` (optional).
+      - **Output**: Returns the transaction object to update the take profit and stop loss of a trade.
+
+- **Improvements:**
+   - Added warning for upcoming v1.5 contracts upgrade
+   - Fixed margin update and USDC approval methods
+   - Optimized fee values for margin updates
+   - `write_contract` will now auto fill the `nonce` and `chainId` if not provided
+
 **Version 0.4.0 (2024-12-02)**
 - **Breaking Changes:**
   - **Modified Methods**:

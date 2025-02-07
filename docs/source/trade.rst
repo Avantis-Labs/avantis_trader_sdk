@@ -19,7 +19,7 @@ The ``open_trade`` method allows you to open a new trade. Follow the steps below
 
    async def main():
        # Initialize TraderClient
-       provider_url = "https://mainnet.base.org"  # Find provider URL for Base Mainnet Chain from https://chainlist.org/chain/8453 or use a dedicated node (Alchemy, Infura, etc.)
+       provider_url = "https://sepolia.base.org"  # Find provider URL for Base Mainnet Chain from https://chainlist.org/chain/8453 or use a dedicated node (Alchemy, Infura, etc.)
        trader_client = TraderClient(provider_url)
 
        # Set local signer
@@ -280,7 +280,7 @@ The ``open_limit_order`` method allows you to place a limit order. A limit order
 
    async def main():
        # Initialize TraderClient
-       provider_url = "https://mainnet.base.org"  # Find provider URL for Base Mainnet Chain from https://chainlist.org/chain/8453 or use a dedicated node (Alchemy, Infura, etc.)
+       provider_url = "https://sepolia.base.org"  # Find provider URL for Base Mainnet Chain from https://chainlist.org/chain/8453 or use a dedicated node (Alchemy, Infura, etc.)
        trader_client = TraderClient(provider_url)
 
        # Set local signer
@@ -405,7 +405,7 @@ The ``cancel_limit_order`` method allows you to cancel a pending limit order. Th
 
    async def main():
        # Initialize TraderClient
-       provider_url = "https://mainnet.base.org"  # Find provider URL for Base Mainnet Chain from https://chainlist.org/chain/8453 or use a dedicated node (Alchemy, Infura, etc.)
+       provider_url = "https://sepolia.base.org"  # Find provider URL for Base Mainnet Chain from https://chainlist.org/chain/8453 or use a dedicated node (Alchemy, Infura, etc.)
        trader_client = TraderClient(provider_url)
 
        # Set local signer
@@ -476,7 +476,7 @@ The ``update_margin`` method allows you to deposit or withdraw collateral from a
 
    async def main():
        # Initialize TraderClient
-       provider_url = "https://mainnet.base.org"  # Find provider URL for Base Mainnet Chain from https://chainlist.org/chain/8453 or use a dedicated node (Alchemy, Infura, etc.)
+       provider_url = "https://sepolia.base.org"  # Find provider URL for Base Mainnet Chain from https://chainlist.org/chain/8453 or use a dedicated node (Alchemy, Infura, etc.)
        trader_client = TraderClient(provider_url)
 
        # Set local signer
@@ -553,3 +553,81 @@ The ``update_margin`` method allows you to deposit or withdraw collateral from a
 - Adjusting the collateral impacts the leverage of the trade. Depositing collateral decreases leverage, providing more security, while withdrawing collateral increases leverage, potentially increasing risk.
 - The minimum leverage allowed on the platform is 2x. Ensure that after any margin update, the leverage remains above this minimum threshold.
 - The maximum leverage allowed can vary from asset to asset, so be sure to check the specific leverage limits for the asset you are trading.
+
+Updating Take Profit and Stop Loss
+----------------------------------
+
+The ``build_trade_tp_sl_update_tx`` method allows you to update the take profit and stop loss of an open trade. This feature provides flexibility to modify trade parameters without closing and reopening a position.
+
+**Example Usage:**
+
+.. code-block:: python
+
+   import asyncio
+   from avantis_trader_sdk import TraderClient
+
+   private_key = "0xmyprivatekey"
+
+   async def main():
+       # Initialize TraderClient
+       provider_url = "https://sepolia.base.org"  # Find provider URL for Base Mainnet Chain from https://chainlist.org/chain/8453 or use a dedicated node (Alchemy, Infura, etc.)
+       trader_client = TraderClient(provider_url)
+
+       # Set local signer
+       trader_client.set_local_signer(private_key)
+
+       trader = trader_client.get_signer().get_ethereum_address()
+
+       # Get open trades
+       trades, _ = await trader_client.trade.get_trades(trader)
+       print("Trades: ", trades)
+
+       # Select first trade to update
+       trade_to_update = trades[0]
+
+       # Update take profit and stop loss
+       update_tp_sl_transaction = await trader_client.trade.build_trade_tp_sl_update_tx(
+           pair_index=trade_to_update.trade.pair_index,
+           trade_index=trade_to_update.trade.trade_index,
+           take_profit_price=4000,  # Desired take profit price
+           stop_loss_price=3288,  # Desired stop loss price (pass 0 to remove the stop loss)
+           trader=trader,
+       )
+
+       # Sign and send transaction
+       receipt = await trader_client.sign_and_get_receipt(update_tp_sl_transaction)
+
+       print(receipt)
+       print("Trade updated successfully!")
+
+   if __name__ == "__main__":
+       asyncio.run(main())
+
+**Details:**
+
+- **Take Profit (TP):**
+  - The price at which the trade will automatically close to secure profits.
+  - Must be set to a valid price above (for long) or below (for short) the entry/current price.
+
+- **Stop Loss (SL):**
+  - The price at which the trade will automatically close to limit losses.
+  - Pass `0` if you wish to remove the stop loss.
+
+**Steps Explained:**
+
+1. **Retrieve Open Trades:**
+   - Use the `get_trades` method to retrieve all open trades for the trader.
+
+2. **Select a Trade to Update:**
+   - Choose the specific trade to modify from the list of open trades.
+
+3. **Build Update Transaction:**
+   - Use the `build_trade_tp_sl_update_tx` method to construct a transaction for updating TP/SL parameters.
+
+4. **Sign and Send Transaction:**
+   - Sign the transaction using your private key and send it to the network. The receipt confirms the successful update.
+
+**Notes:**
+
+- Ensure the specified `take_profit_price` and `stop_loss_price` are valid and within allowed limits.
+- Updating TP/SL parameters can help manage risk and optimize trade outcomes without requiring additional actions on the trader's part.
