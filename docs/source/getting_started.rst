@@ -50,7 +50,7 @@ To get started with the Avantis Trader SDK, follow these steps to install the pa
 
 
       async def main():
-         provider_url = "https://mainnet.base.org"
+         provider_url = "https://sepolia.base.org"
          trader_client = TraderClient(provider_url)
 
          print("----- GETTING PAIR INFO -----")
