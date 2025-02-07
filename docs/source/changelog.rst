@@ -3,6 +3,48 @@ Changelog
 
 This section outlines the changes made in each version of the Avantis Trader SDK
 
+**Version 0.6.0 (2025-01-24)**
+
+- **Breaking Changes:**
+  - **Modified ABI**:
+    - **`PairStorage` ABI**:
+      - **Previous Behavior**: The ABI had a simpler structure for accessing pair data.
+      - **New Behavior**: Updated to include more detailed and flexible structures for pair data access.
+
+  - **Modified Data Models**:
+    - **`PairInfo`**:
+      - **Previous Behavior**: Limited fields for leverage and pair metrics.
+      - **New Behavior**: Enhanced with additional fields to accommodate new metrics:
+        - **Leverages**:
+          - `min_leverage`: Minimum leverage for pairs.
+          - `max_leverage`: Maximum leverage for pairs.
+          - `pnl_min_leverage`: Minimum leverage for PnL calculations.
+          - `pnl_max_leverage`: Maximum leverage for PnL calculations.
+
+        - **Values**:
+          - `max_gain_percentage`: Maximum allowable gain percentage.
+          - `max_sl_percentage`: Maximum stop-loss percentage.
+          - `max_long_oi_percentage`: Maximum open interest percentage for long trades.
+          - `max_short_oi_percentage`: Maximum open interest percentage for short trades.
+          - `group_open_interest_percentage`: Group-level open interest percentage limit.
+          - `max_wallet_oi_percentage`: Maximum open interest percentage per wallet.
+          - `is_usdc_aligned`: Boolean indicating USDC alignment.
+          
+        - **Additional Fields**:
+          - `backup_feed`: Backup source for price feeds.
+          - `constant_pnl_spread_bps`: Basis points for constant PnL spreads.
+
+- **New Data Models**:
+  - **`PairInfoWithData`**:
+    - Combines detailed pair data (`PairInfo`) with additional metrics (`PairData`).
+    - Includes all new fields from `PairInfo` as well as the following:
+      - `PairData`: Contains essential details such as `from`, `to`, and pair-related attributes.
+
+- **Improvements:**
+  - Enhanced data model flexibility for pair configurations.
+  - Updated documentation to reflect the new ABI structure.
+
+
 **Version 0.5.0 (2025-01-17)**
 - **Breaking Changes:**
   - **Modified Methods**:
