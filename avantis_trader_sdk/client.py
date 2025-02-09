@@ -150,9 +150,8 @@ class TraderClient:
         if not self.has_signer():
             return transaction
 
-        signed_txn = await self.sign_transaction(transaction)
-        tx_hash = await self.send_and_get_transaction_hash(signed_txn)
-        return tx_hash
+        receipt = await self.sign_and_get_receipt(transaction)
+        return receipt
 
     def set_signer(self, signer: BaseSigner):
         """
@@ -290,7 +289,8 @@ class TraderClient:
         """
         if address is None:
             address = self.get_signer().get_ethereum_address()
-        return await self.async_web3.eth.get_balance(address)
+        balance = await self.async_web3.eth.get_balance(address)
+        return balance / 10**18
 
     async def get_usdc_balance(self, address=None):
         """

@@ -3,6 +3,21 @@ Changelog
 
 This section outlines the changes made in each version of the Avantis Trader SDK
 
+**Version 0.7.0 (2025-02-09)**
+- **Breaking Changes:**
+  - **Modified Write Contract**:
+    - **Previous Behavior**: The `write_contract` method would return the transaction hash.
+    - **New Behavior**: The `write_contract` method now returns the transaction receipt.
+  
+  - **Modified Get Balance**:
+    - **Previous Behavior**: The `get_balance` method would return the balance of the account in wei.
+    - **New Behavior**: The `get_balance` method now returns the balance of the account in ETH.
+
+- **Improvements:**
+  - Removed dependency on hardcoded pair feed ids.
+  - Added support for fetching feed mappings dynamically from an API or trader client.
+  - Introduced an optional `pair_fetcher` function in feed client for full customization.
+
 **Version 0.6.0 (2025-01-24)**
 
 - **Breaking Changes:**

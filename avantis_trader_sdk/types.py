@@ -36,6 +36,9 @@ class PairInfoBackupFeed(BaseModel):
     def convert_max_deviation(cls, v):
         return v / 10**10
 
+    class Config:
+        populate_by_name = True
+
 
 class PairInfoLeverages(BaseModel):
     min_leverage: float = Field(..., alias="minLeverage")
@@ -110,8 +113,19 @@ class PairInfoWithData(PairInfo, PairData):
         from_attributes = True
 
 
+class PairInfoFeed(BaseModel):
+    from_: str = Field(..., alias="from")
+    to: str
+    feed: PairInfoFeed
+    backup_feed: PairInfoBackupFeed = Field(..., alias="backupFeed")
+
+    class Config:
+        populate_by_name = True
+
+
 class OpenInterest(BaseModel):
     long: Dict[str, float]
+
     short: Dict[str, float]
 
 

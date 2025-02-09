@@ -1,9 +1,12 @@
 import json
 import websockets
-from pathlib import Path
-from ..types import PriceFeedResponse, PriceFeedUpdatesResponse
-from typing import List
+from ..types import PriceFeedResponse, PriceFeedUpdatesResponse, PairInfoFeed
+from typing import List, Callable
 import requests
+from pydantic import ValidationError
+from ..config import AVANTIS_SOCKET_API
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 
 class FeedClient:
@@ -17,6 +20,7 @@ class FeedClient:
         on_error=None,
         on_close=None,
         hermes_url="https://hermes.pyth.network/v2/updates/price/latest",
+        pair_fetcher: Callable = None,
     ):
         """
         Constructor for the FeedClient class.
@@ -42,6 +46,7 @@ class FeedClient:
         self._connected = False
         self._on_error = on_error
         self._on_close = on_close
+        self.pair_fetcher = pair_fetcher or self.default_pair_fetcher
         self._load_pair_feeds()
 
     async def listen_for_price_updates(self):
@@ -95,14 +100,65 @@ class FeedClient:
             else:
                 raise e
 
+    async def default_pair_fetcher(self) -> List[dict]:
+        """
+        Default pair fetcher that retrieves data from the Avantis API.
+        Returns:
+            A list of validated trading pairs.
+        Raises:
+            ValueError if API response is invalid.
+        """
+        if not AVANTIS_SOCKET_API:
+            raise ValueError("AVANTIS_SOCKET_API is not set")
+        try:
+            response = requests.get(AVANTIS_SOCKET_API)
+            response.raise_for_status()
+
+            result = response.json()
+            pairs = result["data"]["pairInfos"].values()
+
+            return pairs
+        except (requests.RequestException, ValidationError) as e:
+            print(f"Error fetching pair feeds: {e}")
+            return []
+
     def _load_pair_feeds(self):
         """
-        Loads the pair feeds from the json file.
+        Loads the pair feeds dynamically using the provided pair_fetcher function.
         """
-        feed_path = Path(__file__).parent / "feedIds.json"
-        with open(feed_path) as feed_file:
-            self.pair_feeds = json.load(feed_file)
-            self.feed_pairs = {v["id"]: k for k, v in self.pair_feeds.items()}
+
+        try:
+            try:
+                asyncio.get_running_loop()
+            except RuntimeError:
+                asyncio.set_event_loop(asyncio.new_event_loop())
+
+            with ThreadPoolExecutor() as executor:
+                future = executor.submit(lambda: asyncio.run(self.pair_fetcher()))
+                pairs = future.result()
+
+            if not pairs:
+                raise ValueError("Fetched pair feed data is empty or invalid.")
+
+            if isinstance(pairs, dict):
+                pairs = list(pairs.values())
+            else:
+                pairs = list(pairs)
+
+            if hasattr(pairs[0], "model_dump_json"):
+                pairs = [json.loads(pair.model_dump_json()) for pair in pairs]
+
+            validated_pairs = [PairInfoFeed.model_validate(pair) for pair in pairs]
+
+            self.pair_feeds = {
+                f"{pair.from_}/{pair.to}": {"id": pair.feed.feed_id}
+                for pair in validated_pairs
+            }
+            self.feed_pairs = {
+                pair.feed.feed_id: f"{pair.from_}/{pair.to}" for pair in validated_pairs
+            }
+        except Exception as e:
+            print(f"Failed to load pair feeds: {e}")
 
     def get_pair_from_feed_id(self, feed_id):
         """
