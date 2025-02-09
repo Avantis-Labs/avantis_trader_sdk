@@ -6,28 +6,38 @@ This section outlines the changes made in each version of the Avantis Trader SDK
 **Version 0.7.0 (2025-02-09)**
 - **Breaking Changes:**
   - **Modified Write Contract**:
+
     - **Previous Behavior**: The `write_contract` method would return the transaction hash.
     - **New Behavior**: The `write_contract` method now returns the transaction receipt.
   
+
   - **Modified Get Balance**:
+
     - **Previous Behavior**: The `get_balance` method would return the balance of the account in wei.
     - **New Behavior**: The `get_balance` method now returns the balance of the account in ETH.
 
 - **Improvements:**
+
   - Removed dependency on hardcoded pair feed ids.
   - Added support for fetching feed mappings dynamically from an API or trader client.
   - Introduced an optional `pair_fetcher` function in feed client for full customization.
+  - Revised example to demonstrate how to use both an API or trader client to retrieve the latest price updates.
 
 **Version 0.6.0 (2025-01-24)**
 
 - **Breaking Changes:**
+
   - **Modified ABI**:
+
     - **`PairStorage` ABI**:
+
       - **Previous Behavior**: The ABI had a simpler structure for accessing pair data.
       - **New Behavior**: Updated to include more detailed and flexible structures for pair data access.
 
   - **Modified Data Models**:
+
     - **`PairInfo`**:
+
       - **Previous Behavior**: Limited fields for leverage and pair metrics.
       - **New Behavior**: Enhanced with additional fields to accommodate new metrics:
         - **Leverages**:
@@ -37,6 +47,7 @@ This section outlines the changes made in each version of the Avantis Trader SDK
           - `pnl_max_leverage`: Maximum leverage for PnL calculations.
 
         - **Values**:
+
           - `max_gain_percentage`: Maximum allowable gain percentage.
           - `max_sl_percentage`: Maximum stop-loss percentage.
           - `max_long_oi_percentage`: Maximum open interest percentage for long trades.
@@ -45,7 +56,9 @@ This section outlines the changes made in each version of the Avantis Trader SDK
           - `max_wallet_oi_percentage`: Maximum open interest percentage per wallet.
           - `is_usdc_aligned`: Boolean indicating USDC alignment.
           
+
         - **Additional Fields**:
+
           - `backup_feed`: Backup source for price feeds.
           - `constant_pnl_spread_bps`: Basis points for constant PnL spreads.
 
