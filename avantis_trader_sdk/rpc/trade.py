@@ -59,16 +59,19 @@ class TradeRPC:
             execution_fee_wei = await self.get_trade_execution_fee()
 
         if (
-            trade_input_order_type == TradeInputOrderType.MARKET
+            (trade_input_order_type == TradeInputOrderType.MARKET
+            or trade_input_order_type == TradeInputOrderType.MARKET_PNL)
             and not trade_input.openPrice
         ):
             feed_client = self.FeedClient()
+
             pair_name = await self.client.pairs_cache.get_pair_name_from_index(
                 trade_input.pairIndex
             )
             price_data = await feed_client.get_latest_price_updates([pair_name])
             price = int(price_data.parsed[0].converted_price * 10**10)
             trade_input.openPrice = price
+            print(f"Open price: {price}")
 
         if (
             trade_input_order_type == TradeInputOrderType.LIMIT
@@ -238,8 +241,7 @@ class TradeRPC:
         collateral_to_close = int(collateral_to_close * 10**6)
 
         execution_fee = await self.get_trade_execution_fee()
-
-        collateral_to_close = int(collateral_to_close * 10**6)
+        
         transaction = await Trading.functions.closeTradeMarket(
             pair_index,
             trade_index,
