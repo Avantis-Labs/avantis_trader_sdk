@@ -4,6 +4,7 @@ Changelog
 This section outlines the changes made in each version of the Avantis Trader SDK
 
 **Version 0.7.0 (2025-02-09)**
+
 - **Breaking Changes:**
   - **Modified Write Contract**:
 
@@ -26,7 +27,6 @@ This section outlines the changes made in each version of the Avantis Trader SDK
 **Version 0.6.0 (2025-01-24)**
 
 - **Breaking Changes:**
-
   - **Modified ABI**:
 
     - **`PairStorage` ABI**:
@@ -35,7 +35,7 @@ This section outlines the changes made in each version of the Avantis Trader SDK
       - **New Behavior**: Updated to include more detailed and flexible structures for pair data access.
 
   - **Modified Data Models**:
-
+  
     - **`PairInfo`**:
 
       - **Previous Behavior**: Limited fields for leverage and pair metrics.
