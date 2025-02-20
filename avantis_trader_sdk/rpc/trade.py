@@ -92,7 +92,7 @@ class TradeRPC:
         )
 
         return transaction
-    
+
     async def build_trade_open_tx_delegate(
         self,
         trade_input: TradeInput,
@@ -156,18 +156,19 @@ class TradeRPC:
                 "nonce": await self.client.get_transaction_count(trade_input.trader),
             }
         )
-        
+
         print("transaction: ", trade_input.trader)
-        
+
         delegate_transaction = await Trading.functions.delegatedAction(
-            trade_input.trader,
-            transaction["data"]
+            trade_input.trader, transaction["data"]
         ).build_transaction(
             {
                 "from": self.client.get_signer().get_ethereum_address(),
                 "value": execution_fee_wei,
                 "chainId": self.client.chain_id,
-                "nonce": await self.client.get_transaction_count(self.client.get_signer().get_ethereum_address()),
+                "nonce": await self.client.get_transaction_count(
+                    self.client.get_signer().get_ethereum_address()
+                ),
             }
         )
 
@@ -335,7 +336,7 @@ class TradeRPC:
         )
 
         return transaction
-    
+
     async def build_trade_close_tx_delegate(
         self,
         pair_index: int,
@@ -378,14 +379,15 @@ class TradeRPC:
         )
 
         delegate_transaction = await Trading.functions.delegatedAction(
-            trader,
-            transaction["data"]
+            trader, transaction["data"]
         ).build_transaction(
             {
                 "from": self.client.get_signer().get_ethereum_address(),
                 "value": execution_fee,
                 "chainId": self.client.chain_id,
-                "nonce": await self.client.get_transaction_count(self.client.get_signer().get_ethereum_address()),
+                "nonce": await self.client.get_transaction_count(
+                    self.client.get_signer().get_ethereum_address()
+                ),
             }
         )
 
@@ -421,7 +423,7 @@ class TradeRPC:
         )
 
         return transaction
-    
+
     async def build_order_cancel_tx_delegate(
         self, pair_index: int, trade_index: int, trader: Optional[str] = None
     ):
@@ -452,13 +454,14 @@ class TradeRPC:
         )
 
         delegate_transaction = await Trading.functions.delegatedAction(
-            trader,
-            transaction["data"]
+            trader, transaction["data"]
         ).build_transaction(
             {
                 "from": self.client.get_signer().get_ethereum_address(),
                 "chainId": self.client.chain_id,
-                "nonce": await self.client.get_transaction_count(self.client.get_signer().get_ethereum_address()),
+                "nonce": await self.client.get_transaction_count(
+                    self.client.get_signer().get_ethereum_address()
+                ),
             }
         )
 
@@ -565,21 +568,22 @@ class TradeRPC:
                 "nonce": await self.client.get_transaction_count(trader),
             }
         )
-        
+
         delegate_transaction = await Trading.functions.delegatedAction(
-            trader,
-            transaction["data"]
+            trader, transaction["data"]
         ).build_transaction(
             {
                 "from": self.client.get_signer().get_ethereum_address(),
                 "chainId": self.client.chain_id,
-                "nonce": await self.client.get_transaction_count(self.client.get_signer().get_ethereum_address()),
+                "nonce": await self.client.get_transaction_count(
+                    self.client.get_signer().get_ethereum_address()
+                ),
                 "value": 1,
             }
         )
 
         return delegate_transaction
-    
+
     async def build_trade_tp_sl_update_tx(
         self,
         pair_index: int,
@@ -691,15 +695,16 @@ class TradeRPC:
                 "gas": 1_000_000,
             }
         )
-        
+
         delegate_transaction = await Trading.functions.delegatedAction(
-            trader,
-            transaction["data"]
+            trader, transaction["data"]
         ).build_transaction(
             {
                 "from": self.client.get_signer().get_ethereum_address(),
                 "chainId": self.client.chain_id,
-                "nonce": await self.client.get_transaction_count(self.client.get_signer().get_ethereum_address()),
+                "nonce": await self.client.get_transaction_count(
+                    self.client.get_signer().get_ethereum_address()
+                ),
                 "value": 1,
                 "gas": 1_000_000,
             }
