@@ -19,7 +19,7 @@ The ``open_trade`` method allows you to open a new trade. Follow the steps below
 
    async def main():
        # Initialize TraderClient
-       provider_url = "https://sepolia.base.org"  # Find provider URL for Base Mainnet Chain from https://chainlist.org/chain/8453 or use a dedicated node (Alchemy, Infura, etc.)
+       provider_url = "https://mainnet.base.org"  # Find provider URL for Base Mainnet Chain from https://chainlist.org/chain/8453 or use a dedicated node (Alchemy, Infura, etc.)
        trader_client = TraderClient(provider_url)
 
        # Set local signer
@@ -280,7 +280,7 @@ The ``open_limit_order`` method allows you to place a limit order. A limit order
 
    async def main():
        # Initialize TraderClient
-       provider_url = "https://sepolia.base.org"  # Find provider URL for Base Mainnet Chain from https://chainlist.org/chain/8453 or use a dedicated node (Alchemy, Infura, etc.)
+       provider_url = "https://mainnet.base.org"  # Find provider URL for Base Mainnet Chain from https://chainlist.org/chain/8453 or use a dedicated node (Alchemy, Infura, etc.)
        trader_client = TraderClient(provider_url)
 
        # Set local signer
@@ -405,7 +405,7 @@ The ``cancel_limit_order`` method allows you to cancel a pending limit order. Th
 
    async def main():
        # Initialize TraderClient
-       provider_url = "https://sepolia.base.org"  # Find provider URL for Base Mainnet Chain from https://chainlist.org/chain/8453 or use a dedicated node (Alchemy, Infura, etc.)
+       provider_url = "https://mainnet.base.org"  # Find provider URL for Base Mainnet Chain from https://chainlist.org/chain/8453 or use a dedicated node (Alchemy, Infura, etc.)
        trader_client = TraderClient(provider_url)
 
        # Set local signer
@@ -476,7 +476,7 @@ The ``update_margin`` method allows you to deposit or withdraw collateral from a
 
    async def main():
        # Initialize TraderClient
-       provider_url = "https://sepolia.base.org"  # Find provider URL for Base Mainnet Chain from https://chainlist.org/chain/8453 or use a dedicated node (Alchemy, Infura, etc.)
+       provider_url = "https://mainnet.base.org"  # Find provider URL for Base Mainnet Chain from https://chainlist.org/chain/8453 or use a dedicated node (Alchemy, Infura, etc.)
        trader_client = TraderClient(provider_url)
 
        # Set local signer
@@ -570,7 +570,7 @@ The ``build_trade_tp_sl_update_tx`` method allows you to update the take profit 
 
    async def main():
        # Initialize TraderClient
-       provider_url = "https://sepolia.base.org"  # Find provider URL for Base Mainnet Chain from https://chainlist.org/chain/8453 or use a dedicated node (Alchemy, Infura, etc.)
+       provider_url = "https://mainnet.base.org"  # Find provider URL for Base Mainnet Chain from https://chainlist.org/chain/8453 or use a dedicated node (Alchemy, Infura, etc.)
        trader_client = TraderClient(provider_url)
 
        # Set local signer

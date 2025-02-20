@@ -18,7 +18,7 @@ Used for opening trades and getting trade-related parameters.
 
    .. code-block:: python
 
-      provider_url = "https://sepolia.base.org"
+      provider_url = "https://mainnet.base.org"
       trader_client = TraderClient(provider_url)
 
 The final file should look like this:
@@ -31,7 +31,7 @@ The final file should look like this:
    import avantis_trader_sdk
 
    # Trader client configuration (used for getting trade related parameters)
-   provider_url = "https://sepolia.base.org" # Replace with the provider URL for the Base Mainnet Chain
+   provider_url = "https://mainnet.base.org" # Replace with the provider URL for the Base Mainnet Chain
    trader_client = TraderClient(provider_url)
 
 Feed Configuration (Optional)
@@ -99,7 +99,7 @@ The final file should look like this:
    import avantis_trader_sdk
 
    # Trader client configuration (used for getting trade related parameters)
-   provider_url = "https://sepolia.base.org" # Replace with the provider URL for the Base Mainnet Chain
+   provider_url = "https://mainnet.base.org" # Replace with the provider URL for the Base Mainnet Chain
    trader_client = TraderClient(provider_url)
 
    # Real-time price feed configuration (used for getting real-time prices of the pairs)

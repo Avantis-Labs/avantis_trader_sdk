@@ -70,7 +70,6 @@ class TradeRPC:
             price_data = await feed_client.get_latest_price_updates([pair_name])
             price = int(price_data.parsed[0].converted_price * 10**10)
             trade_input.openPrice = price
-            print(f"Open price: {price}")
 
         if (
             trade_input_order_type == TradeInputOrderType.LIMIT
