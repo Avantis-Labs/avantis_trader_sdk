@@ -150,9 +150,8 @@ class TraderClient:
         if not self.has_signer():
             return transaction
 
-        signed_txn = await self.sign_transaction(transaction)
-        tx_hash = await self.send_and_get_transaction_hash(signed_txn)
-        return tx_hash
+        receipt = await self.sign_and_get_receipt(transaction)
+        return receipt
 
     def set_signer(self, signer: BaseSigner):
         """

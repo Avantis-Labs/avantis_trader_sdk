@@ -33,7 +33,7 @@ class TradingParametersRPC:
                 trade.trader,
                 trade.pairIndex,
                 trade.index,
-                trade.initialPosToken,
+                trade.positionSizeUSDC,
                 trade.positionSizeUSDC,
                 trade.openPrice,
                 trade.buy,
