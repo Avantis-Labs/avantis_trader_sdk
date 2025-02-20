@@ -1,12 +1,12 @@
 MAINNET_ADDRESSES = {
-    "TradingStorage": "0x53409325d06c58B3e63560D577dBc1792103eD82",
-    "PairStorage": "0xE9f72deA916bC356A4aad348947547A1Eb9b9189",
-    "PairInfos": "0xAb7d59ade1B2C8901D6EC570cfD2b9984461FE8c",
-    "PriceAggregator": "0xdc1E97f48d08a3EBe08d016d89050d2762568Abc",
-    "USDC": "0x298ed1210F44feD0359a03f61598E9Bbff7AA9f2",
-    "Trading": "0x71B27f9a6de69FD412102Bb5ecf4ce6A5dB1C633",
-    "Multicall": "0xf80e7b5b6fd3143a4508b3Ba6BBff99424Df4e32",
-    "Referral": "0x362C6591BA465a1648988be10568d9038de71C48",
+    "TradingStorage": "0x8a311D7048c35985aa31C131B9A13e03a5f7422d",
+    "PairStorage": "0x5db3772136e5557EFE028Db05EE95C84D76faEC4",
+    "PairInfos": "0x81F22d0Cc22977c91bEfE648C9fddf1f2bd977e5",
+    "PriceAggregator": "0x64e2625621970F8cfA17B294670d61CB883dA511",
+    "USDC": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    "Trading": "0x44914408af82bc9983bbb330e3578e1105e11d4e",
+    "Multicall": "0x7a829c5c97a2bf8befb4b01d96a282e4763848d8",
+    "Referral": "0x1a110bba13a1f16cca4b79758bd39290f29de82d",
 }
 
 AVANTIS_SOCKET_API = "https://socket-api.avantisfi.com/v1/data"
