@@ -3,7 +3,54 @@ Changelog
 
 This section outlines the changes made in each version of the Avantis Trader SDK
 
+**Version 0.8.0 (2025-02-21)**
+
+- More Info: https://avantisfi.notion.site/avantis-contracts-v1-5-upgrade
+
+- **Breaking Changes:**
+
+  - **New ABIs Introduced**:
+    - **PairInfos ABI**
+    - **PriceAggregator ABI**
+    - **Trading ABI**
+    - **TradingCallbacks ABI**
+    - **TradingStorage ABI**
+
+  - **Price Impact Spread Calculations**:
+    
+    - The following methods now support the **isPnl** parameter:
+      
+      - `get_price_impact_spread`
+      - `get_skew_impact_spread`
+      - `get_opening_price_impact_spread`
+
+  - **Trade Transactions**:
+    
+    - **Open and Close Trade Transactions**: The last parameter for `execution_fee` has been **removed** in the contract.
+    - **Previous Behavior**: Required `execution_fee` as the last parameter.
+    - **New Behavior**: No longer requires `execution_fee`. Ensure transaction-building logic is updated accordingly.
+
+    - ⚠️ *This is an important change—ensure your integration reflects this update.*
+
+  - **Loss Protection Tier**:
+    - Updated `get_loss_protection_tier` to support the new **PnL order type**.
+
+  - **Referral Rebates**:
+    - Updated `get_trade_referral_rebate_percentage`: The contract method for tiers has changed to `referralTiers`.
+
+  - **Order Type Enum Update**:
+    
+    - The `TradeInputOrderType` enum has been updated to support the **new PnL order type**:
+
+    .. code-block:: python
+
+        class TradeInputOrderType(Enum):
+            ...
+            MARKET_PNL = 3
+
+
 **Version 0.7.0 (2025-02-09)**
+
 - **Breaking Changes:**
   - **Modified Write Contract**:
 
@@ -26,7 +73,6 @@ This section outlines the changes made in each version of the Avantis Trader SDK
 **Version 0.6.0 (2025-01-24)**
 
 - **Breaking Changes:**
-
   - **Modified ABI**:
 
     - **`PairStorage` ABI**:
@@ -35,7 +81,7 @@ This section outlines the changes made in each version of the Avantis Trader SDK
       - **New Behavior**: Updated to include more detailed and flexible structures for pair data access.
 
   - **Modified Data Models**:
-
+  
     - **`PairInfo`**:
 
       - **Previous Behavior**: Limited fields for leverage and pair metrics.

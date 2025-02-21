@@ -60,9 +60,10 @@ class TradeRPC:
 
         if (
             trade_input_order_type == TradeInputOrderType.MARKET
-            and not trade_input.openPrice
-        ):
+            or trade_input_order_type == TradeInputOrderType.MARKET_PNL
+        ) and not trade_input.openPrice:
             feed_client = self.FeedClient()
+
             pair_name = await self.client.pairs_cache.get_pair_name_from_index(
                 trade_input.pairIndex
             )
@@ -80,7 +81,6 @@ class TradeRPC:
             trade_input.model_dump(),
             trade_input_order_type.value,
             slippage_percentage * 10**10,
-            0,
         ).build_transaction(
             {
                 "from": trade_input.trader,
@@ -91,6 +91,86 @@ class TradeRPC:
         )
 
         return transaction
+
+    async def build_trade_open_tx_delegate(
+        self,
+        trade_input: TradeInput,
+        trade_input_order_type: TradeInputOrderType,
+        slippage_percentage: int,
+        execution_fee: Optional[float] = None,
+    ):
+        """
+        Builds a transaction to open a trade.
+
+        Args:
+            trade: The trade input object.
+            trade_input_order_type: The trade input order type.
+            slippage_percentage: The slippage percentage.
+
+        Returns:
+            A transaction object.
+        """
+        Trading = self.client.contracts.get("Trading")
+
+        if (
+            trade_input.trader == "0x1234567890123456789012345678901234567890"
+            and self.client.get_signer() is not None
+        ):
+            trade_input.trader = await self.client.get_signer().get_ethereum_address()
+
+        if execution_fee is not None:
+            execution_fee_wei = int(execution_fee * 10**18)
+        else:
+            execution_fee_wei = await self.get_trade_execution_fee()
+
+        if (
+            trade_input_order_type == TradeInputOrderType.MARKET
+            or trade_input_order_type == TradeInputOrderType.MARKET_PNL
+        ) and not trade_input.openPrice:
+            feed_client = self.FeedClient()
+
+            pair_name = await self.client.pairs_cache.get_pair_name_from_index(
+                trade_input.pairIndex
+            )
+            price_data = await feed_client.get_latest_price_updates([pair_name])
+            price = int(price_data.parsed[0].converted_price * 10**10)
+            trade_input.openPrice = price
+
+        if (
+            trade_input_order_type == TradeInputOrderType.LIMIT
+            or trade_input_order_type == TradeInputOrderType.STOP_LIMIT
+        ) and not trade_input.openPrice:
+            raise Exception("Open price is required for LIMIT/STOP LIMIT order type")
+
+        transaction = await Trading.functions.openTrade(
+            trade_input.model_dump(),
+            trade_input_order_type.value,
+            slippage_percentage * 10**10,
+        ).build_transaction(
+            {
+                "from": trade_input.trader,
+                "value": 0,
+                "chainId": self.client.chain_id,
+                "nonce": await self.client.get_transaction_count(trade_input.trader),
+            }
+        )
+
+        print("transaction: ", trade_input.trader)
+
+        delegate_transaction = await Trading.functions.delegatedAction(
+            trade_input.trader, transaction["data"]
+        ).build_transaction(
+            {
+                "from": self.client.get_signer().get_ethereum_address(),
+                "value": execution_fee_wei,
+                "chainId": self.client.chain_id,
+                "nonce": await self.client.get_transaction_count(
+                    self.client.get_signer().get_ethereum_address()
+                ),
+            }
+        )
+
+        return delegate_transaction
 
     async def get_trade_execution_fee(self):
         """
@@ -241,7 +321,9 @@ class TradeRPC:
         execution_fee = await self.get_trade_execution_fee()
 
         transaction = await Trading.functions.closeTradeMarket(
-            pair_index, trade_index, collateral_to_close, 0
+            pair_index,
+            trade_index,
+            collateral_to_close,
         ).build_transaction(
             {
                 "from": trader,
@@ -252,6 +334,62 @@ class TradeRPC:
         )
 
         return transaction
+
+    async def build_trade_close_tx_delegate(
+        self,
+        pair_index: int,
+        trade_index: int,
+        collateral_to_close: float,
+        trader: Optional[str] = None,
+    ):
+        """
+        Builds a transaction to close a trade.
+
+        Args:
+            pair_index: The pair index.
+            trade_index: The trade index.
+            collateral_to_close: The collateral to close.
+            trader (optional): The trader's wallet address.
+
+        Returns:
+            A transaction object.
+        """
+        Trading = self.client.contracts.get("Trading")
+
+        if trader is None:
+            trader = self.client.get_signer().get_ethereum_address()
+
+        collateral_to_close = int(collateral_to_close * 10**6)
+
+        execution_fee = await self.get_trade_execution_fee()
+
+        transaction = await Trading.functions.closeTradeMarket(
+            pair_index,
+            trade_index,
+            collateral_to_close,
+        ).build_transaction(
+            {
+                "from": trader,
+                "chainId": self.client.chain_id,
+                "nonce": await self.client.get_transaction_count(trader),
+                "value": 0,
+            }
+        )
+
+        delegate_transaction = await Trading.functions.delegatedAction(
+            trader, transaction["data"]
+        ).build_transaction(
+            {
+                "from": self.client.get_signer().get_ethereum_address(),
+                "value": execution_fee,
+                "chainId": self.client.chain_id,
+                "nonce": await self.client.get_transaction_count(
+                    self.client.get_signer().get_ethereum_address()
+                ),
+            }
+        )
+
+        return delegate_transaction
 
     async def build_order_cancel_tx(
         self, pair_index: int, trade_index: int, trader: Optional[str] = None
@@ -283,6 +421,49 @@ class TradeRPC:
         )
 
         return transaction
+
+    async def build_order_cancel_tx_delegate(
+        self, pair_index: int, trade_index: int, trader: Optional[str] = None
+    ):
+        """
+        Builds a transaction to cancel an order.
+
+        Args:
+            pair_index: The pair index.
+            trade_index: The trade/order index.
+            trader (optional): The trader's wallet address.
+
+        Returns:
+            A transaction object.
+        """
+        Trading = self.client.contracts.get("Trading")
+
+        if trader is None:
+            trader = self.client.get_signer().get_ethereum_address()
+
+        transaction = await Trading.functions.cancelOpenLimitOrder(
+            pair_index, trade_index
+        ).build_transaction(
+            {
+                "from": trader,
+                "chainId": self.client.chain_id,
+                "nonce": await self.client.get_transaction_count(trader),
+            }
+        )
+
+        delegate_transaction = await Trading.functions.delegatedAction(
+            trader, transaction["data"]
+        ).build_transaction(
+            {
+                "from": self.client.get_signer().get_ethereum_address(),
+                "chainId": self.client.chain_id,
+                "nonce": await self.client.get_transaction_count(
+                    self.client.get_signer().get_ethereum_address()
+                ),
+            }
+        )
+
+        return delegate_transaction
 
     async def build_trade_margin_update_tx(
         self,
@@ -335,6 +516,71 @@ class TradeRPC:
         )
 
         return transaction
+
+    async def build_trade_margin_update_tx_delegate(
+        self,
+        pair_index: int,
+        trade_index: int,
+        margin_update_type: MarginUpdateType,
+        collateral_change: float,
+        trader: Optional[str] = None,
+    ):
+        """
+        Builds a transaction to update the margin of a trade.
+
+        Args:
+            pair_index: The pair index.
+            trade_index: The trade index.
+            margin_update_type: The margin update type.
+            collateral_change: The collateral change.
+            trader (optional): The trader's wallet address.
+        Returns:
+            A transaction object.
+        """
+        Trading = self.client.contracts.get("Trading")
+
+        if trader is None:
+            trader = self.client.get_signer().get_ethereum_address()
+
+        collateral_change = int(collateral_change * 10**6)
+
+        feed_client = self.FeedClient()
+
+        pair_name = await self.client.pairs_cache.get_pair_name_from_index(pair_index)
+
+        price_data = await feed_client.get_latest_price_updates([pair_name])
+
+        price_update_data = "0x" + price_data.binary.data[0]
+
+        transaction = await Trading.functions.updateMargin(
+            pair_index,
+            trade_index,
+            margin_update_type.value,
+            collateral_change,
+            [price_update_data],
+        ).build_transaction(
+            {
+                "from": trader,
+                "chainId": self.client.chain_id,
+                "value": 0,
+                "nonce": await self.client.get_transaction_count(trader),
+            }
+        )
+
+        delegate_transaction = await Trading.functions.delegatedAction(
+            trader, transaction["data"]
+        ).build_transaction(
+            {
+                "from": self.client.get_signer().get_ethereum_address(),
+                "chainId": self.client.chain_id,
+                "nonce": await self.client.get_transaction_count(
+                    self.client.get_signer().get_ethereum_address()
+                ),
+                "value": 1,
+            }
+        )
+
+        return delegate_transaction
 
     async def build_trade_tp_sl_update_tx(
         self,
@@ -392,3 +638,73 @@ class TradeRPC:
         )
 
         return transaction
+
+    async def build_trade_tp_sl_update_tx_delegate(
+        self,
+        pair_index: int,
+        trade_index: int,
+        take_profit_price: float,
+        stop_loss_price: float,
+        trader: str = None,
+    ):
+        """
+        Builds a transaction to update the stop loss and take profit of a trade.
+
+        Args:
+            pair_index: The pair index.
+            trade_index: The trade index.
+            take_profit_price: The take profit price.
+            stop_loss_price: The stop loss price. Pass 0 if you want to remove the stop loss.
+            trader (optional): The trader's wallet address.
+        Returns:
+            A transaction object.
+        """
+        Trading = self.client.contracts.get("Trading")
+
+        if take_profit_price == 0:
+            raise ValueError("Take profit price cannot be 0")
+
+        if trader is None:
+            trader = self.client.get_signer().get_ethereum_address()
+
+        feed_client = self.FeedClient()
+
+        pair_name = await self.client.pairs_cache.get_pair_name_from_index(pair_index)
+
+        price_data = await feed_client.get_latest_price_updates([pair_name])
+
+        price_update_data = "0x" + price_data.binary.data[0]
+
+        take_profit_price = int(take_profit_price * 10**10)
+        stop_loss_price = int(stop_loss_price * 10**10)
+
+        transaction = await Trading.functions.updateTpAndSl(
+            pair_index,
+            trade_index,
+            stop_loss_price,
+            take_profit_price,
+            [price_update_data],
+        ).build_transaction(
+            {
+                "from": trader,
+                "chainId": self.client.chain_id,
+                "value": 0,
+                "nonce": await self.client.get_transaction_count(trader),
+                "gas": 1_000_000,
+            }
+        )
+
+        delegate_transaction = await Trading.functions.delegatedAction(
+            trader, transaction["data"]
+        ).build_transaction(
+            {
+                "from": self.client.get_signer().get_ethereum_address(),
+                "chainId": self.client.chain_id,
+                "nonce": await self.client.get_transaction_count(
+                    self.client.get_signer().get_ethereum_address()
+                ),
+                "value": 1,
+                "gas": 1_000_000,
+            }
+        )
+        return delegate_transaction

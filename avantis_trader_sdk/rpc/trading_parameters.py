@@ -16,7 +16,7 @@ class TradingParametersRPC:
         """
         self.client = client
 
-    async def get_loss_protection_tier(self, trade: TradeInput):
+    async def get_loss_protection_tier(self, trade: TradeInput, is_pnl: bool = False):
         """
         Retrieves the loss protection tier for a trade. Read more about loss protection tiers here: https://docs.avantisfi.com/rewards/loss-protection
 
@@ -33,7 +33,7 @@ class TradingParametersRPC:
                 trade.trader,
                 trade.pairIndex,
                 trade.index,
-                trade.initialPosToken,
+                trade.positionSizeUSDC,
                 trade.positionSizeUSDC,
                 trade.openPrice,
                 trade.buy,
@@ -41,7 +41,8 @@ class TradingParametersRPC:
                 trade.tp,
                 trade.sl,
                 trade.timestamp,
-            )
+            ),
+            is_pnl,
         ).call()
         return response
 
@@ -131,6 +132,8 @@ class TradingParametersRPC:
         referrer_tier = await Referral.functions.referrerTiers(
             trader_referral_info[1]
         ).call()  # trader_referral_info[1] is the referrer address
-        tier_info = await self.client.read_contract("Referral", "tiers", referrer_tier)
+        tier_info = await self.client.read_contract(
+            "Referral", "referralTiers", referrer_tier
+        )
         discount_percentage = tier_info["feeDiscountPct"] / 100
         return discount_percentage
