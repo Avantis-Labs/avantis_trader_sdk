@@ -4,9 +4,9 @@ MAINNET_ADDRESSES = {
     "PairInfos": "0x81F22d0Cc22977c91bEfE648C9fddf1f2bd977e5",
     "PriceAggregator": "0x64e2625621970F8cfA17B294670d61CB883dA511",
     "USDC": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-    "Trading": "0x44914408af82bc9983bbb330e3578e1105e11d4e",
-    "Multicall": "0x7a829c5c97a2bf8befb4b01d96a282e4763848d8",
-    "Referral": "0x1a110bba13a1f16cca4b79758bd39290f29de82d",
+    "Trading": "0x44914408af82bC9983bbb330e3578E1105e11d4e",
+    "Multicall": "0x7A829c5C97A2Bf8BeFB4b01d96A282E4763848d8",
+    "Referral": "0x1A110bBA13A1f16cCa4b79758BD39290f29De82D",
 }
 
 AVANTIS_SOCKET_API = "https://socket-api.avantisfi.com/v1/data"
