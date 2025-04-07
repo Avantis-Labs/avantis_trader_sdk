@@ -6,7 +6,7 @@ The Avantis Trader SDK provides powerful methods for managing trades, including 
 Opening a Trade
 ---------------
 
-The ``open_trade`` method allows you to open a new trade. Follow the steps below to open a trade using the SDK.
+The ``build_trade_open_tx`` method with ``trade_input_order_type`` set to ``MARKET`` allows you to open a new market trade. Follow the steps below to open a trade using the SDK.
 
 **Example Usage:**
 
@@ -82,7 +82,7 @@ The ``open_trade`` method allows you to open a new trade. Follow the steps below
        # 1% slippage
        slippage_percentage = 1
 
-       # Order type for the trade (MARKET, LIMIT, or STOP_LIMIT)
+       # Order type for the trade (MARKET or LIMIT or STOP_LIMIT or MARKET_ZERO_FEE)
        trade_input_order_type = TradeInputOrderType.MARKET
 
        # Open trade
@@ -113,7 +113,7 @@ The ``open_trade`` method allows you to open a new trade. Follow the steps below
    - Retrieve the opening fee and loss protection information for the trade.
 
 5. **Set Slippage and Order Type:**
-   - Define slippage tolerance and choose the order type (MARKET, LIMIT, STOP_LIMIT).
+   - Define slippage tolerance and choose the order type (MARKET, LIMIT, STOP_LIMIT, or MARKET_ZERO_FEE).
 
 6. **Build and Send Transaction:**
    - Construct the transaction to open the trade and send it to the blockchain.
@@ -267,7 +267,7 @@ The ``close_trade`` method allows you to close an open trade. You can close a tr
 Placing a Limit Order
 ----------------------
 
-The ``open_limit_order`` method allows you to place a limit order. A limit order allows you to specify the desired execution price for the trade. This is similar to opening a market trade, but with the order type set to `LIMIT` and an open price specified.
+The ``build_trade_open_tx`` method with ``trade_input_order_type`` set to ``LIMIT`` allows you to place a limit order. A limit order allows you to specify the desired execution price for the trade. This is similar to opening a market trade, but with the order type set to `LIMIT` and an open price specified.
 
 **Example Usage:**
 
@@ -631,3 +631,108 @@ The ``build_trade_tp_sl_update_tx`` method allows you to update the take profit 
 
 - Ensure the specified `take_profit_price` and `stop_loss_price` are valid and within allowed limits.
 - Updating TP/SL parameters can help manage risk and optimize trade outcomes without requiring additional actions on the trader's part.
+
+Opening a Zero Fee Market Trade
+------------------------------
+
+The ``build_trade_open_tx`` method with ``trade_input_order_type`` set to ``MARKET_ZERO_FEE`` allows you to open a new market trade with zero fees. Follow the steps below to open a trade using the SDK.
+
+**Example Usage:**
+
+.. code-block:: python
+
+   import asyncio
+   from avantis_trader_sdk import TraderClient, TradeInput, TradeInputOrderType
+
+   private_key = "0xmyprivatekey"
+
+   async def main():
+       # Initialize TraderClient
+       provider_url = "https://mainnet.base.org"  # Find provider URL for Base Mainnet Chain from https://chainlist.org/chain/8453 or use a dedicated node (Alchemy, Infura, etc.)
+       trader_client = TraderClient(provider_url)
+
+       # Set local signer
+       trader_client.set_local_signer(private_key) # Alternatively, you can use set_aws_kms_signer() to use a key from AWS KMS or create your own signer by inheriting BaseSigner class
+
+       trader = trader_client.get_signer().get_ethereum_address()
+
+       # Check allowance of USDC
+       allowance = await trader_client.get_usdc_allowance_for_trading(trader)
+       print(f"Allowance of {trader} is {allowance} USDC")
+      
+       amount_of_collateral = 10
+
+       if allowance < amount_of_collateral:
+        print(f"Allowance of {trader} is less than {amount_of_collateral} USDC. Approving...")
+        await trader_client.approve_usdc_for_trading(amount_of_collateral)
+        allowance = await trader_client.get_usdc_allowance_for_trading(trader)
+        print(f"New allowance of {trader} is {allowance} USDC")
+
+       # Get pair index of the pair. For example, ETH/USD
+       pair_index_of_eth_usd = await trader_client.pairs_cache.get_pair_index("ETH/USD")
+
+       # Prepare trade input
+       trade_input = TradeInput(
+           trader=trader,  # Trader's wallet address
+           open_price=None,  # (Optional) Open price of the trade. Current price in case of Market orders. If None then it will default to the current price
+           pair_index=pair_index_of_eth_usd,  # Pair index
+           collateral_in_trade=amount_of_collateral,  # Amount of collateral in trade (in USDC)
+           is_long=True,  # True for long, False for short
+           leverage=25,  # Leverage for the trade
+           index=0,  # This is the index of the trade for a pair (0 for the first trade, 1 for the second, etc.)
+           tp=4000.5,  # Take profit price. Max allowed is 500% of open price.
+           sl=0,  # Stop loss price
+           timestamp=0,  # Timestamp of the trade. 0 for now
+       )
+
+       # 1% slippage
+       slippage_percentage = 1
+
+       # Order type for the trade (MARKET or LIMIT or STOP_LIMIT or MARKET_ZERO_FEE)
+       trade_input_order_type = TradeInputOrderType.MARKET_ZERO_FEE
+      
+       # Notes:
+       # - Limit orders are not supported for zero fee trades
+       # - Withdrawing collateral is not supported for zero fee trades
+       # - No referral discounts are applied for zero fee trades
+       # - Loss protection is not applied for zero fee trades
+
+       # Open trade
+       open_transaction = await trader_client.trade.build_trade_open_tx(
+           trade_input, trade_input_order_type, slippage_percentage
+       )
+
+       receipt = await trader_client.sign_and_get_receipt(open_transaction)
+
+       print(receipt)
+       print("Trade opened successfully!")
+
+   # Run the example
+   asyncio.run(main())
+
+**Steps Explained:**
+
+1. **Initialize the TraderClient:**
+   - Connect to the Base Mainnet using a provider URL.
+
+2. **Get Pair Index:**
+   - Retrieve the index of the trading pair (e.g., ETH/USD).
+
+3. **Prepare Trade Input:**
+   - Define the trade details such as trader's address, collateral, leverage, and more.
+
+4. **Set Slippage and Order Type:**
+   - Define slippage tolerance and choose the order type (MARKET_ZERO_FEE for zero fee market trades).
+
+5. **Build and Send Transaction:**
+   - Construct the transaction to open the trade and send it to the blockchain.
+
+**Notes:**
+
+- Limit orders are not supported for zero fee trades.
+- Withdrawing collateral is not supported for zero fee trades.
+- No referral discounts are applied for zero fee trades.
+- Loss protection is not applied for zero fee trades.
+- Ensure that the parameters such as `trade_input`, `slippage_percentage`, and `trade_input_order_type` are correctly set.
+- An execution fee is charged in ETH to execute the close trade transaction. This fee is required to cover the gas costs on the Ethereum network. This is automatically calculated.
+- Refer to the Avantis documentation for more details on trading fees mechanisms - https://docs.avantisfi.com/.

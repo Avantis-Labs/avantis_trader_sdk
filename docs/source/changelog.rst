@@ -3,6 +3,11 @@ Changelog
 
 This section outlines the changes made in each version of the Avantis Trader SDK
 
+**Version 0.8.1 (2025-04-07)**
+
+- **New Features:**
+  - Added support for opening zero fee market trades.
+
 **Version 0.8.0 (2025-02-21)**
 
 - More Info: https://avantisfi.notion.site/avantis-contracts-v1-5-upgrade
