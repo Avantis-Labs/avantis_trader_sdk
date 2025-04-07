@@ -89,7 +89,7 @@ async def main():
     # 1% slippage
     slippage_percentage = 1
 
-    # Order type for the trade (MARKET or LIMIT or STOP_LIMIT)
+    # Order type for the trade (MARKET or LIMIT or STOP_LIMIT or MARKET_ZERO_FEE)
     trade_input_order_type = TradeInputOrderType.MARKET
 
     # Open trade

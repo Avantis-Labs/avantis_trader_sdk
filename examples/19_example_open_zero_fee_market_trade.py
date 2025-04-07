@@ -62,34 +62,17 @@ async def main():
         timestamp=0,  # Timestamp of the trade. 0 for now
     )
 
-    # ---------------------------------------------
-    # Get opening fee data
-    # Read more: https://docs.avantisfi.com/trading/trading-fees/crypto#dynamic-opening-fee-0.04-0.1-position-size
-    opening_fee_usdc = await trader_client.fee_parameters.get_new_trade_opening_fee(
-        trade_input
-    )
-    print(f"Opening fee for this trade: {opening_fee_usdc} USDC")
-
-    # Get loss protection percentage
-    # Read more: https://docs.avantisfi.com/rewards/loss-protection
-    loss_protection_info = (
-        await trader_client.trading_parameters.get_loss_protection_for_trade_input(
-            trade_input, opening_fee_usdc=opening_fee_usdc
-        )
-    )  # Opening fee is optional (it will be calculated if not provided)
-    print(
-        f"Loss protection percentage for this trade (Read more: https://docs.avantisfi.com/rewards/loss-protection): {loss_protection_info.percentage}%"
-    )
-    print(
-        f"You'll receive up to ${loss_protection_info.amount} as a loss rebate if the trade goes against you."
-    )
-    # ---------------------------------------------
-
     # 1% slippage
     slippage_percentage = 1
 
     # Order type for the trade (MARKET or LIMIT or STOP_LIMIT or MARKET_ZERO_FEE)
-    trade_input_order_type = TradeInputOrderType.MARKET
+    trade_input_order_type = TradeInputOrderType.MARKET_ZERO_FEE
+
+    # Notes:
+    # - Limit orders are not supported for zero fee trades
+    # - Withdrawing collateral is not supported for zero fee trades
+    # - No referral discounts are applied for zero fee trades
+    # - Loss protection is not applied for zero fee trades
 
     # Open trade
     open_transaction = await trader_client.trade.build_trade_open_tx(
