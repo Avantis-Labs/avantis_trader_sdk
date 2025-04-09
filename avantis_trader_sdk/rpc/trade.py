@@ -60,7 +60,7 @@ class TradeRPC:
 
         if (
             trade_input_order_type == TradeInputOrderType.MARKET
-            or trade_input_order_type == TradeInputOrderType.MARKET_PNL
+            or trade_input_order_type == TradeInputOrderType.MARKET_ZERO_FEE
         ) and not trade_input.openPrice:
             feed_client = self.FeedClient()
 
@@ -125,7 +125,7 @@ class TradeRPC:
 
         if (
             trade_input_order_type == TradeInputOrderType.MARKET
-            or trade_input_order_type == TradeInputOrderType.MARKET_PNL
+            or trade_input_order_type == TradeInputOrderType.MARKET_ZERO_FEE
         ) and not trade_input.openPrice:
             feed_client = self.FeedClient()
 

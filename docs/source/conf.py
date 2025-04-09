@@ -19,11 +19,11 @@ author = "Avantis Labs"
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
-    "sphinx.ext.autodoc",  # Include documentation from docstrings
+    "sphinx.ext.autodoc",
     "sphinx.ext.coverage",
     "sphinx.ext.napoleon",
-    "sphinx.ext.viewcode",  # Add links to highlighted source code
-    "sphinx_autodoc_typehints",  # Add this line
+    "sphinx.ext.viewcode",
+    "sphinx_autodoc_typehints",
     "sphinx_markdown_builder",
 ]
 
@@ -38,7 +38,7 @@ exclude_patterns = ["utils.py", "config.py"]
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = "sphinx_rtd_theme"
+html_theme = "renku"
 html_static_path = ["_static"]
 
 # Make docs with sphinx-apidoc -o docs/source avantis_trader_sdk/

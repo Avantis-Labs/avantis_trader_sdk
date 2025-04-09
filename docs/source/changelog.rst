@@ -3,6 +3,12 @@ Changelog
 
 This section outlines the changes made in each version of the Avantis Trader SDK
 
+**Version 0.8.2 (2025-04-07)**
+
+- **Bug Fixes:**
+  - Fixed a bug where the trade type for zero fee market trades was not being set correctly.
+
+
 **Version 0.8.1 (2025-04-07)**
 
 - **New Features:**
