@@ -1,3 +1,4 @@
+from ..feed.feed_client import FeedClient
 from ..types import (
     TradeInput,
     TradeInputOrderType,
@@ -16,16 +17,16 @@ class TradeRPC:
     The TradeRPC class contains methods for retrieving trading parameters from the Avantis Protocol.
     """
 
-    def __init__(self, client, FeedClient):
+    def __init__(self, client, feed_client: FeedClient):
         """
         Constructor for the TradeRPC class.
 
         Args:
             client: The TraderClient object.
-            FeedClient: The FeedClient object.
+            feed_client: The FeedClient object.
         """
         self.client = client
-        self.FeedClient = FeedClient
+        self.feed_client = feed_client
 
     async def build_trade_open_tx(
         self,
@@ -62,12 +63,10 @@ class TradeRPC:
             trade_input_order_type == TradeInputOrderType.MARKET
             or trade_input_order_type == TradeInputOrderType.MARKET_ZERO_FEE
         ) and not trade_input.openPrice:
-            feed_client = self.FeedClient()
-
             pair_name = await self.client.pairs_cache.get_pair_name_from_index(
                 trade_input.pairIndex
             )
-            price_data = await feed_client.get_latest_price_updates([pair_name])
+            price_data = await self.feed_client.get_latest_price_updates([pair_name])
             price = int(price_data.parsed[0].converted_price * 10**10)
             trade_input.openPrice = price
 
@@ -127,12 +126,10 @@ class TradeRPC:
             trade_input_order_type == TradeInputOrderType.MARKET
             or trade_input_order_type == TradeInputOrderType.MARKET_ZERO_FEE
         ) and not trade_input.openPrice:
-            feed_client = self.FeedClient()
-
             pair_name = await self.client.pairs_cache.get_pair_name_from_index(
                 trade_input.pairIndex
             )
-            price_data = await feed_client.get_latest_price_updates([pair_name])
+            price_data = await self.feed_client.get_latest_price_updates([pair_name])
             price = int(price_data.parsed[0].converted_price * 10**10)
             trade_input.openPrice = price
 
@@ -492,11 +489,9 @@ class TradeRPC:
 
         collateral_change = int(collateral_change * 10**6)
 
-        feed_client = self.FeedClient()
-
         pair_name = await self.client.pairs_cache.get_pair_name_from_index(pair_index)
 
-        price_data = await feed_client.get_latest_price_updates([pair_name])
+        price_data = await self.feed_client.get_latest_price_updates([pair_name])
 
         price_update_data = "0x" + price_data.binary.data[0]
 
@@ -544,11 +539,9 @@ class TradeRPC:
 
         collateral_change = int(collateral_change * 10**6)
 
-        feed_client = self.FeedClient()
-
         pair_name = await self.client.pairs_cache.get_pair_name_from_index(pair_index)
 
-        price_data = await feed_client.get_latest_price_updates([pair_name])
+        price_data = await self.feed_client.get_latest_price_updates([pair_name])
 
         price_update_data = "0x" + price_data.binary.data[0]
 
@@ -610,8 +603,6 @@ class TradeRPC:
         if trader is None:
             trader = self.client.get_signer().get_ethereum_address()
 
-        feed_client = self.FeedClient()
-
         pair_name = await self.client.pairs_cache.get_pair_name_from_index(pair_index)
 
         price_data = await feed_client.get_latest_price_updates([pair_name])
@@ -671,7 +662,7 @@ class TradeRPC:
 
         pair_name = await self.client.pairs_cache.get_pair_name_from_index(pair_index)
 
-        price_data = await feed_client.get_latest_price_updates([pair_name])
+        price_data = await self.feed_client.get_latest_price_updates([pair_name])
 
         price_update_data = "0x" + price_data.binary.data[0]
 

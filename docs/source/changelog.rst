@@ -3,6 +3,11 @@ Changelog
 
 This section outlines the changes made in each version of the Avantis Trader SDK
 
+**Version 0.8.3 (2025-07-25)**
+
+- **New Features:**
+  - Added support for using a custom socket API for pair feeds.
+
 **Version 0.8.2 (2025-04-07)**
 
 - **Bug Fixes:**

@@ -20,6 +20,7 @@ class FeedClient:
         on_error=None,
         on_close=None,
         hermes_url="https://hermes.pyth.network/v2/updates/price/latest",
+        socket_api: str = AVANTIS_SOCKET_API,
         pair_fetcher: Callable = None,
     ):
         """
@@ -46,8 +47,9 @@ class FeedClient:
         self._connected = False
         self._on_error = on_error
         self._on_close = on_close
+        self.socket_api = socket_api
         self.pair_fetcher = pair_fetcher or self.default_pair_fetcher
-        self._load_pair_feeds()
+        self.load_pair_feeds()
 
     async def listen_for_price_updates(self):
         """
@@ -108,10 +110,10 @@ class FeedClient:
         Raises:
             ValueError if API response is invalid.
         """
-        if not AVANTIS_SOCKET_API:
-            raise ValueError("AVANTIS_SOCKET_API is not set")
+        if not self.socket_api:
+            raise ValueError("socket_api is not set")
         try:
-            response = requests.get(AVANTIS_SOCKET_API)
+            response = requests.get(self.socket_api)
             response.raise_for_status()
 
             result = response.json()
@@ -120,9 +122,9 @@ class FeedClient:
             return pairs
         except (requests.RequestException, ValidationError) as e:
             print(f"Error fetching pair feeds: {e}")
-            return []
+            return []    
 
-    def _load_pair_feeds(self):
+    def load_pair_feeds(self):
         """
         Loads the pair feeds dynamically using the provided pair_fetcher function.
         """

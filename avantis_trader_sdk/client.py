@@ -28,6 +28,7 @@ class TraderClient:
         provider_url,
         l1_provider_url="https://eth.llamarpc.com",
         signer: BaseSigner = None,
+        feed_client: FeedClient = None,
     ):
         """
         Constructor for the TraderClient class.
@@ -66,7 +67,8 @@ class TraderClient:
         self.fee_parameters = FeeParametersRPC(self)
         self.trading_parameters = TradingParametersRPC(self)
         self.snapshot = SnapshotRPC(self)
-        self.trade = TradeRPC(self, FeedClient)
+        self.feed_client = feed_client or FeedClient()
+        self.trade = TradeRPC(self, self.feed_client)
 
         self.signer = signer
 
