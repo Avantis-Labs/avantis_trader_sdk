@@ -17,7 +17,7 @@ setup(
         "boto3>=1.35.44,<2",
         "eth_account>=0.10.0,<0.14.0",
         "toolz>=0.12.1,<1",
-        "eth_utils>=2.1.0,<5",
+        "eth_utils>=2.1.0,<6",
         "pyasn1>=0.6.1,<1",
     ],
     classifiers=[
