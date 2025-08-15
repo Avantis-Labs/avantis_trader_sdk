@@ -1,4 +1,5 @@
 import asyncio
+
 from .rpc_helpers import map_output_to_pairs
 from ..types import (
     OpenInterest,
@@ -8,8 +9,8 @@ from ..types import (
     Spread,
     Depth,
 )
+from ..utils import encode_abi
 from typing import Optional
-
 
 class AssetParametersRPC:
     """
@@ -39,7 +40,7 @@ class AssetParametersRPC:
         pairs_info = await self.client.pairs_cache.get_pairs_info()
         calls = []
         for pair_index in range(len(pairs_info)):
-            call_data = PairStorage.encodeABI(fn_name="pairMaxOI", args=[pair_index])
+            call_data = encode_abi(PairStorage, "pairMaxOI", args=[pair_index])
             calls.append((PairStorage.address, call_data))
 
         response = await Multicall.functions.aggregate(calls).call()
@@ -88,7 +89,7 @@ class AssetParametersRPC:
         pairs_info = await self.client.pairs_cache.get_pairs_info()
         calls = []
         for pair_index in range(len(pairs_info)):
-            call_data = TradingStorage.encodeABI(fn_name="pairOI", args=[pair_index])
+            call_data = encode_abi(TradingStorage, "pairOI", args=[pair_index])
             calls.append((TradingStorage.address, call_data))
 
         oi_limits_task = self.get_oi_limits()
@@ -159,15 +160,17 @@ class AssetParametersRPC:
                     [
                         (
                             PairInfos.address,
-                            PairInfos.encodeABI(
-                                fn_name="getPriceImpactSpread",
+                            encode_abi(
+                                PairInfos,
+                                "getPriceImpactSpread",
                                 args=[pair_index, True, position_size, False],
-                            ),
+                            )
                         ),
                         (
                             PairInfos.address,
-                            PairInfos.encodeABI(
-                                fn_name="getPriceImpactSpread",
+                            encode_abi(
+                                PairInfos,
+                                "getPriceImpactSpread",
                                 args=[pair_index, False, position_size, False],
                             ),
                         ),
@@ -187,15 +190,17 @@ class AssetParametersRPC:
                         [
                             (
                                 PairInfos.address,
-                                PairInfos.encodeABI(
-                                    fn_name="getPriceImpactSpread",
+                                encode_abi(
+                                    PairInfos,
+                                    "getPriceImpactSpread",
                                     args=[pair_index, True, position_size, False],
                                 ),
                             ),
                             (
                                 PairInfos.address,
-                                PairInfos.encodeABI(
-                                    fn_name="getPriceImpactSpread",
+                                encode_abi(
+                                    PairInfos,
+                                    "getPriceImpactSpread",
                                     args=[pair_index, False, position_size, False],
                                 ),
                             ),
@@ -205,8 +210,9 @@ class AssetParametersRPC:
                     calls.append(
                         (
                             PairInfos.address,
-                            PairInfos.encodeABI(
-                                fn_name="getPriceImpactSpread",
+                            encode_abi(
+                                PairInfos,
+                                "getPriceImpactSpread",
                                 args=[pair_index, is_long, position_size, False],
                             ),
                         )
@@ -293,15 +299,17 @@ class AssetParametersRPC:
                     [
                         (
                             PairInfos.address,
-                            PairInfos.encodeABI(
-                                fn_name="getSkewImpactSpread",
+                            encode_abi(
+                                PairInfos,
+                                "getSkewImpactSpread",
                                 args=[pair_index, True, position_size, False],
                             ),
                         ),
                         (
                             PairInfos.address,
-                            PairInfos.encodeABI(
-                                fn_name="getSkewImpactSpread",
+                            encode_abi(
+                                PairInfos,
+                                "getSkewImpactSpread",
                                 args=[pair_index, False, position_size, False],
                             ),
                         ),
@@ -320,15 +328,17 @@ class AssetParametersRPC:
                         [
                             (
                                 PairInfos.address,
-                                PairInfos.encodeABI(
-                                    fn_name="getSkewImpactSpread",
+                                encode_abi(
+                                    PairInfos,
+                                    "getSkewImpactSpread",
                                     args=[pair_index, True, position_size, False],
                                 ),
                             ),
                             (
                                 PairInfos.address,
-                                PairInfos.encodeABI(
-                                    fn_name="getSkewImpactSpread",
+                                encode_abi(
+                                    PairInfos,
+                                    "getSkewImpactSpread",
                                     args=[pair_index, False, position_size, False],
                                 ),
                             ),
@@ -338,8 +348,9 @@ class AssetParametersRPC:
                     calls.append(
                         (
                             PairInfos.address,
-                            PairInfos.encodeABI(
-                                fn_name="getSkewImpactSpread",
+                            encode_abi(
+                                PairInfos,
+                                "getSkewImpactSpread",
                                 args=[pair_index, is_long, position_size, False],
                             ),
                         )
@@ -421,15 +432,17 @@ class AssetParametersRPC:
                 [
                     (
                         PairInfos.address,
-                        PairInfos.encodeABI(
-                            fn_name="getTradePriceImpact",
+                        encode_abi(
+                            PairInfos,
+                            "getTradePriceImpact",
                             args=[open_price, pair_index, True, position_size, False],
                         ),
                     ),
                     (
                         PairInfos.address,
-                        PairInfos.encodeABI(
-                            fn_name="getTradePriceImpact",
+                        encode_abi(
+                            PairInfos,
+                            "getTradePriceImpact",
                             args=[open_price, pair_index, False, position_size, False],
                         ),
                     ),
@@ -472,15 +485,17 @@ class AssetParametersRPC:
                 [
                     (
                         PairInfos.address,
-                        PairInfos.encodeABI(
-                            fn_name="getOnePercentDepthAbove",
+                        encode_abi(
+                            PairInfos,
+                            "getOnePercentDepthAbove",
                             args=[pair_index],
                         ),
                     ),
                     (
                         PairInfos.address,
-                        PairInfos.encodeABI(
-                            fn_name="getOnePercentDepthBelow",
+                        encode_abi(
+                            PairInfos,
+                            "getOnePercentDepthBelow",
                             args=[pair_index],
                         ),
                     ),
