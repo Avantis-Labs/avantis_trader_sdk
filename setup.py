@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="avantis_trader_sdk",
-    version="0.8.3",
+    version="0.8.4",
     author="Avantis Labs",
     author_email="brank@avantisfi.com",
     description="SDK for interacting with Avantis trading contracts.",
