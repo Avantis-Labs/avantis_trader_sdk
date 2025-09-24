@@ -3,6 +3,11 @@ Changelog
 
 This section outlines the changes made in each version of the Avantis Trader SDK
 
+**Version 0.8.4 (2025-09-19)**
+
+- **New Features:**
+  - Updated Trading ABI.
+
 **Version 0.8.3 (2025-07-25)**
 
 - **New Features:**
