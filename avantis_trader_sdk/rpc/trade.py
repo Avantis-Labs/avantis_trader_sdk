@@ -180,16 +180,11 @@ class TradeRPC:
         execution_fee_wei = int(execution_fee * 10**18)
 
         try:
-            feeScalar = 0.001
-
-            estimatedL1Gas = math.floor(22676 * feeScalar)
             estimatedL2Gas = math.floor(850000 * 1.1)
 
             l2GasPrice = await self.client.async_web3.eth.gas_price
             estimatedL2GasEth = l2GasPrice * estimatedL2Gas
-
-            l1GasPrice = await self.client.l1_async_web3.eth.gas_price
-            estimatedL1GasEth = l1GasPrice * estimatedL1Gas
+            estimatedL1GasEth = 5000000000
 
             feeEstimate = estimatedL1GasEth + estimatedL2GasEth
             feeEstimate = round(feeEstimate, 18)
@@ -295,6 +290,7 @@ class TradeRPC:
         trade_index: int,
         collateral_to_close: float,
         trader: Optional[str] = None,
+        execution_fee: Optional[float] = None,
     ):
         """
         Builds a transaction to close a trade.
@@ -304,6 +300,7 @@ class TradeRPC:
             trade_index: The trade index.
             collateral_to_close: The collateral to close.
             trader (optional): The trader's wallet address.
+            execution_fee (optional): The execution fee.
 
         Returns:
             A transaction object.
@@ -315,7 +312,10 @@ class TradeRPC:
 
         collateral_to_close = int(collateral_to_close * 10**6)
 
-        execution_fee = await self.get_trade_execution_fee()
+        if execution_fee is not None:
+            execution_fee_wei = int(execution_fee * 10**18)
+        else:
+            execution_fee_wei = await self.get_trade_execution_fee()
 
         transaction = await Trading.functions.closeTradeMarket(
             pair_index,
@@ -326,7 +326,7 @@ class TradeRPC:
                 "from": trader,
                 "chainId": self.client.chain_id,
                 "nonce": await self.client.get_transaction_count(trader),
-                "value": execution_fee,
+                "value": execution_fee_wei,
             }
         )
 
@@ -338,6 +338,7 @@ class TradeRPC:
         trade_index: int,
         collateral_to_close: float,
         trader: Optional[str] = None,
+        execution_fee: Optional[float] = None,
     ):
         """
         Builds a transaction to close a trade.
@@ -358,7 +359,10 @@ class TradeRPC:
 
         collateral_to_close = int(collateral_to_close * 10**6)
 
-        execution_fee = await self.get_trade_execution_fee()
+        if execution_fee is not None:
+            execution_fee_wei = int(execution_fee * 10**18)
+        else:
+            execution_fee_wei = await self.get_trade_execution_fee()
 
         transaction = await Trading.functions.closeTradeMarket(
             pair_index,
@@ -378,7 +382,7 @@ class TradeRPC:
         ).build_transaction(
             {
                 "from": self.client.get_signer().get_ethereum_address(),
-                "value": execution_fee,
+                "value": execution_fee_wei,
                 "chainId": self.client.chain_id,
                 "nonce": await self.client.get_transaction_count(
                     self.client.get_signer().get_ethereum_address()

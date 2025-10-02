@@ -38,19 +38,16 @@ class TraderClient:
             l1_provider_url (optional): The URL of the L1 Ethereum node provider.
             signer (optional): The signer to use for signing transactions.
         """
+        if l1_provider_url is not None:
+            print(
+                " ⚠️ Warning: l1_provider_url is deprecated and will be removed in the future."
+            )
+
         self.web3 = Web3(
             Web3.HTTPProvider(provider_url, request_kwargs={"timeout": 60})
         )
         self.async_web3 = AsyncWeb3(
             AsyncWeb3.AsyncHTTPProvider(provider_url, request_kwargs={"timeout": 60})
-        )
-
-        self.l1_web3 = Web3(
-            Web3.HTTPProvider(l1_provider_url, request_kwargs={"timeout": 60})
-        )
-
-        self.l1_async_web3 = AsyncWeb3(
-            AsyncWeb3.AsyncHTTPProvider(l1_provider_url, request_kwargs={"timeout": 60})
         )
 
         self.contracts = self.load_contracts()

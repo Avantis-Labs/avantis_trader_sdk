@@ -51,6 +51,7 @@ class KMSSigner(BaseSigner):
         self._key_id = kms_key_id
         self._kms_client = boto3.client("kms", region_name)
         self.address = self.get_public_key()
+        self.cached_address = None
 
     async def sign_transaction(self, transaction):
         """
@@ -68,8 +69,10 @@ class KMSSigner(BaseSigner):
         """
         Retrieves the public key associated with the KMS key.
         """
-        eth_address = self.get_eth_address()
-        return Web3.to_checksum_address(eth_address)
+        if self.cached_address is None:
+            eth_address = self.get_eth_address()
+            self.cached_address = Web3.to_checksum_address(eth_address)
+        return self.cached_address
 
     def get_ethereum_address(self):
         """

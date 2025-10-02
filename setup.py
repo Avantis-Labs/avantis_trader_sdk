@@ -2,9 +2,9 @@ from setuptools import setup, find_packages
 
 setup(
     name="avantis_trader_sdk",
-    version="0.8.4",
+    version="0.8.5",
     author="Avantis Labs",
-    author_email="brank@avantisfi.com",
+    author_email="yug@avantisfi.com",
     description="SDK for interacting with Avantis trading contracts.",
     long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
