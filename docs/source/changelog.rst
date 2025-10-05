@@ -6,6 +6,7 @@ This section outlines the changes made in each version of the Avantis Trader SDK
 **Version 0.8.5 (2025-10-02)**
 
 - **New Features:**
+
   - Removed dependency and support for l1_provider_url.
   - Added support for using a custom execution fee for trade transactions.
   - Cached the KMS signer address for better performance.
