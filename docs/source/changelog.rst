@@ -3,6 +3,12 @@ Changelog
 
 This section outlines the changes made in each version of the Avantis Trader SDK
 
+
+**Version 0.8.6 (2025-10-07)**
+
+- **Bug Fixes:**
+  - Fixed a bug where the KMS signer address was not being fetched correctly.
+
 **Version 0.8.5 (2025-10-02)**
 
 - **New Features:**
