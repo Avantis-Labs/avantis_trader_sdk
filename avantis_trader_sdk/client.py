@@ -38,7 +38,7 @@ class TraderClient:
             l1_provider_url (optional): The URL of the L1 Ethereum node provider.
             signer (optional): The signer to use for signing transactions.
         """
-        if l1_provider_url is not None:
+        if l1_provider_url != "https://eth.llamarpc.com":
             print(
                 " ⚠️ Warning: l1_provider_url is deprecated and will be removed in the future."
             )

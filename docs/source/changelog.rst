@@ -4,6 +4,21 @@ Changelog
 This section outlines the changes made in each version of the Avantis Trader SDK
 
 
+**Version 0.8.9 (2025-10-07)**
+
+- **Internal Changes:**
+  - Upgraded eth_account to 0.14
+
+**Version 0.8.8 (2025-10-07)**
+
+- **Internal Changes:**
+  - Update setup.py to include eth_account 0.13
+
+**Version 0.8.7 (2025-10-07)**
+
+- **Internal Changes:**
+  - Upgraded eth_account to 0.13
+
 **Version 0.8.6 (2025-10-07)**
 
 - **Bug Fixes:**

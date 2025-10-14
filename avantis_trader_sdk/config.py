@@ -9,6 +9,6 @@ MAINNET_ADDRESSES = {
     "Referral": "0x1A110bBA13A1f16cCa4b79758BD39290f29De82D",
 }
 
-AVANTIS_SOCKET_API = "https://socket-api.avantisfi.com/v1/data"
+AVANTIS_SOCKET_API = "https://socket-api-pub.avantisfi.com/socket-api/v1/data"
 
 CONTRACT_ADDRESSES = MAINNET_ADDRESSES
