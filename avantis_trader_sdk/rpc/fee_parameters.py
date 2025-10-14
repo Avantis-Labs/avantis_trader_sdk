@@ -1,6 +1,7 @@
 import asyncio
 from .rpc_helpers import map_output_to_pairs
 from ..types import MarginFee, PairSpread, Fee, TradeInput
+from ..utils import encode_abi
 from typing import Optional
 
 
@@ -58,7 +59,7 @@ class FeeParametersRPC:
         pairs_info = await self.client.pairs_cache.get_pairs_info()
         calls = []
         for pair_index in range(len(pairs_info)):
-            call_data = PairStorage.encodeABI(fn_name="pairSpreadP", args=[pair_index])
+            call_data = encode_abi(PairStorage, "pairSpreadP", args=[pair_index])
             calls.append((PairStorage.address, call_data))
 
         response = await Multicall.functions.aggregate(calls).call()
@@ -108,15 +109,17 @@ class FeeParametersRPC:
                     [
                         (
                             PriceAggregator.address,
-                            PriceAggregator.encodeABI(
-                                fn_name="openFeeP",
+                            encode_abi(
+                                PriceAggregator,
+                                "openFeeP",
                                 args=[pair_index, position_size, True],
                             ),
                         ),
                         (
                             PriceAggregator.address,
-                            PriceAggregator.encodeABI(
-                                fn_name="openFeeP",
+                            encode_abi(
+                                PriceAggregator,
+                                "openFeeP",
                                 args=[pair_index, position_size, False],
                             ),
                         ),
@@ -135,15 +138,17 @@ class FeeParametersRPC:
                         [
                             (
                                 PriceAggregator.address,
-                                PriceAggregator.encodeABI(
-                                    fn_name="openFeeP",
+                                encode_abi(
+                                    PriceAggregator,
+                                    "openFeeP",
                                     args=[pair_index, position_size, True],
                                 ),
                             ),
                             (
                                 PriceAggregator.address,
-                                PriceAggregator.encodeABI(
-                                    fn_name="openFeeP",
+                                encode_abi(
+                                    PriceAggregator,
+                                    "openFeeP",
                                     args=[pair_index, position_size, False],
                                 ),
                             ),
@@ -153,8 +158,9 @@ class FeeParametersRPC:
                     calls.append(
                         (
                             PriceAggregator.address,
-                            PriceAggregator.encodeABI(
-                                fn_name="openFeeP",
+                            encode_abi(
+                                PriceAggregator,
+                                "openFeeP",
                                 args=[pair_index, position_size, is_long],
                             ),
                         )

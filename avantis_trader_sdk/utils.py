@@ -1,4 +1,4 @@
-from web3 import Web3
+from web3 import Web3, __version__ as web3_version
 
 
 def is_tuple_type(type_):
@@ -76,3 +76,12 @@ def decoder(web3, contract, function_name, raw_output):
         decoded_output = web3.codec.decode(output_types, raw_output)
     decoded_output = assign_names_to_decoded(decoded_output, abi_outputs)
     return decoded_output
+
+
+def encode_abi(contract, abi_element_identifier, args=None, kwargs=None, data=None):
+    """Allow compatibility with multiple major versions of web3
+    """
+    if int(web3_version.split('.')[0]) >= 7:
+        return contract.encode_abi(abi_element_identifier, args=args, kwargs=kwargs, data=data)
+    else:
+        return contract.encodeABI(fn_name=abi_element_identifier, args=args, kwargs=kwargs, data=data)

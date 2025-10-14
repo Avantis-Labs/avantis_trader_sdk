@@ -1,4 +1,5 @@
 from ..types import PairInfoWithData
+from ..utils import encode_abi
 
 
 class PairsCache:
@@ -35,11 +36,9 @@ class PairsCache:
 
             calls = []
             for pair_index in range(pairs_count):
-                core_call_data = PairStorage.encodeABI(
-                    fn_name="pairs", args=[pair_index]
-                )
-                pair_data_call_data = PairStorage.encodeABI(
-                    fn_name="getPairData", args=[pair_index]
+                core_call_data = encode_abi(PairStorage, "pairs", args=[pair_index])
+                pair_data_call_data = encode_abi(
+                    PairStorage, "getPairData", args=[pair_index]
                 )
                 calls.extend(
                     [
