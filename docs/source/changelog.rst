@@ -4,10 +4,13 @@ Changelog
 This section outlines the changes made in each version of the Avantis Trader SDK
 
 
-**Version 0.8.9 (2025-10-07)**
+**Version 0.8.9 (2025-10-14)**
 
 - **Internal Changes:**
+
   - Upgraded eth_account to 0.14
+  - Updated public socket api url
+  - Fixed a bug where TP/SL update was not working correctly because of invalid `feed_client`.
 
 **Version 0.8.8 (2025-10-07)**
 
