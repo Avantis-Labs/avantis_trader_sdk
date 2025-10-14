@@ -4,7 +4,7 @@ Changelog
 This section outlines the changes made in each version of the Avantis Trader SDK
 
 
-**Version 0.8.9 (2025-10-14)**
+**Version 0.8.9/0.8.10 (2025-10-14)**
 
 - **Internal Changes:**
 
