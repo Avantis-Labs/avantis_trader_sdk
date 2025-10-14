@@ -609,7 +609,7 @@ class TradeRPC:
 
         pair_name = await self.client.pairs_cache.get_pair_name_from_index(pair_index)
 
-        price_data = await feed_client.get_latest_price_updates([pair_name])
+        price_data = await self.feed_client.get_latest_price_updates([pair_name])
 
         price_update_data = "0x" + price_data.binary.data[0]
 
