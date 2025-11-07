@@ -4,6 +4,19 @@ Changelog
 This section outlines the changes made in each version of the Avantis Trader SDK
 
 
+**Version 0.8.11 (2025-11-07)**
+
+- **New Features:**
+
+  - Added example for getting fee details when closing a trade `20_example_close_market_trade_with_fee_details.py <https://github.com/Avantis-Labs/avantis_trader_sdk/blob/main/examples/20_example_close_market_trade_with_fee_details.py>`_.
+  - Updated `Multicall`` contract address.
+  - Added support for getting pair info from socket ``PairsCache.get_pair_info_from_socket``
+
+- **Internal Changes:**
+
+  - Optimized loss protection percentage calculation.
+
+
 **Version 0.8.9/0.8.10 (2025-10-14)**
 
 - **Internal Changes:**

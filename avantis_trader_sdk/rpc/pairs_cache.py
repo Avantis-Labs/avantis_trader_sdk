@@ -1,4 +1,7 @@
 from ..types import PairInfoWithData
+from ..config import AVANTIS_SOCKET_API
+import requests
+from pydantic import ValidationError
 
 
 class PairsCache:
@@ -6,7 +9,11 @@ class PairsCache:
     This class provides methods to retrieve pairs information from the blockchain.
     """
 
-    def __init__(self, client):
+    def __init__(
+        self,
+        client,
+        socket_api: str = AVANTIS_SOCKET_API,
+    ):
         """
         Constructor for the PairsCache class.
 
@@ -14,9 +21,13 @@ class PairsCache:
             client: The TraderClient object.
         """
         self.client = client
+        self.socket_api = socket_api
+
         self._pair_info_cache = {}
         self._group_indexes_cache = {}
         self._pair_mapping = {}
+
+        self._pair_info_from_socket_cache = {}
 
     async def get_pairs_info(self, force_update=False):
         """
@@ -75,6 +86,27 @@ class PairsCache:
             }
 
         return self._pair_info_cache
+
+    async def get_pair_info_from_socket(self, pair_index=None):
+        """
+        Retrieves the pair information from the socket.
+        """
+        if not self.socket_api:
+            raise ValueError("socket_api is not set")
+        try:
+            response = requests.get(self.socket_api)
+            response.raise_for_status()
+
+            result = response.json()
+            pairs = result["data"]["pairInfos"]
+            self._pair_info_from_socket_cache = pairs
+        except (requests.RequestException, ValidationError) as e:
+            print(f"Error fetching pair feeds: {e}")
+            return {}
+
+        if pair_index is not None:
+            return self._pair_info_from_socket_cache[str(pair_index)]
+        return self._pair_info_from_socket_cache
 
     async def get_pairs_count(self):
         """

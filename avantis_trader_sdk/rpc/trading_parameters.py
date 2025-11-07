@@ -57,11 +57,8 @@ class TradingParametersRPC:
         Returns:
             The loss protection percentage.
         """
-        PairStorage = self.client.contracts.get("PairStorage")
-        data = await PairStorage.functions.lossProtectionMultiplier(
-            pair_index, tier
-        ).call()
-        return 100 - data
+        pair_info = await self.client.pairs_cache.get_pair_info_from_socket(pair_index)
+        return pair_info["lossProtectionMultiplier"][str(tier)]
 
     async def get_loss_protection_percentage(self, trade: TradeInput):
         """
