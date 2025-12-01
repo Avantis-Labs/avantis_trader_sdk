@@ -3,6 +3,13 @@ Changelog
 
 This section outlines the changes made in each version of the Avantis Trader SDK
 
+**Version 0.8.12 (2025-12-01)**
+
+- **Bug Fixes:**
+  - Fixed a bug where `get_trades` was not returning the trades.
+
+- **New Features:**
+  - Added support for getting the `is_zfp`` flag for trades.
 
 **Version 0.8.11 (2025-11-07)**
 

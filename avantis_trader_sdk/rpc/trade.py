@@ -215,7 +215,9 @@ class TradeRPC:
         pendingOpenLimitOrders = []
 
         for aggregated_trade in result[0]:  # Access the list of aggregated trades
-            (trade, trade_info, margin_fee, liquidation_price) = aggregated_trade
+            (trade, trade_info, margin_fee, liquidation_price, is_zfp) = (
+                aggregated_trade
+            )
 
             if trade[7] <= 0:
                 continue
@@ -246,6 +248,7 @@ class TradeRPC:
                 },
                 "margin_fee": margin_fee,
                 "liquidationPrice": liquidation_price,
+                "is_zfp": is_zfp,
             }
             trades.append(
                 TradeExtendedResponse(
@@ -253,6 +256,7 @@ class TradeRPC:
                     additional_info=TradeInfo(**trade_details["additional_info"]),
                     margin_fee=trade_details["margin_fee"],
                     liquidation_price=trade_details["liquidationPrice"],
+                    is_zfp=trade_details["is_zfp"],
                 )
             )
 

@@ -381,6 +381,7 @@ class TradeExtendedResponse(BaseModel):
     additional_info: TradeInfo
     margin_fee: float
     liquidation_price: float
+    is_zfp: bool
 
     @field_validator("margin_fee", mode="before")
     def convert_to_float_6(cls, v):
