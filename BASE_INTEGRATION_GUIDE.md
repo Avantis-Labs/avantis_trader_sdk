@@ -1,6 +1,6 @@
 # Avantis on Base: Easy Integration Guide 🚀
 
-Simple guide to use Avantis Trader SDK on Base.
+Simple guide for Base users.
 
 1. Setup Provider and Wallet
 
@@ -25,10 +25,10 @@ const trader = new AvantisTrader({
 
 Use this code:
 const tx = await trader.openPosition({
-  market: "XAU/USD",  // Gold vs USD
+  market: "XAU/USD",                  // Gold vs USD
   size: ethers.utils.parseUnits("1000", 18),
   leverage: 10,
-  direction: "long"  // or "short"
+  direction: "long"                   // or "short"
 });
 
 await tx.wait();
