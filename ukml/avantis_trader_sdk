@@ -1,0 +1,14 @@
+# Avantis on Base: Integration & Trading Guide 🚀
+
+This guide helps developers and traders get started with Avantis perpetuals on **Base** (Coinbase's L2) using the Trader SDK. Avantis is the leading perps DEX for RWAs (forex, metals, commodities, indices) + crypto, backed by the Base Ecosystem Fund.
+
+## Why Trade on Base with Avantis?
+- Lowest fees among L2s
+- Fast execution + growing TVL ($100M+ milestone in 2025)
+- Unique RWA exposure with leverage (low correlation to crypto volatility)
+- Lifetime volume: $53B+, 3.7M trades
+
+## Quick Start with Trader SDK on Base
+1. **Install the SDK**
+   ```bash
+   npm install @avantis-labs/trader-sdk
