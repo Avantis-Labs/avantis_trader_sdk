@@ -666,7 +666,6 @@ class TradeRPC:
         if trader is None:
             trader = self.client.get_signer().get_ethereum_address()
 
-        feed_client = self.FeedClient()
 
         pair_name = await self.client.pairs_cache.get_pair_name_from_index(pair_index)
 
