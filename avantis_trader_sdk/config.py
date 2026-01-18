@@ -10,5 +10,6 @@ MAINNET_ADDRESSES = {
 }
 
 AVANTIS_SOCKET_API = "https://socket-api-pub.avantisfi.com/socket-api/v1/data"
+AVANTIS_CORE_API_BASE_URL = "https://core.avantisfi.com"
 
 CONTRACT_ADDRESSES = MAINNET_ADDRESSES

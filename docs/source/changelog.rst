@@ -3,6 +3,37 @@ Changelog
 
 This section outlines the changes made in each version of the Avantis Trader SDK
 
+**Version 0.8.13 (2026-01-18)**
+
+- **New Features:**
+
+  - **Optimized ``get_trades`` method**:
+    - Now fetches from API first for significantly better performance.
+    - Falls back to paginated smart contract calls if API is unavailable or disabled.
+    - Added ``use_api`` parameter to control fetching behavior.
+    - Contract fetching now uses ``getPositionsForPairIndexes`` with pagination instead of fetching all at once.
+
+  - **Delegate trading management**:
+    - Added ``get_delegate(trader)`` - Gets the current delegate address for a trader.
+    - Added ``build_set_delegate_tx(delegate, trader)`` - Sets a delegate wallet that can trade on behalf of the trader.
+    - Added ``build_remove_delegate_tx(trader)`` - Removes the current delegate.
+    - Added example ``21_example_delegate_trading.py`` demonstrating full delegate workflow.
+
+  - **Added ``execution_fee`` field to limit orders** - Now returned for both API and contract responses.
+
+- **Improvements:**
+
+  - Added ``AVANTIS_CORE_API_BASE_URL`` to config with optional override via ``core_api_base_url`` parameter.
+  - Types now support both API and contract response formats with automatic field mapping.
+  - ``TradeResponse``: Added aliases for ``collateral`` and ``openedAt``, auto-sets ``collateral_in_trade`` when not provided.
+  - ``TradeExtendedResponse``: Added model validator to handle flat API responses.
+  - ``PendingLimitOrderResponse``: Updated to correctly map ``collateral`` from API responses.
+  - Removed erroneous `self.FeedClient()` call in `build_trade_tp_sl_update_tx` method.
+
+- **Breaking Changes:**
+
+  - ``TradeInfo`` simplified to only contain ``loss_protection_percentage``. Removed ``open_interest_usdc``, ``tp_last_updated``, ``sl_last_updated``, ``being_market_closed``.
+
 **Version 0.8.12 (2025-12-01)**
 
 - **Bug Fixes:**

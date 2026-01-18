@@ -1,6 +1,7 @@
 from pydantic import (
     BaseModel,
     Field,
+    AliasChoices,
     conint,
     field_validator,
     ValidationError,
@@ -334,14 +335,16 @@ class TradeResponse(BaseModel):
     trader: str
     pair_index: int = Field(..., alias="pairIndex")
     trade_index: int = Field(0, alias="index")
-    open_collateral: float = Field(None, alias="initialPosToken")
-    collateral_in_trade: float = Field(None, alias="positionSizeUSDC")
+    open_collateral: float = Field(
+        None, validation_alias=AliasChoices("collateral", "initialPosToken")
+    )
+    collateral_in_trade: Optional[float] = Field(None, alias="positionSizeUSDC")
     open_price: float = Field(0, alias="openPrice")
     is_long: bool = Field(..., alias="buy")
     leverage: float
     tp: float
     sl: float
-    timestamp: int
+    timestamp: int = Field(..., validation_alias=AliasChoices("timestamp", "openedAt"))
 
     @field_validator("trader")
     def validate_eth_address(cls, v):
@@ -351,45 +354,81 @@ class TradeResponse(BaseModel):
 
     @field_validator("open_price", "tp", "sl", "leverage", mode="before")
     def convert_to_float_10(cls, v):
-        return v / 10**10
+        if v is None:
+            return 0
+        return int(v) / 10**10
 
     @field_validator("open_collateral", "collateral_in_trade", mode="before")
     def convert_to_float_6(cls, v):
-        return v / 10**6
+        if v is None:
+            return None
+        return int(v) / 10**6
+
+    @model_validator(mode="after")
+    def set_collateral_in_trade(self):
+        if self.collateral_in_trade is None:
+            self.collateral_in_trade = self.open_collateral
+        return self
 
     class Config:
         populate_by_name = True
 
 
 class TradeInfo(BaseModel):
-    open_interest_usdc: float = Field(..., alias="openInterestUSDC")
-    tp_last_updated: float = Field(..., alias="tpLastUpdated")
-    sl_last_updated: float = Field(..., alias="slLastUpdated")
-    being_market_closed: bool = Field(..., alias="beingMarketClosed")
     loss_protection_percentage: float = Field(..., alias="lossProtectionPercentage")
-
-    @field_validator("open_interest_usdc", mode="before")
-    def convert_to_float_6(cls, v):
-        return v / 10**6
 
     class Config:
         populate_by_name = True
 
 
 class TradeExtendedResponse(BaseModel):
-    trade: TradeResponse
-    additional_info: TradeInfo
-    margin_fee: float
-    liquidation_price: float
-    is_zfp: bool
+    trade: Optional[TradeResponse] = None
+    additional_info: Optional[TradeInfo] = None
+    margin_fee: float = Field(
+        0, validation_alias=AliasChoices("margin_fee", "rolloverFee")
+    )
+    liquidation_price: float = Field(
+        ..., validation_alias=AliasChoices("liquidation_price", "liquidationPrice")
+    )
+    is_zfp: bool = Field(False, validation_alias=AliasChoices("is_zfp", "isPnl"))
 
     @field_validator("margin_fee", mode="before")
     def convert_to_float_6(cls, v):
-        return v / 10**6
+        if v is None:
+            return 0
+        return int(v) / 10**6
 
     @field_validator("liquidation_price", mode="before")
     def convert_to_float_10(cls, v):
-        return v / 10**10
+        return int(v) / 10**10
+
+    @model_validator(mode="before")
+    def build_from_flat(cls, values):
+        if "trade" not in values and "trader" in values:
+            trade_fields = [
+                "trader",
+                "pairIndex",
+                "index",
+                "initialPosToken",
+                "collateral",
+                "positionSizeUSDC",
+                "openPrice",
+                "buy",
+                "leverage",
+                "tp",
+                "sl",
+                "timestamp",
+                "openedAt",
+            ]
+            trade_data = {k: values.get(k) for k in trade_fields if k in values}
+            values["trade"] = trade_data
+
+            info_data = {
+                "lossProtectionPercentage": values.get("lossProtectionPercentage", 0),
+            }
+            values["additional_info"] = info_data
+
+        return values
 
     class Config:
         populate_by_name = True
@@ -399,7 +438,9 @@ class PendingLimitOrderResponse(BaseModel):
     trader: str
     pair_index: int = Field(..., alias="pairIndex")
     trade_index: int = Field(0, alias="index")
-    open_collateral: float = Field(..., alias="positionSize")
+    open_collateral: float = Field(
+        ..., validation_alias=AliasChoices("collateral", "positionSize")
+    )
     buy: bool
     leverage: int
     tp: float
@@ -407,6 +448,7 @@ class PendingLimitOrderResponse(BaseModel):
     price: float
     slippage_percentage: float = Field(..., alias="slippageP")
     block: int
+    execution_fee: float = Field(0, alias="executionFee")
 
     @field_validator("trader")
     def validate_eth_address(cls, v):
@@ -418,22 +460,26 @@ class PendingLimitOrderResponse(BaseModel):
         "price", "tp", "sl", "leverage", "slippage_percentage", mode="before"
     )
     def convert_to_float_10(cls, v):
-        return v / 10**10
+        return int(v) / 10**10
 
-    @field_validator("open_collateral", mode="before")
+    @field_validator("open_collateral", "execution_fee", mode="before")
     def convert_to_float_6(cls, v):
-        return v / 10**6
+        if v is None:
+            return 0
+        return int(v) / 10**6
 
     class Config:
         populate_by_name = True
 
 
 class PendingLimitOrderExtendedResponse(PendingLimitOrderResponse):
-    liquidation_price: float
+    liquidation_price: float = Field(
+        ..., validation_alias=AliasChoices("liquidation_price", "liquidationPrice")
+    )
 
     @field_validator("liquidation_price", mode="before")
     def convert_liq_to_float_10(cls, v):
-        return v / 10**10
+        return int(v) / 10**10
 
 
 class MarginUpdateType(Enum):

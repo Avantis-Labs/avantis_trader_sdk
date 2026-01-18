@@ -28,6 +28,7 @@ class PairsCache:
         self._pair_mapping = {}
 
         self._pair_info_from_socket_cache = {}
+        self._socket_info_cache = {}
 
     async def get_pairs_info(self, force_update=False):
         """
@@ -87,10 +88,13 @@ class PairsCache:
 
         return self._pair_info_cache
 
-    async def get_pair_info_from_socket(self, pair_index=None):
+    async def get_pair_info_from_socket(self, pair_index=None, use_cache=False):
         """
         Retrieves the pair information from the socket.
         """
+        if not use_cache and self._pair_info_from_socket_cache:
+            return self._pair_info_from_socket_cache[str(pair_index)]
+
         if not self.socket_api:
             raise ValueError("socket_api is not set")
         try:
@@ -98,7 +102,8 @@ class PairsCache:
             response.raise_for_status()
 
             result = response.json()
-            pairs = result["data"]["pairInfos"]
+            self._socket_info_cache = result["data"]
+            pairs = self._socket_info_cache["pairInfos"]
             self._pair_info_from_socket_cache = pairs
         except (requests.RequestException, ValidationError) as e:
             print(f"Error fetching pair feeds: {e}")
@@ -107,6 +112,28 @@ class PairsCache:
         if pair_index is not None:
             return self._pair_info_from_socket_cache[str(pair_index)]
         return self._pair_info_from_socket_cache
+
+    async def get_info_from_socket(self, force_update=False):
+        """
+        Retrieves the socket information.
+        """
+        if not force_update and self._socket_info_cache:
+            return self._socket_info_cache
+
+        if not self.socket_api:
+            raise ValueError("socket_api is not set")
+        try:
+            response = requests.get(self.socket_api)
+            response.raise_for_status()
+
+            result = response.json()
+            self._socket_info_cache = result["data"]
+            self._pair_info_from_socket_cache = self._socket_info_cache["pairInfos"]
+        except (requests.RequestException, ValidationError) as e:
+            print(f"Error fetching pair feeds: {e}")
+            return {}
+
+        return self._socket_info_cache
 
     async def get_pairs_count(self):
         """

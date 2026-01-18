@@ -1,4 +1,5 @@
 from ..feed.feed_client import FeedClient
+from ..config import AVANTIS_CORE_API_BASE_URL
 from ..types import (
     TradeInput,
     TradeInputOrderType,
@@ -8,8 +9,10 @@ from ..types import (
     PendingLimitOrderExtendedResponse,
     MarginUpdateType,
 )
-from typing import Optional
+from typing import Optional, List, Tuple
 import math
+import asyncio
+import requests
 
 
 class TradeRPC:
@@ -17,16 +20,23 @@ class TradeRPC:
     The TradeRPC class contains methods for retrieving trading parameters from the Avantis Protocol.
     """
 
-    def __init__(self, client, feed_client: FeedClient):
+    def __init__(
+        self,
+        client,
+        feed_client: FeedClient,
+        core_api_base_url: Optional[str] = None,
+    ):
         """
         Constructor for the TradeRPC class.
 
         Args:
             client: The TraderClient object.
             feed_client: The FeedClient object.
+            core_api_base_url: Optional override for the API base URL.
         """
         self.client = client
         self.feed_client = feed_client
+        self.core_api_base_url = core_api_base_url or AVANTIS_CORE_API_BASE_URL
 
     async def build_trade_open_tx(
         self,
@@ -193,28 +203,143 @@ class TradeRPC:
             print("Error getting correct trade execution fee. Using fallback: ", e)
             return execution_fee_wei
 
-    async def get_trades(self, trader: Optional[str] = None):
+    async def get_trades(
+        self,
+        trader: Optional[str] = None,
+        use_api: bool = True,
+    ) -> Tuple[List[TradeExtendedResponse], List[PendingLimitOrderExtendedResponse]]:
         """
-        Gets the trades.
+        Gets the trades and pending limit orders for a trader.
+
+        Attempts to fetch from API first for better performance. Falls back to
+        paginated smart contract calls if API is unavailable or disabled.
 
         Args:
             trader: The trader's wallet address.
+            use_api: Whether to attempt API fetch first. Defaults to True.
 
         Returns:
-            The trades.
+            A tuple of (trades, pending_limit_orders).
         """
         if trader is None:
             trader = self.client.get_signer().get_ethereum_address()
 
+        if use_api:
+            api_enabled = await self._check_api_enabled(trader)
+            if api_enabled:
+                try:
+                    return await self._fetch_trades_from_api(trader)
+                except Exception:
+                    pass
+
+        return await self._fetch_trades_from_contracts(trader)
+
+    async def _check_api_enabled(self, trader: str) -> bool:
+        """Checks if the API is enabled for the given trader."""
+        try:
+            response = requests.get(
+                f"{self.core_api_base_url}/user-data/config",
+                params={"wallet": trader},
+                timeout=5,
+            )
+            response.raise_for_status()
+            data = response.json()
+            return data.get("globallyEnabled", False) or data.get(
+                "enabledForWallet", False
+            )
+        except Exception:
+            return False
+
+    async def _fetch_trades_from_api(
+        self, trader: str
+    ) -> Tuple[List[TradeExtendedResponse], List[PendingLimitOrderExtendedResponse]]:
+        """Fetches trades from the API."""
+        response = requests.get(
+            f"{self.core_api_base_url}/user-data",
+            params={"trader": trader},
+            timeout=10,
+        )
+        response.raise_for_status()
+        data = response.json()
+
+        trades = []
+        for position in data.get("positions", []):
+            loss_protection_tier = int(position.get("lossProtection", 0))
+            pair_index = int(position.get("pairIndex", 0))
+            loss_protection_pct = await self.client.trading_parameters.get_loss_protection_percentage_by_tier(
+                loss_protection_tier, pair_index
+            )
+            position["lossProtectionPercentage"] = loss_protection_pct
+            trades.append(TradeExtendedResponse(**position))
+
+        limit_orders = [
+            PendingLimitOrderExtendedResponse(**order)
+            for order in data.get("limitOrders", [])
+        ]
+
+        return trades, limit_orders
+
+    async def _fetch_trades_from_contracts(
+        self,
+        trader: str,
+        max_pairs_per_call: int = 12,
+    ) -> Tuple[List[TradeExtendedResponse], List[PendingLimitOrderExtendedResponse]]:
+        """Fetches trades from smart contracts with paginated calls."""
+        socket_info = await self.client.pairs_cache.get_info_from_socket()
+        max_trades_per_pair = socket_info.get("maxTradesPerPair", 40)
+
+        pairs_count = await self.client.pairs_cache.get_pairs_count()
+        pair_ranges = self._build_pair_ranges(pairs_count, max_pairs_per_call)
+
+        tasks = [
+            self._fetch_positions_for_range(trader, start, end, max_trades_per_pair)
+            for start, end in pair_ranges
+        ]
+        results = await asyncio.gather(*tasks)
+
+        raw_trades = []
+        raw_orders = []
+        for trades_batch, orders_batch in results:
+            raw_trades.extend(trades_batch)
+            raw_orders.extend(orders_batch)
+
+        trades = await self._parse_raw_trades(raw_trades)
+        limit_orders = self._parse_raw_limit_orders(raw_orders)
+
+        return trades, limit_orders
+
+    def _build_pair_ranges(
+        self, pairs_count: int, max_pairs_per_call: int
+    ) -> List[Tuple[int, int]]:
+        """Builds pair index ranges for paginated fetching."""
+        ranges = []
+        for i in range(0, pairs_count, max_pairs_per_call):
+            start = i
+            end = min(i + max_pairs_per_call, pairs_count)
+            ranges.append((start, end))
+        return ranges
+
+    async def _fetch_positions_for_range(
+        self,
+        trader: str,
+        start_pair: int,
+        end_pair: int,
+        max_trades_per_pair: int,
+    ) -> Tuple[list, list]:
+        """Fetches positions for a range of pair indexes."""
         result = (
             await self.client.contracts.get("Multicall")
-            .functions.getPositions(trader)
+            .functions.getPositionsForPairIndexes(
+                trader, start_pair, end_pair, max_trades_per_pair
+            )
             .call()
         )
-        trades = []
-        pendingOpenLimitOrders = []
+        return result[0], result[1]
 
-        for aggregated_trade in result[0]:  # Access the list of aggregated trades
+    async def _parse_raw_trades(self, raw_trades: list) -> List[TradeExtendedResponse]:
+        """Parses raw contract trade data into TradeExtendedResponse objects."""
+        trades = []
+        for aggregated_trade in raw_trades:
             (trade, trade_info, margin_fee, liquidation_price, is_zfp) = (
                 aggregated_trade
             )
@@ -222,71 +347,64 @@ class TradeRPC:
             if trade[7] <= 0:
                 continue
 
-            # Extract and format the trade data
-            trade_details = {
-                "trade": {
-                    "trader": trade[0],
-                    "pairIndex": trade[1],
-                    "index": trade[2],
-                    "initialPosToken": trade[3],
-                    "positionSizeUSDC": trade[4],
-                    "openPrice": trade[5],
-                    "buy": trade[6],
-                    "leverage": trade[7],
-                    "tp": trade[8],
-                    "sl": trade[9],
-                    "timestamp": trade[10],
-                },
-                "additional_info": {
-                    "openInterestUSDC": trade_info[0],
-                    "tpLastUpdated": trade_info[1],
-                    "slLastUpdated": trade_info[2],
-                    "beingMarketClosed": trade_info[3],
-                    "lossProtectionPercentage": await self.client.trading_parameters.get_loss_protection_percentage_by_tier(
-                        trade_info[4], trade[1]
-                    ),
-                },
-                "margin_fee": margin_fee,
-                "liquidationPrice": liquidation_price,
-                "is_zfp": is_zfp,
-            }
-            trades.append(
-                TradeExtendedResponse(
-                    trade=TradeResponse(**trade_details["trade"]),
-                    additional_info=TradeInfo(**trade_details["additional_info"]),
-                    margin_fee=trade_details["margin_fee"],
-                    liquidation_price=trade_details["liquidationPrice"],
-                    is_zfp=trade_details["is_zfp"],
-                )
+            loss_protection = await self.client.trading_parameters.get_loss_protection_percentage_by_tier(
+                trade_info[4], trade[1]
             )
 
-        for aggregated_order in result[1]:  # Access the list of aggregated orders
+            trades.append(
+                TradeExtendedResponse(
+                    trade=TradeResponse(
+                        trader=trade[0],
+                        pairIndex=trade[1],
+                        index=trade[2],
+                        initialPosToken=trade[3],
+                        positionSizeUSDC=trade[3],
+                        openPrice=trade[5],
+                        buy=trade[6],
+                        leverage=trade[7],
+                        tp=trade[8],
+                        sl=trade[9],
+                        timestamp=trade[10],
+                    ),
+                    additional_info=TradeInfo(
+                        lossProtectionPercentage=loss_protection,
+                    ),
+                    margin_fee=margin_fee,
+                    liquidation_price=liquidation_price,
+                    is_zfp=is_zfp,
+                )
+            )
+        return trades
+
+    def _parse_raw_limit_orders(
+        self, raw_orders: list
+    ) -> List[PendingLimitOrderExtendedResponse]:
+        """Parses raw contract order data into PendingLimitOrderExtendedResponse objects."""
+        orders = []
+        for aggregated_order in raw_orders:
             (order, liquidation_price) = aggregated_order
 
             if order[5] <= 0:
                 continue
 
-            # Extract and format the order data
-            order_details = {
-                "trader": order[0],
-                "pairIndex": order[1],
-                "index": order[2],
-                "positionSize": order[3],
-                "buy": order[4],
-                "leverage": order[5],
-                "tp": order[6],
-                "sl": order[7],
-                "price": order[8],
-                "slippageP": order[9],
-                "block": order[10],
-                # 'executionFee': order[11],
-                "liquidation_price": liquidation_price,
-            }
-            pendingOpenLimitOrders.append(
-                PendingLimitOrderExtendedResponse(**order_details)
+            orders.append(
+                PendingLimitOrderExtendedResponse(
+                    trader=order[0],
+                    pairIndex=order[1],
+                    index=order[2],
+                    positionSize=order[3],
+                    buy=order[4],
+                    leverage=order[5],
+                    tp=order[6],
+                    sl=order[7],
+                    price=order[8],
+                    slippageP=order[9],
+                    block=order[10],
+                    executionFee=order[11],
+                    liquidation_price=liquidation_price,
+                )
             )
-
-        return trades, pendingOpenLimitOrders
+        return orders
 
     async def build_trade_close_tx(
         self,
@@ -666,7 +784,6 @@ class TradeRPC:
         if trader is None:
             trader = self.client.get_signer().get_ethereum_address()
 
-
         pair_name = await self.client.pairs_cache.get_pair_name_from_index(pair_index)
 
         price_data = await self.feed_client.get_latest_price_updates([pair_name])
@@ -706,3 +823,79 @@ class TradeRPC:
             }
         )
         return delegate_transaction
+
+    async def get_delegate(self, trader: Optional[str] = None) -> str:
+        """
+        Gets the delegate address for a trader.
+
+        Args:
+            trader: The trader's wallet address. Defaults to signer's address.
+
+        Returns:
+            The delegate address, or zero address if no delegate is set.
+        """
+        Trading = self.client.contracts.get("Trading")
+
+        if trader is None:
+            trader = self.client.get_signer().get_ethereum_address()
+
+        delegate = await Trading.functions.delegations(trader).call()
+        return delegate
+
+    async def build_set_delegate_tx(
+        self,
+        delegate: str,
+        trader: Optional[str] = None,
+    ):
+        """
+        Builds a transaction to set a delegate for trading.
+
+        The delegate can perform all trade-related actions on behalf of the trader.
+        Each wallet can have at most one delegate.
+
+        Args:
+            delegate: The delegate's wallet address.
+            trader: The trader's wallet address. Defaults to signer's address.
+
+        Returns:
+            A transaction object.
+        """
+        Trading = self.client.contracts.get("Trading")
+
+        if trader is None:
+            trader = self.client.get_signer().get_ethereum_address()
+
+        transaction = await Trading.functions.setDelegate(delegate).build_transaction(
+            {
+                "from": trader,
+                "chainId": self.client.chain_id,
+                "nonce": await self.client.get_transaction_count(trader),
+            }
+        )
+
+        return transaction
+
+    async def build_remove_delegate_tx(self, trader: Optional[str] = None):
+        """
+        Builds a transaction to remove the current delegate.
+
+        Args:
+            trader: The trader's wallet address. Defaults to signer's address.
+
+        Returns:
+            A transaction object.
+        """
+        Trading = self.client.contracts.get("Trading")
+
+        if trader is None:
+            trader = self.client.get_signer().get_ethereum_address()
+
+        transaction = await Trading.functions.removeDelegate().build_transaction(
+            {
+                "from": trader,
+                "chainId": self.client.chain_id,
+                "nonce": await self.client.get_transaction_count(trader),
+            }
+        )
+
+        return transaction

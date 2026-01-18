@@ -122,7 +122,7 @@ class FeedClient:
             return pairs
         except (requests.RequestException, ValidationError) as e:
             print(f"Error fetching pair feeds: {e}")
-            return []    
+            return []
 
     def load_pair_feeds(self):
         """
@@ -130,6 +130,9 @@ class FeedClient:
         """
 
         try:
+            if self.pair_feeds:
+                return
+
             try:
                 asyncio.get_running_loop()
             except RuntimeError:
@@ -231,6 +234,9 @@ class FeedClient:
         Returns:
             A PriceFeedUpdatesResponse object containing the latest price updates.
         """
+        if not self.pair_feeds:
+            self.load_pair_feeds()
+
         url = self.hermes_url
 
         feedIds = []
