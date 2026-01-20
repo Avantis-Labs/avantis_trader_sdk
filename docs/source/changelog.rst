@@ -8,18 +8,20 @@ This section outlines the changes made in each version of the Avantis Trader SDK
 - **New Features:**
 
   - **Optimized ``get_trades`` method**:
+
     - Now fetches from API first for significantly better performance.
     - Falls back to paginated smart contract calls if API is unavailable or disabled.
     - Added ``use_api`` parameter to control fetching behavior.
     - Contract fetching now uses ``getPositionsForPairIndexes`` with pagination instead of fetching all at once.
 
   - **Delegate trading management**:
+
     - Added ``get_delegate(trader)`` - Gets the current delegate address for a trader.
     - Added ``build_set_delegate_tx(delegate, trader)`` - Sets a delegate wallet that can trade on behalf of the trader.
     - Added ``build_remove_delegate_tx(trader)`` - Removes the current delegate.
     - Added example ``21_example_delegate_trading.py`` demonstrating full delegate workflow.
 
-  - **Added ``execution_fee`` field to limit orders** - Now returned for both API and contract responses.
+  - Added ``execution_fee`` field to limit orders - Now returned for both API and contract responses.
 
 - **Improvements:**
 
@@ -28,7 +30,7 @@ This section outlines the changes made in each version of the Avantis Trader SDK
   - ``TradeResponse``: Added aliases for ``collateral`` and ``openedAt``, auto-sets ``collateral_in_trade`` when not provided.
   - ``TradeExtendedResponse``: Added model validator to handle flat API responses.
   - ``PendingLimitOrderResponse``: Updated to correctly map ``collateral`` from API responses.
-  - Removed erroneous `self.FeedClient()` call in `build_trade_tp_sl_update_tx` method.
+  - Removed erroneous ``self.FeedClient()`` call in ``build_trade_tp_sl_update_tx`` method.
 
 - **Breaking Changes:**
 
