@@ -1,0 +1,142 @@
+# Avantis Trader SDK - Cursor Rules
+
+## About This SDK
+This is the official Python SDK for Avantis Protocol - a perpetual trading platform on Base (Ethereum L2).
+- Chain: Base Mainnet (8453)
+- Collateral: USDC (6 decimals)
+- Prices: 10 decimals internally, human-readable in SDK
+
+## Core Patterns
+
+### Always Use Async
+All SDK methods are async. Always use `async/await`:
+```python
+async def main():
+    trader_client = TraderClient("https://mainnet.base.org")
+    # All calls must be awaited
+    balance = await trader_client.get_usdc_balance(trader)
+```
+
+### Transaction Flow
+1. Build transaction with `build_*_tx` methods
+2. Sign and send with `sign_and_get_receipt()`
+```python
+tx = await trader_client.trade.build_trade_open_tx(...)
+receipt = await trader_client.sign_and_get_receipt(tx)
+```
+
+### Signer Setup
+Always set a signer before signing transactions:
+```python
+trader_client.set_local_signer("0xPRIVATE_KEY")
+# or
+trader_client.set_aws_kms_signer("kms-key-id")
+```
+
+## Common Imports
+```python
+from avantis_trader_sdk import TraderClient, FeedClient
+from avantis_trader_sdk.types import (
+    TradeInput,
+    TradeInputOrderType,
+    MarginUpdateType,
+)
+```
+
+## Important Rules
+
+### USDC Allowance
+Always check and approve USDC before opening trades:
+```python
+allowance = await trader_client.get_usdc_allowance_for_trading(trader)
+if allowance < amount:
+    await trader_client.approve_usdc_for_trading(amount)
+```
+
+### Pair Indexes
+Use pair indexes, not names, for trading:
+```python
+pair_index = await trader_client.pairs_cache.get_pair_index("ETH/USD")
+# Common: 0=BTC/USD, 1=ETH/USD
+```
+
+### Take Profit Required
+TP cannot be 0 - it's required. SL can be 0 (no stop loss).
+
+### Trade Indexes
+Each pair has independent trade indexes (0, 1, 2...). Get from `get_trades()`.
+
+### Delegate Trading
+For delegate methods, use `_delegate` suffix:
+- `build_trade_open_tx_delegate()`
+- `build_trade_close_tx_delegate()`
+- `build_trade_tp_sl_update_tx_delegate()`
+- `build_trade_margin_update_tx_delegate()`
+
+Note: Main wallet must set USDC allowance, not the delegate.
+
+## File Structure
+- `avantis_trader_sdk/client.py` - TraderClient main class
+- `avantis_trader_sdk/feed/feed_client.py` - FeedClient for prices
+- `avantis_trader_sdk/rpc/trade.py` - Trading operations
+- `avantis_trader_sdk/rpc/pairs_cache.py` - Pair info and caching
+- `avantis_trader_sdk/types.py` - All Pydantic models and enums
+- `examples/` - Working examples for all operations
+
+## When Modifying This SDK
+- Use Pydantic models for data validation
+- Keep methods async
+- Follow existing patterns in `rpc/` modules
+- Add examples for new features
+- Update `docs/source/changelog.rst` for changes
+- Run `scripts/release.py` for releases
+
+## Quick Reference
+
+### Open Trade
+```python
+trade_input = TradeInput(
+    trader=trader,
+    pair_index=1,
+    collateral_in_trade=100,
+    is_long=True,
+    leverage=25,
+    tp=4000,
+    sl=2800,
+)
+tx = await trader_client.trade.build_trade_open_tx(
+    trade_input, TradeInputOrderType.MARKET, slippage_percentage=1
+)
+```
+
+### Get Trades
+```python
+trades, pending_orders = await trader_client.trade.get_trades(trader)
+```
+
+### Close Trade
+```python
+tx = await trader_client.trade.build_trade_close_tx(
+    pair_index=trade.trade.pair_index,
+    trade_index=trade.trade.trade_index,
+    collateral_to_close=trade.trade.collateral_in_trade,
+    trader=trader,
+)
+```
+
+### Update TP/SL
+```python
+tx = await trader_client.trade.build_trade_tp_sl_update_tx(
+    pair_index, trade_index, take_profit_price=4500, stop_loss_price=2900, trader=trader
+)
+```
+
+### Real-time Prices
+```python
+feed_client = FeedClient()
+await feed_client.listen_for_lazer_price_updates(
+    lazer_feed_ids=[0, 1],  # BTC, ETH
+    callback=lambda data: print(data.price_feeds),
+)
+```
+

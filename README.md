@@ -1,90 +1,92 @@
-# Welcome to Avantis Trader SDK’s documentation!
+# Avantis Trader SDK
 
-Avantis Trader SDK is a powerful and flexible toolkit for trading on the Avantis platform. This documentation will guide you through the installation process, basic usage, and advanced features of the SDK.
-
-## 📚 [Read the Full Documentation Here](https://sdk.avantisfi.com/)
-
-Contents:
-
-- [Introduction](#introduction)
-  - [About Avantis](#about-avantis)
-  - [Purpose of the Avantis Trader SDK](#purpose-of-the-avantis-trader-sdk)
-- [Getting Started](#getting_started)
-  - [Installation](#installation)
-  - [Next Steps](#next-steps)
-  - [Examples](#examples)
-
-# Introduction
-
-Welcome to the Avantis Trader SDK, a powerful tool designed to interact with the Avantis decentralized exchange (DEX) and leverage its advanced features for trading and market-making in cryptocurrencies, forex, and commodities.
-
-## About Avantis
-
-[Avantis](https://avantisfi.com/) is at the forefront of decentralized leveraged trading platforms, offering users the ability to take long or short positions in synthetic crypto, forex, and commodities using perpetuals—a financial instrument that provides leverage without an expiration date. With synthetic leverage and a USDC stablecoin liquidity pool, Avantis achieves high capital efficiency, enabling a diverse selection of tradable assets and leverage up to 100x.
-
-The platform also introduces fine-grained risk management for liquidity providers (LPs) through time and risk parameters. This innovation allows any LP to become a sophisticated market maker for a wide range of derivatives, starting with perpetuals.
-
-Read more about Avantis at [https://docs.avantisfi.com/](https://docs.avantisfi.com/).
-
-## Purpose of the Avantis Trader SDK
-
-The Avantis Trader SDK is designed to simplify and enhance the experience of interacting with the Avantis DEX. It provides developers and traders with a set of tools to:
-
-- Access real-time price feeds for supported trading pairs.
-- Retrieve and analyze key parameters for assets, categories, and trading strategies.
-- Integrate live price updates into applications or trading algorithms.
-- Execute trades and manage positions on the Avantis platform.
-
-Whether you are a developer building decentralized finance (DeFi) applications, a trader seeking to automate your strategies, or a market maker looking to optimize your operations, the Avantis Trader SDK offers the functionality you need to succeed in the rapidly evolving world of decentralized trading.
-
-# Getting Started
+Python SDK for trading on [Avantis](https://avantisfi.com/) - a perpetual trading platform on Base.
 
 ## Installation
 
-To get started with the Avantis Trader SDK, follow these steps to install the package:
+```bash
+pip install avantis-trader-sdk
+```
 
-1. Ensure you have Python 3.6 or later installed on your system.
-2. Install the SDK using pip:
+## Quick Start
 
-   ```bash
-    pip install avantis-trader-sdk
-   ```
+```python
+import asyncio
+from avantis_trader_sdk import TraderClient
+from avantis_trader_sdk.types import TradeInput, TradeInputOrderType
 
-   or
+async def main():
+    # Initialize client
+    trader_client = TraderClient("https://mainnet.base.org")
+    trader_client.set_local_signer("0xYOUR_PRIVATE_KEY")
+    
+    trader = trader_client.get_signer().get_ethereum_address()
+    
+    # Check and approve USDC allowance
+    allowance = await trader_client.get_usdc_allowance_for_trading(trader)
+    if allowance < 100:
+        await trader_client.approve_usdc_for_trading(100)
+    
+    # Open a 10x long ETH position with $100 collateral
+    trade_input = TradeInput(
+        trader=trader,
+        pair_index=1,  # ETH/USD
+        collateral_in_trade=100,
+        is_long=True,
+        leverage=10,
+        tp=5000,  # take profit
+        sl=2500,  # stop loss
+    )
+    
+    tx = await trader_client.trade.build_trade_open_tx(
+        trade_input, TradeInputOrderType.MARKET, slippage_percentage=1
+    )
+    receipt = await trader_client.sign_and_get_receipt(tx)
+    print("Trade opened!", receipt.transactionHash.hex())
 
-   ```bash
-   pip install git+https://github.com/Avantis-Labs/avantis_trader_sdk.git
-   ```
+asyncio.run(main())
+```
 
-   Alternatively, if you have a local copy of the source:
+## Get Open Trades
 
-   ```bash
-   git clone https://github.com/yourusername/avantis-trader-sdk.git
-   cd avantis-trader-sdk
-   pip install .
-   ```
+```python
+trades, pending_orders = await trader_client.trade.get_trades(trader)
 
-3. Verify the installation:
+for trade in trades:
+    print(f"Pair: {trade.trade.pair_index}, Leverage: {trade.trade.leverage}x")
+    print(f"Entry: {trade.trade.open_price}, Liq: {trade.liquidation_price}")
+```
 
-   ```python
-   import avantis_trader_sdk
-   print(avantis_trader_sdk.__version__)
-   ```
+## Close a Trade
 
-   If the installation was successful, this command should print the version number of the Avantis Trader SDK.
+```python
+trade = trades[0]
+close_tx = await trader_client.trade.build_trade_close_tx(
+    pair_index=trade.trade.pair_index,
+    trade_index=trade.trade.trade_index,
+    collateral_to_close=trade.trade.collateral_in_trade,
+    trader=trader,
+)
+await trader_client.sign_and_get_receipt(close_tx)
+```
 
-## Next Steps
+## AI-Assisted Development
 
-Once you have installed the Avantis Trader SDK, you can start using it to interact with the Avantis platform. Here are some things you might want to do next:
+Building with AI tools? We provide optimized documentation:
 
-- Explore the SDK’s features and capabilities.
-- Access real-time price feeds for various trading pairs.
-- Integrate the SDK into your trading algorithms or DeFi applications.
+- [AGENT.md](./AGENT.md) - Comprehensive guide for AI agents. Copy to your project or paste into AI chat.
+- [.cursorrules](./.cursorrules) - Auto-loaded by Cursor IDE.
 
-## Examples
+```bash
+curl -o AGENT.md https://raw.githubusercontent.com/Avantis-Labs/avantis_trader_sdk/main/AGENT.md
+```
 
-You can find practical examples and sample code for using the Avantis Trader SDK in our GitHub repository. These examples are designed to help you get started quickly and explore the capabilities of the SDK.
+## Resources
 
-📂 [Browse the Examples on GitHub](https://github.com/Avantis-Labs/avantis_trader_sdk/tree/main/examples)
+- [Documentation](https://sdk.avantisfi.com/)
+- [Examples](https://github.com/Avantis-Labs/avantis_trader_sdk/tree/main/examples)
+- [Avantis Docs](https://docs.avantisfi.com/)
 
-## 📚 [Read the Full Documentation Here](https://sdk.avantisfi.com/)
+## License
+
+MIT
