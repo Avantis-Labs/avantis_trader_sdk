@@ -7,35 +7,36 @@ print(avantis_trader_sdk.__version__)
 
 
 async def main():
-
-    # This will initialize the feed client with the default pair fetcher which is the Avantis API
+    # Initialize the feed client
     feed_client = FeedClient()
 
-    # You can use the feed id or pair name
-    price_data = await feed_client.get_latest_price_updates(["ETH/USD", "BTC/USD"])
-    print("ETH/USD: ", price_data.parsed[0])
-    print("BTC/USD: ", price_data.parsed[1])
+    # Get price update data for a pair by index
+    # pair_index: 0 = BTC/USD, 1 = ETH/USD, etc.
 
-    # If you would like to use the feed ids instead
-    # Get the feed ID from https://pyth.network/developers/price-feed-ids
-    price_data = await feed_client.get_latest_price_updates(
-        ["0x09f7c1d7dfbb7df2b8fe3d3d87ee94a2259d212da4f30c1f0540d066dfa44723"]
-    )
-    print("ETH/USD: ", price_data.parsed[0])
+    # Get BTC price data
+    btc_price_data = await feed_client.get_price_update_data(pair_index=0)
+    print(f"BTC/USD: {btc_price_data.pro.price}")
 
-    # If you would like to use contracts to get pair feed info
-    # You can use the trader client
-    provider_url = "https://mainnet.base.org"  # Find provider URL for Base Mainnet Chain from https://chainlist.org/chain/8453 or use a dedicated node (Alchemy, Infura, etc.)
+    # Get ETH price data
+    eth_price_data = await feed_client.get_price_update_data(pair_index=1)
+    print(f"ETH/USD: {eth_price_data.pro.price}")
+
+    # ============================================================
+    # Using TraderClient with pair cache
+    # ============================================================
+    print("\n--- Using TraderClient Example ---")
+
+    # Find provider URL for Base Mainnet Chain from https://chainlist.org/chain/8453
+    # or use a dedicated node (Alchemy, Infura, etc.)
+    provider_url = "https://mainnet.base.org"
     trader_client = TraderClient(provider_url)
 
-    # This will initialize the feed client with the trader client's pair fetcher
-    # This is useful if you want to use the pair info from the trader client's cache
-    # You can also pass in a custom pair fetcher to the feed client
-    feed_client = FeedClient(pair_fetcher=trader_client.pairs_cache.get_pairs_info)
+    # Get Lazer feed ID for a pair (useful for real-time streaming)
+    lazer_feed_id = await trader_client.pairs_cache.get_lazer_feed_id(pair_index=0)
+    print(f"BTC/USD Lazer Feed ID: {lazer_feed_id}")
 
-    price_data = await feed_client.get_latest_price_updates(["ETH/USD", "BTC/USD"])
-    print("ETH/USD: ", price_data.parsed[0])
-    print("BTC/USD: ", price_data.parsed[1])
+    lazer_feed_id = await trader_client.pairs_cache.get_lazer_feed_id(pair_index=1)
+    print(f"ETH/USD Lazer Feed ID: {lazer_feed_id}")
 
 
 if __name__ == "__main__":

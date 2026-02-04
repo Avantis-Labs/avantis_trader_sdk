@@ -8,6 +8,7 @@ from ..types import (
     TradeInfo,
     PendingLimitOrderExtendedResponse,
     MarginUpdateType,
+    PriceSourcing,
 )
 from typing import Optional, List, Tuple
 import math
@@ -595,6 +596,7 @@ class TradeRPC:
         margin_update_type: MarginUpdateType,
         collateral_change: float,
         trader: Optional[str] = None,
+        price_sourcing: PriceSourcing = PriceSourcing.PRO,
     ):
         """
         Builds a transaction to update the margin of a trade.
@@ -605,6 +607,7 @@ class TradeRPC:
             margin_update_type: The margin update type.
             collateral_change: The collateral change.
             trader (optional): The trader's wallet address.
+            price_sourcing: The price sourcing to use. Defaults to PriceSourcing.PRO (Pyth Pro/Lazer).
         Returns:
             A transaction object.
         """
@@ -615,11 +618,15 @@ class TradeRPC:
 
         collateral_change = int(collateral_change * 10**6)
 
-        pair_name = await self.client.pairs_cache.get_pair_name_from_index(pair_index)
-
-        price_data = await self.feed_client.get_latest_price_updates([pair_name])
-
-        price_update_data = "0x" + price_data.binary.data[0]
+        if price_sourcing == PriceSourcing.PRO:
+            price_data = await self.feed_client.get_price_update_data(pair_index)
+            price_update_data = price_data.pro.price_update_data
+        else:
+            pair_name = await self.client.pairs_cache.get_pair_name_from_index(
+                pair_index
+            )
+            price_data = await self.feed_client.get_latest_price_updates([pair_name])
+            price_update_data = "0x" + price_data.binary.data[0]
 
         transaction = await Trading.functions.updateMargin(
             pair_index,
@@ -627,6 +634,7 @@ class TradeRPC:
             margin_update_type.value,
             collateral_change,
             [price_update_data],
+            price_sourcing.value,
         ).build_transaction(
             {
                 "from": trader,
@@ -645,6 +653,7 @@ class TradeRPC:
         margin_update_type: MarginUpdateType,
         collateral_change: float,
         trader: Optional[str] = None,
+        price_sourcing: PriceSourcing = PriceSourcing.PRO,
     ):
         """
         Builds a transaction to update the margin of a trade.
@@ -655,6 +664,7 @@ class TradeRPC:
             margin_update_type: The margin update type.
             collateral_change: The collateral change.
             trader (optional): The trader's wallet address.
+            price_sourcing: The price sourcing to use. Defaults to PriceSourcing.PRO (Pyth Pro/Lazer).
         Returns:
             A transaction object.
         """
@@ -665,11 +675,15 @@ class TradeRPC:
 
         collateral_change = int(collateral_change * 10**6)
 
-        pair_name = await self.client.pairs_cache.get_pair_name_from_index(pair_index)
-
-        price_data = await self.feed_client.get_latest_price_updates([pair_name])
-
-        price_update_data = "0x" + price_data.binary.data[0]
+        if price_sourcing == PriceSourcing.PRO:
+            price_data = await self.feed_client.get_price_update_data(pair_index)
+            price_update_data = price_data.pro.price_update_data
+        else:
+            pair_name = await self.client.pairs_cache.get_pair_name_from_index(
+                pair_index
+            )
+            price_data = await self.feed_client.get_latest_price_updates([pair_name])
+            price_update_data = "0x" + price_data.binary.data[0]
 
         transaction = await Trading.functions.updateMargin(
             pair_index,
@@ -677,6 +691,7 @@ class TradeRPC:
             margin_update_type.value,
             collateral_change,
             [price_update_data],
+            price_sourcing.value,
         ).build_transaction(
             {
                 "from": trader,
@@ -708,6 +723,7 @@ class TradeRPC:
         take_profit_price: float,
         stop_loss_price: float,
         trader: str = None,
+        price_sourcing: PriceSourcing = PriceSourcing.PRO,
     ):
         """
         Builds a transaction to update the stop loss and take profit of a trade.
@@ -718,6 +734,7 @@ class TradeRPC:
             take_profit_price: The take profit price.
             stop_loss_price: The stop loss price. Pass 0 if you want to remove the stop loss.
             trader (optional): The trader's wallet address.
+            price_sourcing: The price sourcing to use. Defaults to PriceSourcing.PRO (Pyth Pro/Lazer).
         Returns:
             A transaction object.
         """
@@ -729,11 +746,15 @@ class TradeRPC:
         if trader is None:
             trader = self.client.get_signer().get_ethereum_address()
 
-        pair_name = await self.client.pairs_cache.get_pair_name_from_index(pair_index)
-
-        price_data = await self.feed_client.get_latest_price_updates([pair_name])
-
-        price_update_data = "0x" + price_data.binary.data[0]
+        if price_sourcing == PriceSourcing.PRO:
+            price_data = await self.feed_client.get_price_update_data(pair_index)
+            price_update_data = price_data.pro.price_update_data
+        else:
+            pair_name = await self.client.pairs_cache.get_pair_name_from_index(
+                pair_index
+            )
+            price_data = await self.feed_client.get_latest_price_updates([pair_name])
+            price_update_data = "0x" + price_data.binary.data[0]
 
         take_profit_price = int(take_profit_price * 10**10)
         stop_loss_price = int(stop_loss_price * 10**10)
@@ -744,6 +765,7 @@ class TradeRPC:
             stop_loss_price,
             take_profit_price,
             [price_update_data],
+            price_sourcing.value,
         ).build_transaction(
             {
                 "from": trader,
@@ -763,6 +785,7 @@ class TradeRPC:
         take_profit_price: float,
         stop_loss_price: float,
         trader: str = None,
+        price_sourcing: PriceSourcing = PriceSourcing.PRO,
     ):
         """
         Builds a transaction to update the stop loss and take profit of a trade.
@@ -773,6 +796,7 @@ class TradeRPC:
             take_profit_price: The take profit price.
             stop_loss_price: The stop loss price. Pass 0 if you want to remove the stop loss.
             trader (optional): The trader's wallet address.
+            price_sourcing: The price sourcing to use. Defaults to PriceSourcing.PRO (Pyth Pro/Lazer).
         Returns:
             A transaction object.
         """
@@ -784,11 +808,15 @@ class TradeRPC:
         if trader is None:
             trader = self.client.get_signer().get_ethereum_address()
 
-        pair_name = await self.client.pairs_cache.get_pair_name_from_index(pair_index)
-
-        price_data = await self.feed_client.get_latest_price_updates([pair_name])
-
-        price_update_data = "0x" + price_data.binary.data[0]
+        if price_sourcing == PriceSourcing.PRO:
+            price_data = await self.feed_client.get_price_update_data(pair_index)
+            price_update_data = price_data.pro.price_update_data
+        else:
+            pair_name = await self.client.pairs_cache.get_pair_name_from_index(
+                pair_index
+            )
+            price_data = await self.feed_client.get_latest_price_updates([pair_name])
+            price_update_data = "0x" + price_data.binary.data[0]
 
         take_profit_price = int(take_profit_price * 10**10)
         stop_loss_price = int(stop_loss_price * 10**10)
@@ -799,6 +827,7 @@ class TradeRPC:
             stop_loss_price,
             take_profit_price,
             [price_update_data],
+            price_sourcing.value,
         ).build_transaction(
             {
                 "from": trader,

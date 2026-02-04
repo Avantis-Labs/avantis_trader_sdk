@@ -1,12 +1,19 @@
 import json
 import websockets
-from ..types import PriceFeedResponse, PriceFeedUpdatesResponse, PairInfoFeed
-from typing import List, Callable
+from ..types import (
+    PriceFeedResponse,
+    PriceFeedUpdatesResponse,
+    PairInfoFeed,
+    FeedV3PriceResponse,
+    LazerPriceFeedResponse,
+)
+from typing import List, Callable, Optional
 import requests
 from pydantic import ValidationError
-from ..config import AVANTIS_SOCKET_API
+from ..config import AVANTIS_SOCKET_API, AVANTIS_FEED_V3_URL, PYTH_LAZER_SSE_URL
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+import aiohttp
 
 
 class FeedClient:
@@ -22,14 +29,21 @@ class FeedClient:
         hermes_url="https://hermes.pyth.network/v2/updates/price/latest",
         socket_api: str = AVANTIS_SOCKET_API,
         pair_fetcher: Callable = None,
+        feed_v3_url: str = AVANTIS_FEED_V3_URL,
+        lazer_sse_url: str = PYTH_LAZER_SSE_URL,
     ):
         """
         Constructor for the FeedClient class.
 
         Args:
-            ws_url: Optional - The websocket URL to connect to.
-            on_error: Optional callback for handling websocket errors.
-            on_close: Optional callback for handling websocket close events.
+            ws_url: Optional - The websocket URL to connect to (Pyth Hermes).
+            on_error: Optional callback for handling websocket/SSE errors.
+            on_close: Optional callback for handling websocket/SSE close events.
+            hermes_url: Optional - The Hermes HTTP API URL.
+            socket_api: Optional - The Avantis socket API URL.
+            pair_fetcher: Optional - Custom pair fetcher function.
+            feed_v3_url: Optional - The feed-v3 API URL for price update data.
+            lazer_sse_url: Optional - The Pyth Lazer SSE URL for real-time prices.
         """
         if (
             ws_url is not None
@@ -40,11 +54,15 @@ class FeedClient:
 
         self.ws_url = ws_url
         self.hermes_url = hermes_url
+        self.feed_v3_url = feed_v3_url
+        self.lazer_sse_url = lazer_sse_url
         self.pair_feeds = {}
         self.feed_pairs = {}
         self.price_feed_callbacks = {}
+        self.lazer_callbacks = {}
         self._socket = None
         self._connected = False
+        self._lazer_connected = False
         self._on_error = on_error
         self._on_close = on_close
         self.socket_api = socket_api
@@ -267,3 +285,75 @@ class FeedClient:
             return PriceFeedUpdatesResponse(**data)
         else:
             response.raise_for_status()
+
+    async def get_price_update_data(self, pair_index: int) -> FeedV3PriceResponse:
+        """
+        Retrieves price update data from the feed-v3 API for a specific pair.
+
+        This returns both core (Pyth Hermes) and pro (Pyth Lazer) price data,
+        including the priceUpdateData bytes needed for contract calls.
+
+        Args:
+            pair_index: The pair index to get price update data for.
+
+        Returns:
+            A FeedV3PriceResponse containing core and pro price data.
+
+        Raises:
+            requests.HTTPError: If the API request fails.
+        """
+        url = f"{self.feed_v3_url}/v2/pairs/{pair_index}/price-update-data"
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        return FeedV3PriceResponse(**data)
+
+    async def listen_for_lazer_price_updates(
+        self,
+        lazer_feed_ids: List[int],
+        callback: Callable[[LazerPriceFeedResponse], None],
+    ):
+        """
+        Listens for real-time price updates from the Pyth Lazer SSE stream.
+
+        This is the Pyth Pro alternative to the WebSocket-based listen_for_price_updates.
+
+        Args:
+            lazer_feed_ids: List of Lazer feed IDs to subscribe to.
+            callback: Callback function to handle price updates.
+
+        Raises:
+            Exception: If an error occurs while listening for price updates.
+        """
+        params = "&".join([f"price_feed_ids={fid}" for fid in lazer_feed_ids])
+        url = f"{self.lazer_sse_url}?{params}"
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as response:
+                    self._lazer_connected = True
+                    async for line in response.content:
+                        line = line.decode("utf-8").strip()
+                        if line.startswith("data:"):
+                            try:
+                                data = json.loads(line[5:].strip())
+                                price_response = LazerPriceFeedResponse(**data)
+                                callback(price_response)
+                            except json.JSONDecodeError as e:
+                                if self._on_error:
+                                    self._on_error(e)
+                            except ValidationError as e:
+                                if self._on_error:
+                                    self._on_error(e)
+        except aiohttp.ClientError as e:
+            self._lazer_connected = False
+            if self._on_error:
+                self._on_error(e)
+            else:
+                raise e
+        except Exception as e:
+            self._lazer_connected = False
+            if self._on_close:
+                self._on_close(e)
+            else:
+                raise e

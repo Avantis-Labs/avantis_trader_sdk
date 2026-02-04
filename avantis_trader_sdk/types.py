@@ -487,6 +487,78 @@ class MarginUpdateType(Enum):
     WITHDRAW = 1
 
 
+class PriceSourcing(Enum):
+    """Price sourcing options for contract calls."""
+
+    HERMES = 0  # Pyth Hermes (legacy)
+    PRO = 1  # Pyth Pro / Lazer
+
+
+class LazerPriceFeed(BaseModel):
+    """Single price feed from Pyth Lazer SSE stream."""
+
+    price_feed_id: int = Field(..., alias="priceFeedId")
+    price: str
+    best_bid_price: str = Field(..., alias="bestBidPrice")
+    best_ask_price: str = Field(..., alias="bestAskPrice")
+    publisher_count: int = Field(..., alias="publisherCount")
+    exponent: int
+    confidence: int
+
+    @property
+    def converted_price(self) -> float:
+        return int(self.price) / 10 ** -self.exponent
+
+    class Config:
+        populate_by_name = True
+
+
+class LazerPriceFeedResponse(BaseModel):
+    """Response from Pyth Lazer SSE stream."""
+
+    timestamp_us: str = Field(..., alias="timestampUs")
+    price_feeds: List[LazerPriceFeed] = Field(..., alias="priceFeeds")
+
+    @property
+    def timestamp_ms(self) -> int:
+        return int(self.timestamp_us) // 1000
+
+    class Config:
+        populate_by_name = True
+
+
+class FeedV3CorePriceData(BaseModel):
+    """Core price data from feed-v3 API (Pyth Hermes)."""
+
+    price_update_data: str = Field(..., alias="priceUpdateData")
+    price: float
+    publish_timestamp_ms: int = Field(..., alias="publishTimestampMs")
+
+    class Config:
+        populate_by_name = True
+
+
+class FeedV3ProPriceData(BaseModel):
+    """Pro price data from feed-v3 API (Pyth Pro/Lazer)."""
+
+    price_update_data: str = Field(..., alias="priceUpdateData")
+    price: float
+    publish_timestamp_ms: int = Field(..., alias="publishTimestampMs")
+
+    class Config:
+        populate_by_name = True
+
+
+class FeedV3PriceResponse(BaseModel):
+    """Response from feed-v3 API containing both core and pro price data."""
+
+    core: FeedV3CorePriceData
+    pro: FeedV3ProPriceData
+
+    class Config:
+        populate_by_name = True
+
+
 class LossProtectionInfo(BaseModel):
     percentage: float
     amount: float

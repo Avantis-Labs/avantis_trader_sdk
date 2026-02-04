@@ -27,7 +27,7 @@ async def main():
     trader = trader_client.get_signer().get_ethereum_address()
 
     # Get opentrades
-    (trades,) = await trader_client.trade.get_trades(trader)
+    (trades, _) = await trader_client.trade.get_trades(trader)
     print("Trades: ", trades)
 
     # Select first trade to update
@@ -39,7 +39,7 @@ async def main():
     # ---------------------------------------------
 
     # Update trade
-    deposit_transaction = await trader_client.trade.build_trade_margin_update_tx(
+    withdraw_transaction = await trader_client.trade.build_trade_margin_update_tx(
         pair_index=trade_to_update.trade.pair_index,
         trade_index=trade_to_update.trade.trade_index,
         margin_update_type=MarginUpdateType.WITHDRAW,  # Type of margin update (DEPOSIT or WITHDRAW)
@@ -47,7 +47,7 @@ async def main():
         trader=trader,
     )
 
-    receipt = await trader_client.sign_and_get_receipt(deposit_transaction)
+    receipt = await trader_client.sign_and_get_receipt(withdraw_transaction)
 
     print(receipt)
 

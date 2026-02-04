@@ -3,6 +3,39 @@ Changelog
 
 This section outlines the changes made in each version of the Avantis Trader SDK
 
+**Version 0.8.14 (2026-02-04)**
+
+- **New Features:**
+
+  - **Upgraded to Pyth Pro Pricing**:
+
+    - Trading methods now use Pyth Pro/Lazer for improved price accuracy and lower latency.
+    - ``build_trade_tp_sl_update_tx``, ``build_trade_tp_sl_update_tx_delegate``, ``build_trade_margin_update_tx``, and ``build_trade_margin_update_tx_delegate`` automatically use Pyth Pro pricing.
+
+  - **Feed Client Enhancements**:
+
+    - Added ``get_price_update_data(pair_index)`` - Fetches price update data from the new feed-v3 API.
+    - Added ``listen_for_lazer_price_updates(lazer_feed_ids, callback)`` - SSE streaming for Pyth Pro real-time prices with lower latency than WebSocket.
+
+  - **Pairs Cache Enhancements**:
+
+    - Added ``get_lazer_feed_id(pair_index)`` - Returns the Pyth Lazer feed ID for a pair.
+
+  - **New Types**:
+
+    - ``LazerPriceFeed`` - Single price feed from Pyth Lazer SSE stream.
+    - ``LazerPriceFeedResponse`` - Full SSE response with timestamp and price feeds.
+    - ``FeedV3PriceResponse`` - Response from feed-v3 API.
+
+- **ABI Updates:**
+
+  - Updated Trading ABI to latest version with ``MarketOrderInitiated`` event changes.
+
+- **Examples Updated:**
+
+  - ``05_example_get_realtime_prices.py`` - Now demonstrates SSE streaming for real-time prices.
+  - ``06_example_get_latest_price.py`` - Now demonstrates feed-v3 API usage.
+
 **Version 0.8.13 (2026-01-18)**
 
 - **New Features:**

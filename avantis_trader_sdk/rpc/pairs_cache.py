@@ -187,3 +187,22 @@ class PairsCache:
         """
         pairs_info = await self.get_pairs_info()
         return pairs_info[pair_index].from_ + "/" + pairs_info[pair_index].to
+
+    async def get_lazer_feed_id(self, pair_index: int) -> int:
+        """
+        Retrieves the Pyth Lazer feed ID for a pair.
+
+        Args:
+            pair_index: The pair index.
+
+        Returns:
+            The Lazer feed ID as an integer.
+
+        Raises:
+            ValueError: If the pair does not have a Lazer feed configured.
+        """
+        pair_info = await self.get_pair_info_from_socket(pair_index)
+        lazer_feed = pair_info.get("lazerFeed")
+        if not lazer_feed:
+            raise ValueError(f"Pair {pair_index} does not have a Lazer feed configured")
+        return lazer_feed.get("feedId")

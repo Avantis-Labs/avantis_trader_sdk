@@ -11,5 +11,7 @@ MAINNET_ADDRESSES = {
 
 AVANTIS_SOCKET_API = "https://socket-api-pub.avantisfi.com/socket-api/v1/data"
 AVANTIS_CORE_API_BASE_URL = "https://core.avantisfi.com"
+AVANTIS_FEED_V3_URL = "https://feed-v3.avantisfi.com"
+PYTH_LAZER_SSE_URL = "https://pyth-lazer-proxy-3.dourolabs.app/v1/stream"
 
 CONTRACT_ADDRESSES = MAINNET_ADDRESSES
