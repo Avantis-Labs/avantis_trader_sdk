@@ -3,6 +3,23 @@ Changelog
 
 This section outlines the changes made in each version of the Avantis Trader SDK
 
+**Version 0.8.15 (2026-02-04)**
+
+- **Pyth Pro Pricing for Trade Opening**:
+
+  - ``build_trade_open_tx`` and ``build_trade_open_tx_delegate`` now use Pyth Lazer for price fetching.
+  - Added ``get_latest_lazer_price(lazer_feed_ids)`` - Fetches latest prices from Pyth Lazer API.
+
+- **Documentation**:
+
+  - Added ``AGENT.md`` - AI agent guide for building with the SDK.
+  - Added ``.cursorrules`` - Cursor IDE context rules.
+  - Simplified README with practical examples.
+
+- **Examples Updated:**
+
+  - ``06_example_get_latest_price.py`` - Now demonstrates ``get_latest_lazer_price`` method.
+
 **Version 0.8.14 (2026-02-04)**
 
 - **New Features:**
