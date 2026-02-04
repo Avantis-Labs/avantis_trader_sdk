@@ -308,6 +308,28 @@ class FeedClient:
         data = response.json()
         return FeedV3PriceResponse(**data)
 
+    async def get_latest_lazer_price(
+        self, lazer_feed_ids: List[int]
+    ) -> LazerPriceFeedResponse:
+        """
+        Retrieves the latest prices from the Pyth Lazer API.
+
+        Args:
+            lazer_feed_ids: List of Lazer feed IDs to get prices for.
+
+        Returns:
+            A LazerPriceFeedResponse containing the latest prices.
+
+        Raises:
+            requests.HTTPError: If the API request fails.
+        """
+        params = "&".join([f"price_feed_ids={fid}" for fid in lazer_feed_ids])
+        url = f"{self.lazer_sse_url.replace('/stream', '/latest_price')}?{params}"
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        return LazerPriceFeedResponse(**data)
+
     async def listen_for_lazer_price_updates(
         self,
         lazer_feed_ids: List[int],

@@ -74,11 +74,15 @@ class TradeRPC:
             trade_input_order_type == TradeInputOrderType.MARKET
             or trade_input_order_type == TradeInputOrderType.MARKET_ZERO_FEE
         ) and not trade_input.openPrice:
-            pair_name = await self.client.pairs_cache.get_pair_name_from_index(
+            lazer_feed_id = await self.client.pairs_cache.get_lazer_feed_id(
                 trade_input.pairIndex
             )
-            price_data = await self.feed_client.get_latest_price_updates([pair_name])
-            price = int(price_data.parsed[0].converted_price * 10**10)
+            price_data = await self.feed_client.get_latest_lazer_price([lazer_feed_id])
+            price_feed = next(
+                (f for f in price_data.price_feeds if f.price_feed_id == lazer_feed_id),
+                price_data.price_feeds[0],
+            )
+            price = int(price_feed.converted_price * 10**10)
             trade_input.openPrice = price
 
         if (
@@ -137,11 +141,15 @@ class TradeRPC:
             trade_input_order_type == TradeInputOrderType.MARKET
             or trade_input_order_type == TradeInputOrderType.MARKET_ZERO_FEE
         ) and not trade_input.openPrice:
-            pair_name = await self.client.pairs_cache.get_pair_name_from_index(
+            lazer_feed_id = await self.client.pairs_cache.get_lazer_feed_id(
                 trade_input.pairIndex
             )
-            price_data = await self.feed_client.get_latest_price_updates([pair_name])
-            price = int(price_data.parsed[0].converted_price * 10**10)
+            price_data = await self.feed_client.get_latest_lazer_price([lazer_feed_id])
+            price_feed = next(
+                (f for f in price_data.price_feeds if f.price_feed_id == lazer_feed_id),
+                price_data.price_feeds[0],
+            )
+            price = int(price_feed.converted_price * 10**10)
             trade_input.openPrice = price
 
         if (
@@ -162,8 +170,6 @@ class TradeRPC:
                 "nonce": await self.client.get_transaction_count(trade_input.trader),
             }
         )
-
-        print("transaction: ", trade_input.trader)
 
         delegate_transaction = await Trading.functions.delegatedAction(
             trade_input.trader, transaction["data"]
