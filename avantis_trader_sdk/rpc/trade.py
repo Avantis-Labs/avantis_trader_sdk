@@ -39,6 +39,11 @@ class TradeRPC:
         self.feed_client = feed_client
         self.core_api_base_url = core_api_base_url or AVANTIS_CORE_API_BASE_URL
 
+    async def _resolve_price_sourcing(self, pair_index: int) -> PriceSourcing:
+        """Returns PRO if the pair has stable Lazer support, otherwise HERMES."""
+        is_supported = await self.client.pairs_cache.is_lazer_supported(pair_index)
+        return PriceSourcing.PRO if is_supported else PriceSourcing.HERMES
+
     async def build_trade_open_tx(
         self,
         trade_input: TradeInput,
@@ -74,15 +79,28 @@ class TradeRPC:
             trade_input_order_type == TradeInputOrderType.MARKET
             or trade_input_order_type == TradeInputOrderType.MARKET_ZERO_FEE
         ) and not trade_input.openPrice:
-            lazer_feed_id = await self.client.pairs_cache.get_lazer_feed_id(
-                trade_input.pairIndex
-            )
-            price_data = await self.feed_client.get_latest_lazer_price([lazer_feed_id])
-            price_feed = next(
-                (f for f in price_data.price_feeds if f.price_feed_id == lazer_feed_id),
-                price_data.price_feeds[0],
-            )
-            price = int(price_feed.converted_price * 10**10)
+            sourcing = await self._resolve_price_sourcing(trade_input.pairIndex)
+            if sourcing == PriceSourcing.PRO:
+                lazer_feed_id = await self.client.pairs_cache.get_lazer_feed_id(
+                    trade_input.pairIndex
+                )
+                price_data = await self.feed_client.get_latest_lazer_price(
+                    [lazer_feed_id]
+                )
+                price_feed = next(
+                    (
+                        f
+                        for f in price_data.price_feeds
+                        if f.price_feed_id == lazer_feed_id
+                    ),
+                    price_data.price_feeds[0],
+                )
+                price = int(price_feed.converted_price * 10**10)
+            else:
+                price_data = await self.feed_client.get_price_update_data(
+                    trade_input.pairIndex
+                )
+                price = int(price_data.core.price * 10**10)
             trade_input.openPrice = price
 
         if (
@@ -141,15 +159,28 @@ class TradeRPC:
             trade_input_order_type == TradeInputOrderType.MARKET
             or trade_input_order_type == TradeInputOrderType.MARKET_ZERO_FEE
         ) and not trade_input.openPrice:
-            lazer_feed_id = await self.client.pairs_cache.get_lazer_feed_id(
-                trade_input.pairIndex
-            )
-            price_data = await self.feed_client.get_latest_lazer_price([lazer_feed_id])
-            price_feed = next(
-                (f for f in price_data.price_feeds if f.price_feed_id == lazer_feed_id),
-                price_data.price_feeds[0],
-            )
-            price = int(price_feed.converted_price * 10**10)
+            sourcing = await self._resolve_price_sourcing(trade_input.pairIndex)
+            if sourcing == PriceSourcing.PRO:
+                lazer_feed_id = await self.client.pairs_cache.get_lazer_feed_id(
+                    trade_input.pairIndex
+                )
+                price_data = await self.feed_client.get_latest_lazer_price(
+                    [lazer_feed_id]
+                )
+                price_feed = next(
+                    (
+                        f
+                        for f in price_data.price_feeds
+                        if f.price_feed_id == lazer_feed_id
+                    ),
+                    price_data.price_feeds[0],
+                )
+                price = int(price_feed.converted_price * 10**10)
+            else:
+                price_data = await self.feed_client.get_price_update_data(
+                    trade_input.pairIndex
+                )
+                price = int(price_data.core.price * 10**10)
             trade_input.openPrice = price
 
         if (
@@ -602,7 +633,6 @@ class TradeRPC:
         margin_update_type: MarginUpdateType,
         collateral_change: float,
         trader: Optional[str] = None,
-        price_sourcing: PriceSourcing = PriceSourcing.PRO,
     ):
         """
         Builds a transaction to update the margin of a trade.
@@ -613,7 +643,7 @@ class TradeRPC:
             margin_update_type: The margin update type.
             collateral_change: The collateral change.
             trader (optional): The trader's wallet address.
-            price_sourcing: The price sourcing to use. Defaults to PriceSourcing.PRO (Pyth Pro/Lazer).
+
         Returns:
             A transaction object.
         """
@@ -624,15 +654,12 @@ class TradeRPC:
 
         collateral_change = int(collateral_change * 10**6)
 
+        price_sourcing = await self._resolve_price_sourcing(pair_index)
+        price_data = await self.feed_client.get_price_update_data(pair_index)
         if price_sourcing == PriceSourcing.PRO:
-            price_data = await self.feed_client.get_price_update_data(pair_index)
             price_update_data = price_data.pro.price_update_data
         else:
-            pair_name = await self.client.pairs_cache.get_pair_name_from_index(
-                pair_index
-            )
-            price_data = await self.feed_client.get_latest_price_updates([pair_name])
-            price_update_data = "0x" + price_data.binary.data[0]
+            price_update_data = price_data.core.price_update_data
 
         transaction = await Trading.functions.updateMargin(
             pair_index,
@@ -659,7 +686,6 @@ class TradeRPC:
         margin_update_type: MarginUpdateType,
         collateral_change: float,
         trader: Optional[str] = None,
-        price_sourcing: PriceSourcing = PriceSourcing.PRO,
     ):
         """
         Builds a transaction to update the margin of a trade.
@@ -670,7 +696,7 @@ class TradeRPC:
             margin_update_type: The margin update type.
             collateral_change: The collateral change.
             trader (optional): The trader's wallet address.
-            price_sourcing: The price sourcing to use. Defaults to PriceSourcing.PRO (Pyth Pro/Lazer).
+
         Returns:
             A transaction object.
         """
@@ -681,15 +707,12 @@ class TradeRPC:
 
         collateral_change = int(collateral_change * 10**6)
 
+        price_sourcing = await self._resolve_price_sourcing(pair_index)
+        price_data = await self.feed_client.get_price_update_data(pair_index)
         if price_sourcing == PriceSourcing.PRO:
-            price_data = await self.feed_client.get_price_update_data(pair_index)
             price_update_data = price_data.pro.price_update_data
         else:
-            pair_name = await self.client.pairs_cache.get_pair_name_from_index(
-                pair_index
-            )
-            price_data = await self.feed_client.get_latest_price_updates([pair_name])
-            price_update_data = "0x" + price_data.binary.data[0]
+            price_update_data = price_data.core.price_update_data
 
         transaction = await Trading.functions.updateMargin(
             pair_index,
@@ -729,7 +752,6 @@ class TradeRPC:
         take_profit_price: float,
         stop_loss_price: float,
         trader: str = None,
-        price_sourcing: PriceSourcing = PriceSourcing.PRO,
     ):
         """
         Builds a transaction to update the stop loss and take profit of a trade.
@@ -740,7 +762,7 @@ class TradeRPC:
             take_profit_price: The take profit price.
             stop_loss_price: The stop loss price. Pass 0 if you want to remove the stop loss.
             trader (optional): The trader's wallet address.
-            price_sourcing: The price sourcing to use. Defaults to PriceSourcing.PRO (Pyth Pro/Lazer).
+
         Returns:
             A transaction object.
         """
@@ -752,15 +774,12 @@ class TradeRPC:
         if trader is None:
             trader = self.client.get_signer().get_ethereum_address()
 
+        price_sourcing = await self._resolve_price_sourcing(pair_index)
+        price_data = await self.feed_client.get_price_update_data(pair_index)
         if price_sourcing == PriceSourcing.PRO:
-            price_data = await self.feed_client.get_price_update_data(pair_index)
             price_update_data = price_data.pro.price_update_data
         else:
-            pair_name = await self.client.pairs_cache.get_pair_name_from_index(
-                pair_index
-            )
-            price_data = await self.feed_client.get_latest_price_updates([pair_name])
-            price_update_data = "0x" + price_data.binary.data[0]
+            price_update_data = price_data.core.price_update_data
 
         take_profit_price = int(take_profit_price * 10**10)
         stop_loss_price = int(stop_loss_price * 10**10)
@@ -791,7 +810,6 @@ class TradeRPC:
         take_profit_price: float,
         stop_loss_price: float,
         trader: str = None,
-        price_sourcing: PriceSourcing = PriceSourcing.PRO,
     ):
         """
         Builds a transaction to update the stop loss and take profit of a trade.
@@ -802,7 +820,7 @@ class TradeRPC:
             take_profit_price: The take profit price.
             stop_loss_price: The stop loss price. Pass 0 if you want to remove the stop loss.
             trader (optional): The trader's wallet address.
-            price_sourcing: The price sourcing to use. Defaults to PriceSourcing.PRO (Pyth Pro/Lazer).
+
         Returns:
             A transaction object.
         """
@@ -814,15 +832,12 @@ class TradeRPC:
         if trader is None:
             trader = self.client.get_signer().get_ethereum_address()
 
+        price_sourcing = await self._resolve_price_sourcing(pair_index)
+        price_data = await self.feed_client.get_price_update_data(pair_index)
         if price_sourcing == PriceSourcing.PRO:
-            price_data = await self.feed_client.get_price_update_data(pair_index)
             price_update_data = price_data.pro.price_update_data
         else:
-            pair_name = await self.client.pairs_cache.get_pair_name_from_index(
-                pair_index
-            )
-            price_data = await self.feed_client.get_latest_price_updates([pair_name])
-            price_update_data = "0x" + price_data.binary.data[0]
+            price_update_data = price_data.core.price_update_data
 
         take_profit_price = int(take_profit_price * 10**10)
         stop_loss_price = int(stop_loss_price * 10**10)

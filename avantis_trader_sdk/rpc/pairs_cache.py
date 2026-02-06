@@ -188,6 +188,22 @@ class PairsCache:
         pairs_info = await self.get_pairs_info()
         return pairs_info[pair_index].from_ + "/" + pairs_info[pair_index].to
 
+    async def is_lazer_supported(self, pair_index: int) -> bool:
+        """
+        Checks whether a pair has stable Pyth Lazer support.
+
+        Args:
+            pair_index: The pair index.
+
+        Returns:
+            True if the pair's Lazer feed state is "stable", False otherwise.
+        """
+        pair_info = await self.get_pair_info_from_socket(pair_index)
+        lazer_feed = pair_info.get("lazerFeed")
+        if not lazer_feed:
+            return False
+        return lazer_feed.get("state") == "stable"
+
     async def get_lazer_feed_id(self, pair_index: int) -> int:
         """
         Retrieves the Pyth Lazer feed ID for a pair.

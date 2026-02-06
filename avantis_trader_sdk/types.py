@@ -507,7 +507,7 @@ class LazerPriceFeed(BaseModel):
 
     @property
     def converted_price(self) -> float:
-        return int(self.price) / 10 ** -self.exponent
+        return int(self.price) / 10**-self.exponent
 
     class Config:
         populate_by_name = True
@@ -553,7 +553,7 @@ class FeedV3PriceResponse(BaseModel):
     """Response from feed-v3 API containing both core and pro price data."""
 
     core: FeedV3CorePriceData
-    pro: FeedV3ProPriceData
+    pro: Optional[FeedV3ProPriceData] = None
 
     class Config:
         populate_by_name = True

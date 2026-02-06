@@ -3,6 +3,19 @@ Changelog
 
 This section outlines the changes made in each version of the Avantis Trader SDK
 
+**Version 0.8.16 (2026-02-06)**
+
+- **Automatic Lazer State Detection**:
+
+  - Trading methods now check ``lazerFeed.state`` before using Pyth Pro pricing.
+  - Pairs without stable Lazer support automatically fall back to core/Hermes pricing.
+  - Added ``is_lazer_supported(pair_index)`` to ``PairsCache``.
+
+- **Simplified Price Sourcing**:
+
+  - Removed ``price_sourcing`` parameter from ``build_trade_tp_sl_update_tx``, ``build_trade_margin_update_tx``, and their delegate variants.
+  - These methods now auto-detect the correct price source via feed-v3.
+
 **Version 0.8.15 (2026-02-04)**
 
 - **Pyth Pro Pricing for Trade Opening**:
