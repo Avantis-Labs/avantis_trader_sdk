@@ -3,6 +3,13 @@ Changelog
 
 This section outlines the changes made in each version of the Avantis Trader SDK
 
+
+**Version 0.8.17 (2026-03-30)**
+
+- **Bug Fixes:**
+
+  - Marked ``best_bid_price``, ``best_ask_price``, ``publisher_count``, and ``confidence`` as optional in ``LazerPriceFeed`` since Pyth Pro sometimes does not return these fields.
+
 **Version 0.8.16 (2026-02-06)**
 
 - **Automatic Lazer State Detection**:
