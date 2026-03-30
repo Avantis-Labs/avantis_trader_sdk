@@ -499,11 +499,11 @@ class LazerPriceFeed(BaseModel):
 
     price_feed_id: int = Field(..., alias="priceFeedId")
     price: str
-    best_bid_price: str = Field(..., alias="bestBidPrice")
-    best_ask_price: str = Field(..., alias="bestAskPrice")
-    publisher_count: int = Field(..., alias="publisherCount")
+    best_bid_price: Optional[str] = Field(None, alias="bestBidPrice")
+    best_ask_price: Optional[str] = Field(None, alias="bestAskPrice")
+    publisher_count: Optional[int] = Field(None, alias="publisherCount")
     exponent: int
-    confidence: int
+    confidence: Optional[int] = None
 
     @property
     def converted_price(self) -> float:
