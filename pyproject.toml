@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "avantis-trader-sdk"
+version = "2.0.0a1"
+description = "Python SDK for Avantis v2 — API-first perpetuals trading on Base"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Avantis Labs" }]
+requires-python = ">=3.10"
+dependencies = [
+    "httpx>=0.27,<1",
+    "pydantic>=2.8,<3",
+    "eth-account>=0.13.4,<0.14",
+    "eth-utils>=4,<6",
+    "eth-abi>=5,<6",
+    "websockets>=12,<15",
+]
+
+[project.optional-dependencies]
+kms = ["boto3>=1.35,<2", "pyasn1>=0.6,<1"]
+streams = ["python-socketio[asyncio_client]>=5.11,<6"]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.24",
+    "respx>=0.21",
+    "ruff>=0.6",
+    "mypy>=1.11",
+]
+
+[project.urls]
+Homepage = "https://www.avantisfi.com"
+Documentation = "https://sdk.avantisfi.com"
+Source = "https://github.com/Avantis-Labs/avantis_trader_sdk"
+
+[tool.setuptools.packages.find]
+include = ["avantis_trader_sdk*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "B", "ASYNC"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+check_untyped_defs = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

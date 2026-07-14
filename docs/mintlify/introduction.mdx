@@ -1,0 +1,47 @@
+---
+title: Introduction
+description: "Trade Avantis v2 perpetuals from Python — gasless by default, no ABIs, no RPC."
+---
+
+The Avantis Python SDK is an API-first client for Avantis v2 on Base. It
+follows the HyperLiquid model: you hold an **API key** (a delegate key
+registered to your wallet with one signature), the SDK signs orders locally,
+and the Avantis relayer puts them on-chain. No gas, no node, no wallet popups.
+
+```python
+import asyncio
+from avantis_trader_sdk import AsyncAvantis
+
+async def main():
+    async with AsyncAvantis() as client:
+        await client.trade.market_open("ETH/USD", "long", collateral=100, leverage=10)
+
+asyncio.run(main())
+```
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    From zero to a filled trade in five minutes.
+  </Card>
+  <Card title="Execution modes" icon="route" href="/advanced/execution-modes">
+    Relayer vs direct, delegate vs trader key — mix freely.
+  </Card>
+  <Card title="Market-maker fast path" icon="bolt" href="/advanced/mm-fast-path">
+    Local order building with zero HTTP on the hot path.
+  </Card>
+  <Card title="Security model" icon="shield" href="/advanced/security">
+    What an API key can and cannot do.
+  </Card>
+</CardGroup>
+
+## Why v2
+
+- **All information the Avantis app has** — pairs, funding, spreads, OI caps,
+  positions with liquidation prices, PnL breakdowns, portfolio analytics,
+  referral stats, vault APY — through one client.
+- **Correct by construction** — every signed intent is digest-verified against
+  the API; the signer is tested against vectors computed by the on-chain
+  hashing library itself.
+- **Every user type** — one-liner market orders for agents and scripts;
+  TWAP/RFQ, coin-sized orders, direct broadcasting, and local signing for
+  institutions.

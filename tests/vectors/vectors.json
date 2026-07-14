@@ -1,0 +1,268 @@
+{
+  "description": "Digests computed by the deployed SignatureHelpers library (avantis-contracts-v2). Regenerate with npm run gen:vectors.",
+  "domain": {
+    "name": "AvantisTrading",
+    "version": "1",
+    "chainId": 31337,
+    "verifyingContract": "0x5fbdb2315678afecb367f032d93f642f64180aa3"
+  },
+  "domainSeparator": "0xfb572dd00c3ff4fce2cb295d37ec01aa4f6f957bb3f49c37e775801257939a46",
+  "vectors": [
+    {
+      "kind": "OpenTradeReq",
+      "message": {
+        "_t": {
+          "trader": "0x1111111111111111111111111111111111111111",
+          "pairIndex": "1",
+          "index": "0",
+          "initialPosToken": "0",
+          "positionSizeUSDC": "100000000",
+          "openPrice": "800000000000000",
+          "buy": true,
+          "leverage": "100000000000",
+          "tp": "900000000000000",
+          "sl": "0",
+          "timestamp": "1750000000"
+        },
+        "_type": 0,
+        "_slippageP": "10000000000",
+        "_deadline": "1800000000123",
+        "_nonce": "987654321123456789"
+      },
+      "structHash": "0xf5042c47115a3b0ab7da0b4415fbee5d96b6d48ac42118ccab1d7eb9ef9d988a",
+      "digest": "0x6cb6cfeac7c5fef744eccec3e5f44cc2bd1b501cf9d156af589d290222f83bee"
+    },
+    {
+      "kind": "OpenTradeCoinExposureReq",
+      "message": {
+        "_t": {
+          "trader": "0x1111111111111111111111111111111111111111",
+          "pairIndex": "1",
+          "index": "0",
+          "initialPosToken": "0",
+          "positionSizeUSDC": "100000000",
+          "openPrice": "800000000000000",
+          "buy": true,
+          "leverage": "100000000000",
+          "tp": "900000000000000",
+          "sl": "0",
+          "timestamp": "1750000000"
+        },
+        "_type": 3,
+        "_coinExposure": "5000000000",
+        "_minLeverage": "10000000000",
+        "_maxLeverage": "750000000000",
+        "_slippageP": "10000000000",
+        "_deadline": "1800000000123",
+        "_nonce": "987654321123456789"
+      },
+      "structHash": "0x3e63bf4f66e63704d7a5b6bbefeb964108c656fdfc1198950e5c8ba99b44d22e",
+      "digest": "0x1dbbac1a2b528c26df76c69e7a4f4390f38234e966a1d7efa227d5e7f3ad5842"
+    },
+    {
+      "kind": "CloseTradeReq",
+      "message": {
+        "_trader": "0x1111111111111111111111111111111111111111",
+        "_pairIndex": "1",
+        "_index": "0",
+        "_openTimestamp": "1750000000",
+        "_amount": "50000000",
+        "_wantedPrice": "810000000000000",
+        "_deadline": "1800000000123",
+        "_nonce": "987654321123456789"
+      },
+      "structHash": "0xd14ab1431c3f5851683cb13656e2183bb86916c8b9a9ef52c3ac608698cf666b",
+      "digest": "0x0aca1278368207d7e945a7e41b0b5a3607849adca06006644b52d93dc6c96930"
+    },
+    {
+      "kind": "CloseTradeCoinExposureReq",
+      "message": {
+        "_trader": "0x1111111111111111111111111111111111111111",
+        "_pairIndex": "1",
+        "_index": "0",
+        "_openTimestamp": "1750000000",
+        "_coinExposure": "2500000000",
+        "_wantedPrice": "810000000000000",
+        "_deadline": "1800000000123",
+        "_nonce": "987654321123456789"
+      },
+      "structHash": "0xc1b85d3920d202426ecc4b1e06d1c0fa6b5011d23235b47020fd0516458c2ff7",
+      "digest": "0x1fd169b3cb3a3f99faf27bbedb80c54433a8109ba816d63b21cd3c1d7f6d1e01"
+    },
+    {
+      "kind": "IncreasePositionSizeReq",
+      "message": {
+        "_updateInfo": {
+          "trader": "0x1111111111111111111111111111111111111111",
+          "pairIndex": "1",
+          "index": "2",
+          "openPrice": "800000000000000",
+          "initialPosToken": "50000000",
+          "leverage": "200000000000"
+        },
+        "_slippageP": "10000000000",
+        "_deadline": "1800000000123",
+        "_nonce": "987654321123456789"
+      },
+      "structHash": "0x72dcd01ccb140ca50f6c93db87ef8cb841d315b8aa557b30edb576be6d2c30ce",
+      "digest": "0x41f11eea1ba244a18fa7434043d1a32478616280c9d65186475f9e65965967d5"
+    },
+    {
+      "kind": "IncreasePositionSizeWithCoinExposureReq",
+      "message": {
+        "_updateInfo": {
+          "trader": "0x1111111111111111111111111111111111111111",
+          "pairIndex": "1",
+          "index": "2",
+          "openPrice": "800000000000000",
+          "initialPosToken": "50000000",
+          "leverage": "200000000000"
+        },
+        "_coinExposure": "5000000000",
+        "_minLeverage": "10000000000",
+        "_maxLeverage": "750000000000",
+        "_slippageP": "10000000000",
+        "_deadline": "1800000000123",
+        "_nonce": "987654321123456789"
+      },
+      "structHash": "0x382ebc889326a3cc8616d25430d5e74f5c0aeadb05b3d5afae6ce17f6c22218a",
+      "digest": "0x6479cc679dc273fe3346173d927f48e36455c974bec02ac5fb4ad0b44eb5cd60"
+    },
+    {
+      "kind": "UpdateTpSlReq",
+      "message": {
+        "trader": "0x1111111111111111111111111111111111111111",
+        "_pairIndex": "1",
+        "_index": "0",
+        "_newTp": "900000000000000",
+        "_newSl": "700000000000000",
+        "_deadline": "1800000000123",
+        "_nonce": "987654321123456789"
+      },
+      "structHash": "0xe4e3122aa6d311bb37cbaa8ebe53689e164b43a1f5f7f6563baf9be5bda060a1",
+      "digest": "0xb027f40c6e33d2645ad959bcf75c24e0cc78669e355166b514ab7d3445a4a2b8"
+    },
+    {
+      "kind": "TpSlReq",
+      "message": {
+        "trader": "0x1111111111111111111111111111111111111111",
+        "pairIndex": "1",
+        "index": "0",
+        "triggerType": 1,
+        "coinSize": "2500000000",
+        "buy": true,
+        "price": "850000000000000",
+        "percentage": "-150000000000",
+        "timestamp": "1750000000",
+        "signTimestamp": "1760000000500",
+        "orderType": 4,
+        "nonce": "987654321123456789"
+      },
+      "structHash": "0xf909390d0ace29dc2c6e4293d8f2b6faf14c3de6d53163b8a65d888611085e7f",
+      "digest": "0x88fa0313c45dda19c1c635ea067508e09b43edebe8714c5ab67a14f5b5b9fd18"
+    },
+    {
+      "kind": "TwapOpenOrder",
+      "message": {
+        "trader": "0x1111111111111111111111111111111111111111",
+        "pairIndex": "1",
+        "collateral": "100000000",
+        "buy": true,
+        "isCoin": false,
+        "coinSize": "0",
+        "defaultLeverage": "100000000000",
+        "maxLeverage": "750000000000",
+        "runTime": "3600",
+        "nonce": "987654321123456789",
+        "deadline": "1800000000123",
+        "__reserved1": "0"
+      },
+      "structHash": "0xf17f42c80691605feababf51064f0b7a572966eef5c601bac194155ac563be2e",
+      "digest": "0x8488415108d3801362832be4883b3799310a4b4e5f7c6724259a4b92a4c073e6"
+    },
+    {
+      "kind": "TwapCloseOrder",
+      "message": {
+        "trader": "0x1111111111111111111111111111111111111111",
+        "pairIndex": "1",
+        "index": "0",
+        "coinSizeToClose": "2500000000",
+        "runTime": "1800",
+        "nonce": "987654321123456789",
+        "deadline": "1800000000123",
+        "__reserved1": "0"
+      },
+      "structHash": "0xda6aa257578bedb71c39f866d0726560ae364cce72016c00f3986c0fef9b2638",
+      "digest": "0x7e9677ba22e6d1cc872e49e1a5976191262149009ae1b5151f9cc83245f7f2ed"
+    },
+    {
+      "kind": "RfqOpenOrder",
+      "message": {
+        "trader": "0x1111111111111111111111111111111111111111",
+        "pairIndex": "1",
+        "collateral": "100000000",
+        "buy": false,
+        "isCoin": true,
+        "coinSize": "5000000000",
+        "defaultLeverage": "100000000000",
+        "maxLeverage": "750000000000",
+        "wantedPrice": "800000000000000",
+        "maxSlippageP": "10000000000",
+        "nonce": "987654321123456789",
+        "deadline": "1800000000123"
+      },
+      "structHash": "0x2a21ee52225ed24ac1428c0fab61936ed069bafe24a90752d6fcb1d4414f5e2f",
+      "digest": "0xaa7541cd85020c8d4fe6b586b6b0a7f8130f8e780f06e2f264ca06241a7d0053"
+    },
+    {
+      "kind": "RfqCloseOrder",
+      "message": {
+        "trader": "0x1111111111111111111111111111111111111111",
+        "pairIndex": "1",
+        "index": "0",
+        "coinSizeToClose": "2500000000",
+        "wantedPrice": "800000000000000",
+        "maxSlippageP": "10000000000",
+        "nonce": "987654321123456789",
+        "deadline": "1800000000123"
+      },
+      "structHash": "0x1a82a6d38f989c4bcc7ad43db13cc69d27095fb8e2f152a0ceee8c18452417dc",
+      "digest": "0x08010d9813876f780f225380d6ca941c618b9ea356837faaaa098f165abce668"
+    },
+    {
+      "kind": "DelegateReq",
+      "message": {
+        "trader": "0x1111111111111111111111111111111111111111",
+        "delegate": "0x2222222222222222222222222222222222222222",
+        "expiry": "1760000000",
+        "deadline": "1800000000123",
+        "tnc": "I accept the Avantis Terms of Service: https://www.avantisfi.com/docs/tos.I confirm that I am not a resident of any of the following countries/regions: Belarus, Cuba, Iran, North Korea, Russia, Syria, Crimea, United Kingdom, United States of America.",
+        "nonce": "987654321123456789"
+      },
+      "structHash": "0xa79a282aa96bade2b65f3151a3910db79d76367986902604addf82abd9552ae1",
+      "digest": "0xe183cfa730399075744cd40a87dc2cd3ed6fb5392103e30160c5259288d7b3a2"
+    },
+    {
+      "kind": "RegisterCodeReq",
+      "message": {
+        "_code": "0x636f646531000000000000000000000000000000000000000000000000000000",
+        "_referrer": "0x1111111111111111111111111111111111111111",
+        "_deadline": "1800000000123",
+        "_nonce": "987654321123456789"
+      },
+      "structHash": "0x3d0909502d9c9a5ed442f371dd72f7677c2e0427ac69d1b871a52103656769ab",
+      "digest": "0x5808619f8869057657c4373259c1a41b02a9a645c03c650ca1b45d2c9d2212f7"
+    },
+    {
+      "kind": "SetTraderReferralCodeByUserReq",
+      "message": {
+        "_code": "0x636f646531000000000000000000000000000000000000000000000000000000",
+        "_referee": "0x1111111111111111111111111111111111111111",
+        "_deadline": "1800000000123",
+        "_nonce": "987654321123456789"
+      },
+      "structHash": "0xdbfba746d33ec74de065dbf511d3cba7d830959b97a19eee4bc99ec630fdc099",
+      "digest": "0x493ef6e87a4a83519099230ec150756adf7582ad7ccbca3e9a19be0239292ff3"
+    }
+  ]
+}

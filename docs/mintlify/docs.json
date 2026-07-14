@@ -1,0 +1,67 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Avantis SDK",
+  "colors": {
+    "primary": "#6C5CE7",
+    "light": "#A29BFE",
+    "dark": "#4834D4"
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Python SDK",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": ["introduction", "quickstart", "configuration"]
+          },
+          {
+            "group": "Trading",
+            "pages": [
+              "trading/market-orders",
+              "trading/limit-orders",
+              "trading/tp-sl",
+              "trading/margin-and-size",
+              "trading/twap-rfq"
+            ]
+          },
+          {
+            "group": "Account",
+            "pages": [
+              "account/positions",
+              "account/delegates",
+              "account/approvals"
+            ]
+          },
+          {
+            "group": "Data & Compute",
+            "pages": [
+              "data/markets",
+              "data/prices-and-streams",
+              "data/portfolio-history",
+              "data/compute"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "advanced/execution-modes",
+              "advanced/mm-fast-path",
+              "advanced/security",
+              "advanced/errors"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "openapi": "https://tx-builder.avantisfi.com/openapi.json"
+      }
+    ]
+  },
+  "footerSocials": {
+    "x": "https://x.com/avantisfi",
+    "github": "https://github.com/Avantis-Labs"
+  }
+}
