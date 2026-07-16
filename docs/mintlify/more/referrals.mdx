@@ -1,0 +1,46 @@
+---
+title: Referrals
+description: "Register codes, refer traders, and claim rebates."
+---
+
+`client.referral` manages referral codes. Referrers earn a share of referred traders' fees as claimable rebates; referred traders get a fee discount.
+
+<Warning>
+Referral actions are **caller-scoped**: they execute as the signing key's own address and cannot be routed through a delegate/API key. Use your wallet key directly.
+</Warning>
+
+## Register a code (as referrer)
+
+```python
+await client.referral.register_code_gasless("MYCODE")   # gasless, via relayer
+```
+
+`register_code("MYCODE")` is the non-gasless variant (direct calldata; you pay gas in direct mode).
+
+## Attach to a code (as trader)
+
+```python
+await client.referral.set_code_gasless("FRIENDCODE")
+```
+
+## Track and claim
+
+```python
+stats = await client.info.referral_stats(trader)
+# {"asReferrer": {"totalFees", "totalRebates", "totalTraders"}, "asTrader": {...}}
+
+await client.account.claim_rebate()      # claim accumulated rebates (referrer key)
+```
+
+`client.info.referral_count(trader)` and `referred_fees(trader)` give further detail.
+
+## Code administration
+
+| Method | Purpose |
+| --- | --- |
+| `request_special_code(code)` / `cancel_request()` | Request a reserved/private code |
+| `set_code_by_owner(code, trader)` | Approve a pending private-code request (code owner) |
+| `transfer_ownership(code, new_owner)` / `accept_ownership(code)` | Two-step code transfer |
+| `relinquish_code()` | Give up an owned code |
+
+All take the usual `wait=True` and return an `ExecutionReceipt`.

@@ -1,0 +1,57 @@
+---
+title: Markets
+description: "Pair catalog, fees, funding, open interest, and spreads."
+---
+
+## Pair catalog
+
+```python
+pairs = await client.markets.pairs()             # {index: PairInfo}
+eth = await client.markets.pair("ETH/USD")       # by symbol or index
+
+print(eth.index, eth.symbol)
+print("leverage:", eth.leverages.min_leverage, "-", eth.leverages.max_leverage)
+print("fees:", eth.open_fee_p, "/", eth.close_fee_p, "%")
+print("funding/h:", eth.funding_fee_per_hour_p, "%")
+print("OI:", eth.open_interest.long, "long /", eth.open_interest.short, "short")
+```
+
+Everything comes from one `/v2/trading` snapshot, cached for 5 seconds (`snapshot()` with `force=True` refreshes). Useful `PairInfo` fields:
+
+| Field | Meaning |
+| --- | --- |
+| `leverages` | Min/max leverage (plus ZFP-specific bounds) |
+| `open_fee_p`, `close_fee_p`, `spread_p` | Fees and fixed spread, in % |
+| `min_lev_pos_usdc` | Minimum position notional in USDC |
+| `open_interest`, `pair_oi`, `pair_max_oi`, `max_wallet_oi` | OI state and caps |
+| `funding_rate`, `funding_fee_per_hour_p`, `margin_fee` | Funding and rollover |
+| `values.max_gain_p`, `values.max_sl_p` | TP/SL percent bounds (`2500` = 2500% gain cap) |
+| `twap_params` | Min/max run time, frequency, TWAP fee |
+| `pnl_fees` | ZFP profit-share tiers |
+| `is_market_open` | Market-hours check (matters for forex/commodities) |
+
+The snapshot itself (`await client.markets.snapshot()`) carries protocol-wide state: `total_oi`, `max_open_interest`, `group_info`, `max_trades_per_pair`.
+
+## Dynamic spread
+
+Per-order spread from the risk engine, dependent on size, direction, and current skew:
+
+```python
+spread = await client.markets.dynamic_spread(
+    "ETH/USD", collateral=1000, leverage=10, is_long=True,
+)
+print(spread["dynamicSpreadPct"], spread["metadata"])   # percent, descaled
+```
+
+## Candles
+
+OHLCV via the feed's TradingView shim:
+
+```python
+import time
+candles = await client.markets.candles("ETH/USD", "60", int(time.time()) - 86400, int(time.time()))
+```
+
+Resolutions follow TradingView conventions (`"1"`, `"5"`, `"60"`, `"D"`, ...).
+
+For live prices and streaming, see [Prices & streams](/data/prices-and-streams).

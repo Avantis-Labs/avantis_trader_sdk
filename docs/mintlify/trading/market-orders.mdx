@@ -1,0 +1,80 @@
+---
+title: Market Orders
+description: "Open and close positions at the current price."
+---
+
+## Open
+
+```python
+receipt = await client.trade.market_open(
+    "ETH/USD", "long",
+    collateral=100,          # USDC
+    leverage=10,
+    take_profit=4200,        # optional, price
+    stop_loss=2900,          # optional, price
+)
+```
+
+| Parameter | Default | Notes |
+| --- | --- | --- |
+| `pair` | — | Symbol (`"ETH/USD"`) or pair index |
+| `side` | — | `"long"` or `"short"` |
+| `collateral` | — | USDC |
+| `leverage` | — | Multiplier (`10` = 10x) |
+| `take_profit` / `stop_loss` | `None` | Trigger prices |
+| `slippage_percent` | `1` | Max slippage (`1` = 1%) |
+| `zero_fee` | `False` | Open a zero-fee (ZFP) position — no open/close fee, tiered profit share instead |
+| `skip_validation` | `False` | Skip the API's pre-trade validation |
+| `wait` | `True` | Poll the relayer until settled |
+
+## Open sized in coin units
+
+`market_open_coin` targets a coin exposure (e.g. 0.5 ETH) instead of a leverage-derived notional. The fill leverage floats within `[min_leverage, max_leverage]`.
+
+```python
+await client.trade.market_open_coin(
+    "ETH/USD", "long",
+    collateral=100,
+    coin_exposure=0.5,       # ETH
+    leverage=10,             # reference leverage — required by the contract
+    min_leverage=5, max_leverage=20,
+)
+```
+
+<Warning>
+`leverage` is required on coin-sized opens even though the fill leverage floats — the contract struct demands it. `min`/`max` default to the pair's envelope when omitted.
+</Warning>
+
+## Close
+
+Close by collateral (partial or full) or by coin exposure:
+
+```python
+pos = (await client.account.positions()).positions[0]
+
+# full close: pass the entire collateral
+await client.trade.market_close(
+    pos.pair_index, pos.index,
+    collateral_to_close=float(pos.collateral),
+    is_pnl=pos.is_pnl,
+)
+
+# or close 0.25 ETH worth
+await client.trade.market_close_coin(pos.pair_index, pos.index, coin_exposure=0.25)
+```
+
+| Parameter | Default | Notes |
+| --- | --- | --- |
+| `trade_index` | — | `Position.index` from [positions](/account/positions) |
+| `collateral_to_close` / `coin_exposure` | — | Partial amounts allowed |
+| `expected_price` | `None` | Resolved from the live feed when omitted |
+| `is_pnl` | `False` | Set from `Position.is_pnl` — routes ZFP closes correctly |
+| `open_timestamp` | `None` | Binds the close to a specific open (see below) |
+
+<Warning>
+The close intent binds the position's open timestamp. If you open and close in quick succession and hit a `PositionMismatch`-style simulation failure, pass `open_timestamp=pos.opened_at` explicitly, or re-fetch positions first.
+</Warning>
+
+## Fills are operator-driven
+
+The receipt confirms submission, not the fill. Poll `client.account.positions()` or use the [order event stream](/data/prices-and-streams) — see [Core concepts](/concepts#receipts-and-fills).

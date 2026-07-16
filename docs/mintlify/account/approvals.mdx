@@ -1,0 +1,57 @@
+---
+title: Approvals & Claims
+description: "USDC allowances, rebate claims, and builder codes."
+---
+
+## USDC approval
+
+Trading collateral is pulled from your wallet, so USDC must be approved to the protocol once:
+
+```python
+await client.account.approve_usdc()          # unlimited, to TradingStorage
+await client.account.approve_usdc(5000)      # or a fixed amount
+```
+
+```python
+info = await client.account.allowance()      # {"balance": ..., "allowance": ...} + human floats
+```
+
+<Warning>
+Approvals must come from the **trader's own key** — they cannot be routed through a delegate/API key. If you onboarded via the Avantis UI, USDC was approved in the same flow and you can skip this.
+</Warning>
+
+### LP vault approval is separate
+
+The LP vault pulls from an allowance on the **tranche**, not TradingStorage:
+
+```python
+meta = await client.meta()
+tranche = meta["addresses"]["tranche"]
+await client.account.approve_usdc(1000, spender=tranche)
+```
+
+See [LP vault](/more/lp-vault).
+
+## Claims
+
+Both are caller-scoped — the signing key must be the account that earned them (no delegate):
+
+```python
+await client.account.claim_rebate()           # referral rebates (you are the referrer)
+await client.account.claim_keeper_rewards()   # keeper rewards
+```
+
+## Builder codes
+
+Partners routing order flow can register a builder code that collects a per-trade fee:
+
+```python
+await client.account.register_builder_code(
+    "MYAPP",
+    fee_collector="0x...",
+    is_percent_fee=True,
+    fee_percent=1,            # 1 = 1%
+)
+```
+
+`modify_builder_code(...)` (same parameters) updates it. Set `builder_code` in the [configuration](/configuration) to attach your code to outgoing orders.

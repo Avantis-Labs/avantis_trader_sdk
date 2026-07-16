@@ -1,0 +1,53 @@
+---
+title: Market-Maker Fast Path
+description: "Build and sign orders locally — zero HTTP on the hot path."
+---
+
+Normal SDK calls make one round-trip to the tx-builder API per order. For market makers, `local_intents()` removes it: the `LocalIntentBuilder` mirrors the on-chain EIP-712 schemas (proven byte-for-byte by the golden-vector test suite), so the hot path becomes **local build → local sign → relayer POST**.
+
+```python
+from avantis_trader_sdk import AsyncAvantis
+from avantis_trader_sdk.types import AggregatorOrderType
+
+async with AsyncAvantis() as client:
+    builder = await client.local_intents()      # one-time meta bootstrap
+    engine = client.engine
+    eth = await client.markets.pair("ETH/USD")
+
+    async def on_price(update) -> None:
+        payload = builder.open_trade(           # microseconds, no I/O
+            trader=client.trade.trader,
+            pair_index=eth.index,
+            is_long=True,
+            collateral_usdc=100,
+            leverage=10,
+            open_price=update.price,
+            slippage_percent=0.3,
+        )
+        receipt = await engine.submit_intent_batch(
+            payload, AggregatorOrderType.MARKET_OPEN, wait=False
+        )
+        print("queued:", receipt.request_id)
+
+    stream = client.lazer_price_stream([eth.lazer_feed.feed_id])
+    await stream.run(on_price)
+```
+
+## Builder surface
+
+| Method | Intent |
+| --- | --- |
+| `builder.open_trade(...)` | Market open |
+| `builder.close_trade(...)` | Market close |
+| `builder.update_tp_sl(...)` | TP/SL update |
+| `builder.delegate_req(...)` | Delegate registration |
+| `builder.build(kind, message)` | Any of the 15 intent kinds, raw |
+
+Payloads are `IntentPayload` objects identical to what the tx-builder would return, and go through the same digest-verified signer.
+
+## Pair with
+
+- `wait=False` on submission, confirming fills via the [order event stream](/data/prices-and-streams) instead of polling.
+- The Lazer SSE price stream for the freshest `open_price`.
+
+Quote-to-order latency is then bounded only by the relayer POST.

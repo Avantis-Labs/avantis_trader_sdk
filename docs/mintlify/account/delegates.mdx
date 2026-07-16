@@ -1,0 +1,53 @@
+---
+title: Delegates & API Keys
+description: "Register trading keys that can never touch your funds."
+---
+
+A delegate (API key) is a separate key registered to your wallet. It signs orders on your behalf; the wallet keeps the funds. This is the recommended setup for bots and agents.
+
+| | Trader key | Delegate / API key |
+| --- | --- | --- |
+| Trade (open/close/TP/SL/margin/TWAP) | Yes | Yes |
+| Withdraw funds, approve USDC | Yes | **No** |
+| Add/remove delegates | Yes | **No** |
+| Referral, claims, LP vault, builder codes | Yes | **No** (caller-scoped) |
+
+The SDK enters delegate mode automatically when `AVANTIS_PRIVATE_KEY`'s address differs from `AVANTIS_TRADER_ADDRESS`.
+
+## Easiest path: the Avantis UI
+
+Generate an API key under **API Keys** in the web app — one wallet signature registers it. Then set the two env vars and trade. See [Quickstart](/quickstart).
+
+## DIY registration
+
+Register any key programmatically. The trader key signs one `DelegateReq` intent (used transiently, never stored); submission is gasless:
+
+```python
+from avantis_trader_sdk import AsyncAvantis, LocalSigner
+
+async with AsyncAvantis(private_key=DELEGATE_KEY, trader_address=WALLET) as client:
+    await client.account.register_delegate(
+        delegate=LocalSigner(DELEGATE_KEY).address,
+        expiry_seconds=60 * 60 * 24 * 90,        # 90 days — NOTE: seconds, not ms
+        trader_signer=LocalSigner(WALLET_KEY),   # transient, one signature
+    )
+```
+
+## Check and verify
+
+```python
+status = await client.account.delegation_status()
+# {"isEnabled": True, "expiry": ..., "canDelegatedAction": ..., "canSignIntents": ...}
+
+await client.account.verify_delegation()   # raises DelegationError if the key can't act
+```
+
+Call `verify_delegation()` at startup for a fail-fast bot: it is a no-op when the signer is the trader itself.
+
+## Revoke
+
+```python
+await client.account.revoke_delegate(delegate_address)   # trader key only
+```
+
+Revoking kills any in-flight intents signed by that delegate. You can also revoke from the UI.

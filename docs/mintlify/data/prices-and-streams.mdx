@@ -1,0 +1,53 @@
+---
+title: Prices & Streams
+description: "Polled prices and four real-time feeds."
+---
+
+## Polled price
+
+```python
+price = await client.markets.price("ETH/USD")   # latest feed price, float
+```
+
+Good for scripts. For anything latency-sensitive, stream instead.
+
+## Streams
+
+| Factory | Transport | Delivers | Notes |
+| --- | --- | --- | --- |
+| `client.lazer_price_stream(feed_ids)` | SSE | Prices, lowest latency | Feed ids from `pair.lazer_feed.feed_id` |
+| `client.hermes_price_stream(feed_ids)` | Pyth Hermes WS | Prices | 0x-hex Pyth feed ids |
+| `client.pair_data_stream()` | Socket.IO | Funding / OI / spread updates | Needs `pip install 'avantis-trader-sdk[streams]'` |
+| `client.order_event_stream(trader=None)` | Pusher WS | Your fills and cancels | Idle unless your orders execute |
+
+All streams share the same API: `await stream.run(callback)` blocks and invokes the callback per event; `stream.stop()` ends it.
+
+### Price stream
+
+```python
+eth = await client.markets.pair("ETH/USD")
+stream = client.lazer_price_stream([eth.lazer_feed.feed_id])
+
+async def on_price(update):        # PriceUpdate
+    print(update.feed_id, update.price, update.best_bid, update.best_ask)
+
+await stream.run(on_price)
+```
+
+`PriceUpdate` fields: `feed_id`, `price`, `timestamp_ms`, `best_bid`, `best_ask`, `raw`.
+
+### Order events
+
+The reliable way to confirm fills (see [Core concepts](/concepts#receipts-and-fills)):
+
+```python
+orders = client.order_event_stream()
+
+async def on_event(ev):            # OrderEvent
+    print(ev.event, ev.data)       # OrderPickedUpForExecution, ExecutionConfirmedInFlashblock,
+                                   # OrderFilled, OrderCanceled
+
+await orders.run(on_event)
+```
+
+For streaming prices straight into locally built orders, see the [market-maker fast path](/advanced/mm-fast-path).

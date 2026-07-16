@@ -1,0 +1,62 @@
+---
+title: Take Profit & Stop Loss
+description: "Full-position TP/SL on-chain, partial TP/SL as off-chain trigger orders."
+---
+
+Avantis v2 has two distinct TP/SL mechanisms — pick by whether you want to close the whole position or part of it:
+
+| | `update_tp_sl` | `partial_tp_sl` |
+| --- | --- | --- |
+| Closes | Entire position | A slice (coin exposure) |
+| Stored | On-chain | Off-chain, with the Avantis operator |
+| Route | Intent via relayer — **always**, even in direct mode | Signed order stored via core API |
+| Remove | Set the level to `0` | `cancel_partial_tp_sl(order)` |
+
+## Full-position TP/SL
+
+```python
+pos = (await client.account.positions()).positions[0]
+
+await client.trade.update_tp_sl(
+    pos.pair_index, pos.index,
+    take_profit=4200,
+    stop_loss=2900,     # 0 removes a level
+)
+```
+
+<Note>
+v2 removed the public `updateTpAndSl` contract entry point, so this is intent-only and routes through the relayer even when `execution="direct"`.
+</Note>
+
+You can also set TP/SL at open time — see [market orders](/trading/market-orders).
+
+## Partial TP/SL (trigger orders)
+
+Signs a trigger order and stores it with the operator, who executes it on-chain when the price hits. Keep the returned dict — it is your handle for cancelling.
+
+```python
+order = await client.trade.partial_tp_sl(
+    pos.pair_index, pos.index,
+    side=pos.side,               # side of the POSITION being trimmed
+    kind="take_profit",          # or "stop_loss" (shorthands: "tp" / "sl")
+    coin_exposure=0.25,          # amount to close, in coin units
+    trigger="fixed",             # "fixed" (price) or "percentage"
+    price=3900,                  # required for trigger="fixed"
+)
+```
+
+| Parameter | Notes |
+| --- | --- |
+| `trigger` | `"fixed"` uses `price`; `"percentage"` uses `percentage` |
+| `percentage` | Gain/loss percent for percentage triggers |
+| `open_timestamp` | Bind to a specific open when the position was just modified |
+
+Existing partial orders appear on `Position.offchain_orders` when you fetch [positions](/account/positions).
+
+## Cancel a partial TP/SL
+
+```python
+await client.trade.cancel_partial_tp_sl(order)
+```
+
+`order` is the dict returned by `partial_tp_sl()` or an entry from `Position.offchain_orders`. The cancel re-signs the exact order fields as proof of ownership — so it needs the same signing key that created the order.

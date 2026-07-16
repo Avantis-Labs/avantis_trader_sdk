@@ -1,0 +1,49 @@
+---
+title: Limit Orders
+description: "Place, update, and cancel resting orders."
+---
+
+## Place
+
+```python
+await client.trade.limit_open(
+    "ETH/USD", "long",
+    collateral=100,
+    leverage=10,
+    price=3200,              # trigger price
+    take_profit=4000,        # optional
+    stop_loss=3000,          # optional
+)
+```
+
+| Parameter | Default | Notes |
+| --- | --- | --- |
+| `price` | — | Execution price for the resting order |
+| `stop` | `False` | `True` places a stop-limit instead of a limit |
+| `slippage_percent` | `1` | Max slippage at execution |
+| `take_profit` / `stop_loss` | `None` | Attached to the eventual position |
+
+<Note>
+Limit opens **escrow the USDC collateral on placement**. Cancelling refunds it. On the relayer route this uses the passthrough (same path as the Avantis UI), so it is still gasless.
+</Note>
+
+## Update
+
+Standing orders are addressed by `pair` + `order_index` (from `limit_orders` in [positions](/account/positions)):
+
+```python
+orders = (await client.account.positions()).limit_orders
+o = orders[0]
+
+await client.trade.update_limit_order(
+    o.pair_index, o.index,
+    price=3150,
+    take_profit=4100,
+)
+```
+
+## Cancel
+
+```python
+await client.trade.cancel_limit_order(o.pair_index, o.index)   # refunds escrow
+```

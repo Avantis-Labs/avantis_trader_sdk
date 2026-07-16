@@ -1,0 +1,74 @@
+---
+title: Compute
+description: "Pure, offline math with exact UI parity — PnL, liquidation, fees, validation."
+---
+
+`avantis_trader_sdk.compute` reimplements the Avantis app's math as pure functions: no I/O, human units in and out. Numbers match what the UI displays.
+
+```python
+from avantis_trader_sdk import compute
+```
+
+## PnL
+
+```python
+pnl = compute.position_net_pnl(position, pair_info, current_price)
+# NetPnlBreakdown: gross, closing_fee, rollover_fee, funding_fee,
+#                  loss_protection, profit_share_fee, net
+```
+
+| Function | Purpose |
+| --- | --- |
+| `gross_pnl(current_price, open_price, collateral, leverage, is_long)` | Raw unrealized PnL |
+| `net_pnl(...)` | Full breakdown with fees, funding, loss protection, ZFP profit share |
+| `position_net_pnl(position, pair_info, current_price)` | Convenience wrapper over a fetched `Position` |
+| `pnl_type_fee`, `pnl_fee_by_gross_profit_p`, `adjusted_max_gain_p` | ZFP tiered profit-share math |
+
+## Liquidation
+
+```python
+liq = compute.estimate_liquidation_price(
+    open_price=3500, collateral=100, leverage=10, is_long=True,
+)
+```
+
+Pre-trade / what-if estimate (margin edits, increases). For **open** positions, `Position.liquidation_price` from the core API is authoritative.
+
+## Fees & liquidity
+
+| Function | Purpose |
+| --- | --- |
+| `skew_adjusted_open_fee(...)` | Open fee after OI-skew adjustment |
+| `pair_open_maker_taker_fee_p(...)` / `pair_close_maker_taker_fee_p(...)` | Maker/taker/mixed fee classification |
+| `available_liquidity(...)` / `max_position_size(pair_info, snapshot, is_long=...)` | OI headroom for new positions |
+
+## TP/SL conversion
+
+Convert between trigger prices and gain/loss percentages, as the UI does:
+
+```python
+tp_price = compute.tp_percent_to_price(3500, 100, 10, True)   # +100% of collateral, 10x long
+sl_pct = compute.sl_price_to_percent(3500, 3300, 10, True)    # base price, SL price
+```
+
+`pnl_order_min_sl(leverage)` gives the minimum SL percent for zero-fee positions.
+
+## Pre-trade validation
+
+Run the UI's full pre-trade rulebook locally before submitting:
+
+```python
+snap = await client.markets.snapshot()
+pair = await client.markets.pair("ETH/USD")
+price = await client.markets.price("ETH/USD")
+
+result = compute.validate_order(
+    pair, snap,
+    collateral=100, leverage=10, is_long=True, market_price=price,
+)
+if not result.ok:
+    print(result.errors)     # blocking problems
+print(result.warnings)      # non-blocking notes
+```
+
+The API performs the same validation on submit unless you pass `skip_validation=True`.

@@ -1,0 +1,58 @@
+---
+title: Positions
+description: "Open positions, limit orders, and balances."
+---
+
+## Fetch positions
+
+```python
+data = await client.account.positions()      # UserData
+
+for pos in data.positions:
+    print(pos.side, float(pos.collateral), "USDC at", float(pos.open_price),
+          "liq:", float(pos.liquidation_price))
+
+for order in data.limit_orders:
+    print(order.side, float(order.collateral), "@", float(order.price))
+```
+
+`positions()` hits the core API and returns enriched data — liquidation price, accrued rollover, and unrealized funding are already computed. Pass `trader=` to read any address.
+
+### `Position` fields (human units)
+
+| Property | Meaning |
+| --- | --- |
+| `pair_index`, `index` | Identify the position — pass both to close/update methods |
+| `side` / `buy` | `"long"`/`"short"` |
+| `collateral`, `leverage`, `position_size` | USDC, multiplier, notional (collateral × leverage) |
+| `open_price`, `tp`, `sl`, `liquidation_price` | Prices (`0` = unset) |
+| `rollover_fee`, `unrealised_funding_fee` | Accrued fees in USDC |
+| `is_pnl` | `True` for zero-fee (ZFP) positions — pass to `market_close(is_pnl=...)` |
+| `opened_at` | Open timestamp — pass to `market_close(open_timestamp=...)` if closing right after opening |
+| `offchain_orders` | Stored [partial TP/SL](/trading/tp-sl#partial-tpsl-trigger-orders) trigger orders |
+
+`data.position(pair_index, index)` looks up a single position.
+
+## Live PnL
+
+Combine a position with its pair snapshot and the live price for a UI-parity net PnL breakdown:
+
+```python
+from avantis_trader_sdk.compute import position_net_pnl
+
+pair = await client.markets.pair(pos.pair_index)
+price = await client.markets.price(pos.pair_index)
+pnl = position_net_pnl(pos, pair, price)
+print(f"net {pnl.net:+.2f} (gross {pnl.gross:+.2f}, closing fee {pnl.closing_fee:.2f})")
+```
+
+See [Compute](/data/compute) for the full breakdown fields.
+
+## Balance and raw reads
+
+```python
+balance = await client.account.usdc_balance()          # Decimal, human USDC
+raw = await client.account.positions_onchain()         # tx-builder RPC read, raw bigint strings
+```
+
+Use `positions_onchain()` when you need the unprocessed on-chain state; `positions()` is the right call for everything else.

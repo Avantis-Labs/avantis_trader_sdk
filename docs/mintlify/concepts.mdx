@@ -1,0 +1,58 @@
+---
+title: Core Concepts
+description: "Units, keys, execution routes, and receipts — the five things every page assumes."
+---
+
+## Human units everywhere
+
+Every SDK method takes and returns human units. `100` means 100 USDC, `10` means 10x leverage, prices are plain decimals (`3500.5`). The SDK handles all on-chain scaling (1e6 for USDC, 1e10 for prices/leverage). Pass strings for exact decimals (`collateral="100.25"`).
+
+## Two time bases
+
+| Field | Unit |
+| --- | --- |
+| Intent `deadline` / `deadlineMs` | **milliseconds** (handled by the SDK) |
+| Delegate `expiry_seconds` | **seconds** |
+
+## Keys: trader vs API key (delegate)
+
+- **Trader key** — your wallet's own key. Can do everything.
+- **API key (delegate)** — a separate key registered to your wallet with one signature. Can trade, but can **never** withdraw funds, approve USDC, add delegates, or act on caller-scoped surfaces (referral, claims, LP vault).
+
+Set `AVANTIS_TRADER_ADDRESS` when using an API key; leave it unset when using the trader key directly. See [Delegates](/account/delegates).
+
+## Execution routes
+
+The default is the **relayer** (gasless — no ETH, no RPC). `execution="direct"` signs and broadcasts EIP-1559 transactions through your own `rpc_url` instead. Full details in [Execution modes](/advanced/execution-modes).
+
+One exception: `update_tp_sl` is intent-only in v2 and always goes through the relayer, even in direct mode.
+
+## Pairs
+
+Every method accepts a symbol or a pair index interchangeably: `"ETH/USD"`, `"eth-usd"`, or `1`.
+
+## Receipts and fills
+
+Write methods return an `ExecutionReceipt`:
+
+| Field | Meaning |
+| --- | --- |
+| `route` | `relayer-batch`, `relayer-passthrough`, `rpc`, or `txbuilder-relay` |
+| `tx_hash` | On-chain hash once settled (may be `None` with `wait=False`) |
+| `request_id` | Relayer queue id (relayer routes) |
+
+`wait=True` (default) polls the relayer until the transaction settles or `relay_poll_timeout_s` elapses. Market fills are **operator-driven**: the receipt confirms your order was submitted, not that it filled.
+
+<Tip>
+For fill confirmation, poll `client.account.positions()` after a short delay, or subscribe to the [order event stream](/data/prices-and-streams). Don't treat the receipt as proof of a fill.
+</Tip>
+
+```python
+receipt = await client.trade.market_open("ETH/USD", "long", collateral=100, leverage=10)
+await asyncio.sleep(3)
+positions = await client.account.positions()   # the fill shows up here
+```
+
+## Errors
+
+Every failure raises a typed exception from `avantis_trader_sdk.errors` — see [Errors](/advanced/errors).

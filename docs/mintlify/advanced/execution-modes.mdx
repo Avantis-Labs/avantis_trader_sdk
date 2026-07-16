@@ -1,0 +1,43 @@
+---
+title: Execution Modes
+description: "How orders reach the chain: relayer (gasless) vs direct."
+---
+
+Set once via `AVANTIS_EXECUTION` or `AsyncAvantis(execution=...)`. Method calls are identical in both modes.
+
+| | `relayer` (default) | `direct` |
+| --- | --- | --- |
+| Gas | Paid by Avantis (gasless) | You pay (needs ETH on Base) |
+| Requirements | Signing key only | `rpc_url` + ETH |
+| Transport | Signed intents / EIP-7702 relays | EIP-1559 via your RPC |
+| Works with API keys | Yes | Yes (delegated actions) |
+
+## Relayer mode
+
+Two sub-routes, chosen automatically per action:
+
+- **Intent batch** — market opens/closes, increases, and TP/SL updates are signed as EIP-712 intents and submitted to the operator relayer, which batches them on-chain with a fresh price update. Receipt `route` is `relayer-batch`.
+- **Passthrough** — everything else (limit orders, margin, TWAP, approvals, claims, LP, referral) is built as a transaction and relayed through your EIP-7702 smart account. Receipt `route` is `relayer-passthrough`.
+
+Every signed intent is digest-verified locally before submission — see [Security](/advanced/security).
+
+## Direct mode
+
+The SDK fetches calldata from the tx-builder API, signs an EIP-1559 transaction, and broadcasts through your `rpc_url`. Receipt `route` is `rpc`, and `tx_hash` is available immediately.
+
+```python
+client = AsyncAvantis(execution="direct", rpc_url="https://mainnet.base.org")
+```
+
+When trading with an API key in direct mode, calls are wrapped as delegated actions on-chain — the delegate needs ETH for gas.
+
+<Note>
+`update_tp_sl` is the one exception: v2 has no public contract entry point for it, so it always routes through the relayer even in direct mode.
+</Note>
+
+## Choosing
+
+- **Relayer** for almost everyone: no ETH, no RPC, no nonce management.
+- **Direct** if you must control broadcasting — your own RPC/builder, custom gas strategy, or no dependency on Avantis infrastructure for submission.
+
+Latency-sensitive? Stay on relayer and use the [market-maker fast path](/advanced/mm-fast-path) to remove HTTP round-trips from order building.

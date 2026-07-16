@@ -1,0 +1,56 @@
+---
+title: Margin & Position Size
+description: "Deposit or withdraw collateral, and add size to open positions."
+---
+
+## Adjust margin
+
+Deposit lowers effective leverage and moves the liquidation price away; withdraw does the opposite.
+
+```python
+pos = (await client.account.positions()).positions[0]
+
+await client.trade.update_margin(pos.pair_index, pos.index, "deposit", 50)    # +50 USDC
+await client.trade.update_margin(pos.pair_index, pos.index, "withdraw", 25)   # -25 USDC
+```
+
+Preview the effect before committing with [`compute.estimate_liquidation_price`](/data/compute).
+
+## Increase position size
+
+Adds collateral at a chosen leverage; the position's average open price is re-weighted.
+
+```python
+await client.trade.increase_position(
+    pos.pair_index, pos.index,
+    collateral=100,          # additional USDC
+    leverage=10,             # leverage applied to the added collateral
+    slippage_percent=1,
+)
+```
+
+| Parameter | Default | Notes |
+| --- | --- | --- |
+| `collateral` | — | Additional USDC |
+| `leverage` | — | For the added collateral (not the whole position) |
+| `open_price` | `None` | Resolved from the live feed when omitted |
+| `slippage_percent` | `1` | Max slippage on the increase fill |
+
+## Increase sized in coin units
+
+Targets added coin exposure; fill leverage floats within bounds (all three leverage arguments are required):
+
+```python
+await client.trade.increase_position_coin(
+    pos.pair_index, pos.index,
+    collateral=100,
+    coin_exposure=0.25,      # ETH to add
+    leverage=10,             # reference leverage — contract-required
+    min_leverage=5,
+    max_leverage=20,
+)
+```
+
+<Note>
+To **reduce** size, use a partial [market close](/trading/market-orders#close) — there is no separate decrease method.
+</Note>

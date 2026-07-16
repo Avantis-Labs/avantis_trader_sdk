@@ -45,6 +45,14 @@ Ground-up rewrite for Avantis v2. **Breaking: the 1.x API is removed.**
 - Lazer SSE stream: feed-v3 sends `timestampUs` as a string — price updates no
   longer crash the callback loop.
 
+### Docs
+
+- Complete Mintlify docs site (docs/mintlify): 20 pages covering the full SDK
+  surface — getting started (configuration, core concepts), trading (market,
+  limit, TP/SL, margin/size, TWAP), account & portfolio (positions, analytics,
+  delegates, approvals), data & compute, LP vault, referrals, and advanced
+  (execution modes, MM fast path, security model, error taxonomy).
+
 ### Testing
 
 - Golden-vector suite covering all 15 intent types (digests computed by the

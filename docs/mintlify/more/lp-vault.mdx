@@ -1,0 +1,47 @@
+---
+title: LP Vault
+description: "Provide USDC liquidity through the ERC-4626 tranche (avUSDC)."
+---
+
+`client.lp` deposits USDC into the liquidity vault and receives avUSDC shares. v2 has no lock or epoch — withdrawals are immediate, gated only by vault utilization.
+
+<Warning>
+LP actions are **caller-scoped**: the signing key is the LP account, and a delegate/API key cannot perform them. Use your own wallet key (no `AVANTIS_TRADER_ADDRESS`).
+</Warning>
+
+## One-time approval
+
+The vault pulls from an allowance on the **tranche**, not TradingStorage:
+
+```python
+meta = await client.meta()
+await client.account.approve_usdc(1000, spender=meta["addresses"]["tranche"])
+```
+
+## Deposit and withdraw
+
+```python
+await client.lp.deposit(1000)         # USDC in, shares to caller
+await client.lp.withdraw(500)         # USDC out (utilization permitting)
+```
+
+Exact-share variants: `mint(shares)` and `redeem(shares)`. All four accept `receiver=` (and `owner=` for withdraw/redeem) for third-party flows, plus the usual `wait=`.
+
+## Vault state
+
+```python
+state = await client.lp.state()
+# vault totals, share price, utilization, and YOUR max withdraw/redeem right now
+```
+
+If a withdrawal exceeds the current utilization headroom, check `state()["maxWithdraw"]` and retry with a smaller amount.
+
+## Yield analytics
+
+Historic returns come from the read-only info API:
+
+```python
+await client.info.vault_returns()
+await client.info.vault_share_rate_returns(chart=True)
+await client.info.user_vault_info("junior", trader)
+```
