@@ -195,7 +195,13 @@ class AccountApi(ExecutingApi):
         )
 
     async def add_to_buffer(self, amount: Num, *, wait: bool = True) -> ExecutionReceipt:
-        """Permissionless USDC injection into the protocol buffer (VaultManager)."""
+        """PROTOCOL-INTERNAL: USDC injection into the protocol buffer
+        (VaultManager). Not part of the public trading surface — intentionally
+        undocumented; regular users should never need this.
+
+        Needs a prior USDC approval to the VaultManager address
+        (``approve_usdc(amount, spender=meta["addresses"]["vaultManager"])``).
+        """
         return await self._passthrough_or_direct(
             "/v2/misc/add-to-buffer",
             {"caller": self.trader, "amountUsdc": amount},

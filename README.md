@@ -40,6 +40,9 @@ export AVANTIS_PRIVATE_KEY=0x...      # the API key
 export AVANTIS_TRADER_ADDRESS=0x...   # your wallet
 ```
 
+(Or copy [`.env.example`](.env.example) to `.env` — it documents every
+supported variable, including the optional ones.)
+
 That's it — every action is now a signed message relayed by Avantis. No gas,
 no RPC, no ETH.
 
@@ -65,7 +68,7 @@ round-trips on the hot path — see `examples/13_mm_fast_path.py`.
 
 - **Trading**: market/limit opens (incl. coin-sized and zero-fee/PnL orders),
   partial/full closes, margin updates, position increases, TP/SL updates,
-  partial TP/SL trigger orders, TWAP, RFQ.
+  partial TP/SL trigger orders, TWAP.
 - **Account**: positions with liq price/rollover/funding, limit orders, TWAPs,
   balances, allowances, delegation management, USDC approvals, rebate and
   keeper-reward claims, builder codes.

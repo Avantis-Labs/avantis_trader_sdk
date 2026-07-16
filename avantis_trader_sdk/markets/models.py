@@ -6,8 +6,6 @@ accessible via ``extra`` so nothing is lost.
 
 from __future__ import annotations
 
-from typing import Any
-
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..errors import ApiError
@@ -62,6 +60,9 @@ class PairValues(BaseModel):
     max_long_oi_p: float = Field(alias="maxLongOiP", default=100)
     max_short_oi_p: float = Field(alias="maxShortOiP", default=100)
     max_wallet_oi: float = Field(alias="maxWalletOI", default=0)
+    group_open_interest_percentage_p: float = Field(
+        alias="groupOpenInterestPercentageP", default=100
+    )
 
 
 class PnlFees(BaseModel):
@@ -158,8 +159,9 @@ class PairInfo(BaseModel):
 class GroupInfo(BaseModel):
     model_config = ConfigDict(extra="allow")
 
-    max_open_interest: float | None = Field(alias="maxOpenInterest", default=None)
-    open_interest: dict[str, Any] | None = Field(alias="openInterest", default=None)
+    name: str | None = None
+    group_max_oi: float = Field(alias="groupMaxOI", default=0)
+    group_oi: float = Field(alias="groupOI", default=0)
 
 
 def _normalize_symbol(ref: str) -> tuple[str, str]:

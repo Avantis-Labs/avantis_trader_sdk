@@ -27,10 +27,12 @@ async def main() -> None:
         await prices.run(on_price)
 
         # --- pair data stream (funding/OI/spread updates) ---
+        # needs the extra: pip install 'avantis-trader-sdk[streams]'
         # pairdata = client.pair_data_stream()
         # await pairdata.run(lambda payload: print("pairs updated:", list(payload)[:3]))
 
-        # --- order execution events (needs pusher_key in config) ---
+        # --- order execution events (Pusher; fires when the operator fills
+        #     / cancels one of YOUR orders — idle otherwise) ---
         # orders = client.order_event_stream()
         # await orders.run(lambda ev: print(ev.event, ev.data))
 

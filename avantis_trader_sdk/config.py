@@ -43,19 +43,24 @@ class NetworkProfile:
 
 TESTNET = NetworkProfile(
     name="testnet",
-    tx_builder_url="https://tx-builder.avantisfi.com",
-    relayer_url="https://relayer-testnet.avantisfi.com",
+    tx_builder_url="https://tx-builder-testnet.avantisfi.com",
+    relayer_url="https://blitz-relayer-testnet.avantisfi.com",
     data_api_url="https://testnet-data.avantisfi.com",
     core_api_url="https://core-testnet.avantisfi.com",
     history_api_url="https://testnet-api.avantisfi.com",
-    risk_api_url="https://risk-api-testnet.avantisfi.com",
+    # risk-api-testnet.avantisfi.com is cluster-internal; -public is the
+    # reachable ingress (avantis-cd/services/risk-engine/testnet-public).
+    risk_api_url="https://risk-api-testnet-public.avantisfi.com",
     feed_url="https://feed-v3.avantisfi.com",
+    pusher_key="f86bc7e9919fc938694a",
+    pusher_cluster="mt1",
 )
 
 MAINNET = NetworkProfile(
     name="mainnet",
     tx_builder_url="https://tx-builder.avantisfi.com",
-    relayer_url="https://relayer.avantisfi.com",
+    # NOTE: unverified guess — confirm the mainnet blitz host before release.
+    relayer_url="https://blitz-relayer.avantisfi.com",
     data_api_url="https://data.avantisfi.com",
     core_api_url="https://core.avantisfi.com",
     history_api_url="https://api.avantisfi.com",

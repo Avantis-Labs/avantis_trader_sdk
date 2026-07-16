@@ -1,8 +1,8 @@
 """End-to-end Phase 1 flow tests with mocked HTTP services.
 
-Covers: meta bootstrap, intent fetch -> local sign (digest assert) -> relayer
-batch submit (erc712 + type4) -> status polling; TX_RELAY passthrough for
-limit orders; positions read from the core API.
+Covers: meta bootstrap, intent fetch -> local sign (digest assert) ->
+locally-encoded batch execution submitted to the blitz relayer (type-2);
+type-4 passthrough for limit orders; positions read from the core API.
 """
 
 import json
@@ -18,6 +18,12 @@ from tests.conftest import META, TEST_KEY, TRADER, VECTORS
 TXB = "https://txb.test"
 RELAYER = "https://relayer.test"
 CORE = "https://core.test"
+FEED = "https://feed.test"
+
+PRICE_UPDATE = {
+    "core": {"price": 1900.0, "priceUpdateData": "0x" + "11" * 8},
+    "pro": {"price": 1900.1, "priceUpdateData": "0x" + "22" * 8},
+}
 
 
 def _client() -> AsyncAvantis:
@@ -28,6 +34,7 @@ def _client() -> AsyncAvantis:
         tx_builder_url=TXB,
         relayer_url=RELAYER,
         core_api_url=CORE,
+        feed_url=FEED,
         relay_poll_interval_s=0.01,
     )
 
@@ -69,18 +76,22 @@ async def test_market_open_relayer_batch():
     intent_route = respx.post(f"{TXB}/v2/intents/open").mock(
         return_value=_ok(_open_intent_payload())
     )
-    calldata_route = respx.post(f"{TXB}/v2/trade/open").mock(
-        return_value=_ok(_calldata_payload())
+    respx.get(f"{FEED}/v2/pairs/1/price-update-data").mock(
+        return_value=httpx.Response(200, json=PRICE_UPDATE)
     )
-    queue_route = respx.post(f"{RELAYER}/v2/relay/queue").mock(
+    create_route = respx.post(f"{RELAYER}/relays").mock(
         return_value=httpx.Response(200, json={"requestId": "req-123"})
     )
-    status_route = respx.get(f"{RELAYER}/v2/relay/req-123").mock(
+    status_route = respx.get(f"{RELAYER}/relays/req-123").mock(
         side_effect=[
-            httpx.Response(404),
-            httpx.Response(200, json={"success": None}),
+            httpx.Response(200, json={"requestId": "req-123", "status": "Inflight", "receipt": None}),
             httpx.Response(
-                200, json={"success": True, "receipt": {"transactionHash": "0xtx"}}
+                200,
+                json={
+                    "requestId": "req-123",
+                    "status": "Finalised",
+                    "receipt": {"transactionHash": "0xtx", "status": "0x1"},
+                },
             ),
         ]
     )
@@ -93,7 +104,7 @@ async def test_market_open_relayer_batch():
     assert receipt.route == "relayer-batch"
     assert receipt.request_id == "req-123"
     assert receipt.tx_hash == "0xtx"
-    assert intent_route.called and calldata_route.called and status_route.called
+    assert intent_route.called and status_route.called
 
     # intent request carried human units as strings
     intent_req = json.loads(intent_route.calls[0].request.content)
@@ -102,38 +113,85 @@ async def test_market_open_relayer_batch():
     assert intent_req["side"] == "long"
     assert intent_req["trader"] == TRADER
 
-    # calldata request asked for delegate wrapping (signer != trader)
-    calldata_req = json.loads(calldata_route.calls[0].request.content)
-    assert calldata_req["delegate"].lower() != TRADER.lower()
-
-    # relayer batch payload shape
-    body = json.loads(queue_route.calls[0].request.content)
+    # blitz relay: SDK-encoded executeMarketOrderBatched, type-2, to the router
+    body = json.loads(create_route.calls[0].request.content)
     assert body["wallet"] == TRADER
-    assert body["action"] == "BATCH_MARKET_EXECUTION"
-    erc712 = body["payload"]["erc712"]
-    assert erc712["orderType"] == 0  # MARKET_OPEN
-    assert erc712["pairIndex"] == 1
-    assert erc712["userIntent"] == "0x" + "ab" * 64
-    assert erc712["userSignature"].startswith("0x") and len(erc712["userSignature"]) == 132
-    type4 = body["payload"]["type4"]
-    assert type4["to"]  # smart account = signer EOA
-    assert type4["data"].startswith("0xe9ae5c53")  # execute(bytes32,bytes)
-    assert type4["authorizationList"][0]["address"] == (
-        "0x5aF42746a8Af42d8a4708dF238C53F1F71abF0E0"
-    )
+    tx = body["txParams"]
+    assert tx["to"] == META["addresses"]["tradingRouter"]
+    assert tx["transactionType"] == 2
+    assert tx["chainId"] == 31337
+    assert tx["gasLimit"] == "2500000"
+    assert tx["value"] == "1"  # Lazer ('pro') price update -> 1 wei fee
+    from eth_utils import keccak
+
+    selector = keccak(
+        text="executeMarketOrderBatched(uint8,bytes,bytes,bytes[],uint8,"
+        "(int256,uint256,int256,bool,int256,bool,int256))"
+    )[:4]
+    assert tx["data"].startswith("0x" + selector.hex())
+    assert ("ab" * 64) in tx["data"]  # encodedIntent embedded
+    assert ("22" * 8) in tx["data"]  # pro price update embedded
 
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_limit_open_uses_passthrough():
+async def test_market_open_coin_sends_required_leverage():
+    """Coin-exposure opens must carry leverage (contract-required target fill
+    leverage) alongside the [min, max] bounds — regression for the live 400."""
+    vector = next(
+        v for v in VECTORS["vectors"] if v["kind"] == "OpenTradeCoinExposureReq"
+    )
+    payload = {
+        "intent": "OpenTradeCoinExposureReq",
+        "signerRule": "trader-or-delegate",
+        "domain": VECTORS["domain"],
+        "primaryType": "OpenTradeCoinExposureReq",
+        "types": INTENT_TYPES["OpenTradeCoinExposureReq"],
+        "message": vector["message"],
+        "digest": vector["digest"],
+        "encodedIntent": "0x" + "ab" * 64,
+    }
+    respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
+    intent_route = respx.post(f"{TXB}/v2/intents/open-coin").mock(
+        return_value=_ok(payload)
+    )
+    respx.get(f"{FEED}/v2/pairs/1/price-update-data").mock(
+        return_value=httpx.Response(200, json=PRICE_UPDATE)
+    )
+    respx.post(f"{RELAYER}/relays").mock(
+        return_value=httpx.Response(200, json={"requestId": "req-coin"})
+    )
+
+    async with _client() as client:
+        receipt = await client.trade.market_open_coin(
+            "ETH/USD", "long", collateral=100, coin_exposure=0.5,
+            leverage=10, min_leverage=1, max_leverage=75, wait=False,
+        )
+
+    assert receipt.route == "relayer-batch"
+    req = json.loads(intent_route.calls[0].request.content)
+    assert req["leverage"] == "10"
+    assert req["minLeverage"] == "1"
+    assert req["maxLeverage"] == "75"
+    assert req["coinExposure"] == "0.5"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_limit_open_uses_type4_passthrough():
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
     respx.post(f"{TXB}/v2/trade/open").mock(return_value=_ok(_calldata_payload()))
-    queue_route = respx.post(f"{RELAYER}/v2/relay/queue").mock(
+    create_route = respx.post(f"{RELAYER}/relays").mock(
         return_value=httpx.Response(200, json={"requestId": "req-9"})
     )
-    respx.get(f"{RELAYER}/v2/relay/req-9").mock(
+    respx.get(f"{RELAYER}/relays/req-9").mock(
         return_value=httpx.Response(
-            200, json={"success": True, "receipt": {"transactionHash": "0xaa"}}
+            200,
+            json={
+                "requestId": "req-9",
+                "status": "Finalised",
+                "receipt": {"transactionHash": "0xaa", "status": "0x1"},
+            },
         )
     )
 
@@ -143,10 +201,14 @@ async def test_limit_open_uses_passthrough():
         )
 
     assert receipt.route == "relayer-passthrough"
-    body = json.loads(queue_route.calls[0].request.content)
-    assert body["action"] == "TX_RELAY"
-    assert "erc712" not in body["payload"]
-    assert body["payload"]["type4"]["data"].startswith("0xe9ae5c53")
+    body = json.loads(create_route.calls[0].request.content)
+    tx = body["txParams"]
+    assert tx["transactionType"] == 4
+    assert tx["data"].startswith("0xe9ae5c53")  # execute(bytes32,bytes) wrapper
+    (auth,) = tx["authorizationList"]
+    assert auth["address"] == "0x5aF42746a8Af42d8a4708dF238C53F1F71abF0E0"
+    assert isinstance(auth["chainId"], int) and isinstance(auth["nonce"], int)
+    assert auth["yParity"] in (0, 1) and auth["v"] == auth["yParity"] + 27
 
 
 @pytest.mark.asyncio
@@ -195,22 +257,79 @@ async def test_positions_read():
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_relayer_error_raises():
+async def test_relayer_reverted_receipt_raises():
     from avantis_trader_sdk.errors import RelayError
 
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
     respx.post(f"{TXB}/v2/intents/open").mock(return_value=_ok(_open_intent_payload()))
-    respx.post(f"{TXB}/v2/trade/open").mock(return_value=_ok(_calldata_payload()))
-    respx.post(f"{RELAYER}/v2/relay/queue").mock(
+    respx.get(f"{FEED}/v2/pairs/1/price-update-data").mock(
+        return_value=httpx.Response(200, json=PRICE_UPDATE)
+    )
+    respx.post(f"{RELAYER}/relays").mock(
         return_value=httpx.Response(200, json={"requestId": "req-err"})
     )
-    respx.get(f"{RELAYER}/v2/relay/req-err").mock(
-        return_value=httpx.Response(200, json={"errorMessage": "BelowMinPosition()"})
+    respx.get(f"{RELAYER}/relays/req-err").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "requestId": "req-err",
+                "status": "Finalised",
+                "receipt": {"transactionHash": "0xbad", "status": "0x0"},
+            },
+        )
     )
 
     async with _client() as client:
-        with pytest.raises(RelayError, match="BelowMinPosition"):
+        with pytest.raises(RelayError, match="reverted"):
             await client.trade.market_open("ETH/USD", "long", collateral=1, leverage=2)
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_relayer_failed_status_raises():
+    from avantis_trader_sdk.errors import RelayError
+
+    respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
+    respx.post(f"{TXB}/v2/intents/open").mock(return_value=_ok(_open_intent_payload()))
+    respx.get(f"{FEED}/v2/pairs/1/price-update-data").mock(
+        return_value=httpx.Response(200, json=PRICE_UPDATE)
+    )
+    respx.post(f"{RELAYER}/relays").mock(
+        return_value=httpx.Response(200, json={"requestId": "req-t"})
+    )
+    respx.get(f"{RELAYER}/relays/req-t").mock(
+        return_value=httpx.Response(
+            200, json={"requestId": "req-t", "status": "Failed", "receipt": None}
+        )
+    )
+
+    async with _client() as client:
+        with pytest.raises(RelayError, match="failed"):
+            await client.trade.market_open("ETH/USD", "long", collateral=1, leverage=2)
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_relayer_busy_503_retries_then_succeeds():
+    respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
+    respx.post(f"{TXB}/v2/intents/open").mock(return_value=_ok(_open_intent_payload()))
+    respx.get(f"{FEED}/v2/pairs/1/price-update-data").mock(
+        return_value=httpx.Response(200, json=PRICE_UPDATE)
+    )
+    create_route = respx.post(f"{RELAYER}/relays").mock(
+        side_effect=[
+            httpx.Response(503, json={"message": "all wallets busy"}),
+            httpx.Response(200, json={"requestId": "req-2"}),
+        ]
+    )
+
+    async with _client() as client:
+        receipt = await client.trade.market_open(
+            "ETH/USD", "long", collateral=100, leverage=10, wait=False
+        )
+
+    assert receipt.request_id == "req-2"
+    assert create_route.call_count == 2
 
 
 @pytest.mark.asyncio

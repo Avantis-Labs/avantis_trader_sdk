@@ -23,7 +23,7 @@
               "trading/limit-orders",
               "trading/tp-sl",
               "trading/margin-and-size",
-              "trading/twap-rfq"
+              "trading/twap"
             ]
           },
           {

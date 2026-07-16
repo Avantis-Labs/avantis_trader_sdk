@@ -29,10 +29,9 @@ async def main() -> None:
                 open_price=update.price,
                 slippage_percent=0.3,
             )
-            # submit erc712-only (no calldata round-trip); pass a companion
-            # calldata if your deployment's relayer requires type4
+            # submit as a relayer batch (no calldata round-trip)
             receipt = await engine.submit_intent_batch(
-                payload, AggregatorOrderType.MARKET_OPEN, None, wait=False
+                payload, AggregatorOrderType.MARKET_OPEN, wait=False
             )
             print("queued:", receipt.request_id, "at price", update.price)
             stream.stop()

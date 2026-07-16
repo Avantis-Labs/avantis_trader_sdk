@@ -27,9 +27,12 @@ Sync facade: `Avantis()` (same surface, blocking).
 - client.referral / client.lp - actions (caller-scoped; trader key only)
 - avantis_trader_sdk.compute  - pure UI-parity math (PnL, liq, validation)
 
-### Execution routing (execution/engine.py)
-- relayer mode + intent-capable action -> intent batch (erc712 + type4 EIP-7702 companion)
-- relayer mode + everything else      -> TX_RELAY passthrough (type4 wrapper)
+### Execution routing (execution/engine.py) — blitz relayer (POST /relays)
+- relayer mode + intent-capable action -> SDK encodes executeMarketOrderBatched/
+  executePositionUpdateBatched locally (price update from feed-v3, zeroed
+  spread params, 2.5M gas) -> blitz type-2 relay to the TradingRouter
+- relayer mode + everything else      -> type-4 passthrough (SDK-built
+  EIP-7702 smart-account tx via eip7702/account.py)
 - direct mode                          -> EIP-1559 tx via rpc_url
 
 ## Critical Invariants (do not break)

@@ -148,12 +148,13 @@ class GelatoDelegationEncoder:
         account_nonce: int = 0,
         exec_nonce: int | None = None,
         include_authorization: bool = True,
+        value: int = 0,
     ) -> dict[str, Any]:
-        """Serialized type-4 payload matching the relayer contract.
+        """Blitz-relayer ``txParams`` for a type-4 (EIP-7702) relay.
 
-        Shape mirrors avantis-ui-v2 ``lib/relayer.ts serializeType4``:
-        ``{chainId, to, data, gas, authorizationList: [{address, chainId(hex),
-        nonce(hex), r, s, yParity(hex, 1 byte)}]}``.
+        Shape mirrors avantis-backend-monorepo blitz-relayer-app
+        ``TxParamsDto`` / ``AuthorizationDto`` (numeric chainId/nonce; v and
+        yParity both provided for ethers signature reconstruction).
         """
         data = self.encode_call_data(calls, exec_nonce)
         auth_list = []
@@ -162,18 +163,21 @@ class GelatoDelegationEncoder:
             auth_list.append(
                 {
                     "address": auth["address"],
-                    "chainId": hex(auth["chainId"]),
-                    "nonce": hex(auth["nonce"]),
+                    "chainId": auth["chainId"],
+                    "nonce": auth["nonce"],
                     "r": auth["r"],
                     "s": auth["s"],
-                    "yParity": f"0x{auth['yParity']:02x}",
+                    "yParity": auth["yParity"],
+                    "v": auth["yParity"] + 27,
                 }
             )
         return {
-            "chainId": str(self.chain_id),
             "to": self.signer.address,
             "data": "0x" + data.hex(),
-            "gas": str(gas),
+            "value": str(value),
+            "gasLimit": str(gas),
+            "chainId": self.chain_id,
+            "transactionType": 4,
             "authorizationList": auth_list,
         }
 

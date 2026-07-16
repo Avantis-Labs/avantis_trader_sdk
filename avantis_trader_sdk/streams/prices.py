@@ -81,6 +81,8 @@ class LazerPriceStream(_ReconnectingStream):
                             elif line.startswith("data:") and event_name == "price_update":
                                 data = json.loads(line.split(":", 1)[1])
                                 ts = data.get("timestampUs")
+                                # feed-v3 sends timestampUs as a decimal string
+                                ts = int(ts) if ts is not None else None
                                 for feed in data.get("priceFeeds", []):
                                     price = float(feed["price"]) * 10 ** feed.get("exponent", 0)
                                     await _dispatch(

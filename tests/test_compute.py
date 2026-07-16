@@ -66,9 +66,8 @@ SNAPSHOT = TradingSnapshot.model_validate(
         "totalOi": 7397826.55,
         "maxOpenInterest": 90410372.13,
         "pairInfos": {"0": ETH_PAIR},
-        "groupInfo": {
-            "0": {"maxOpenInterest": 50000000, "openInterest": {"long": 3e6, "short": 4e6}}
-        },
+        # live payload shape: group totals are groupMaxOI/groupOI scalars
+        "groupInfo": {"0": {"name": "CRYPTO1", "groupMaxOI": 50000000, "groupOI": 7e6}},
     }
 )
 PAIR = SNAPSHOT.pairs[0]

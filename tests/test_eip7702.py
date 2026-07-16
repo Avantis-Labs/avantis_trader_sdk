@@ -44,14 +44,18 @@ def test_build_type4_shape():
     type4 = _encoder().build_type4(
         _calls(), gas=1_000_000, account_nonce=0, exec_nonce=int(REF["nonce"])
     )
-    assert type4["chainId"] == str(REF["chainId"])
+    # blitz-relayer TxParamsDto: numeric chainId, gasLimit string, type 4
+    assert type4["chainId"] == REF["chainId"]
     assert type4["to"] == REF["owner"]
-    assert type4["gas"] == "1000000"
+    assert type4["gasLimit"] == "1000000"
+    assert type4["transactionType"] == 4
+    assert type4["value"] == "0"
     assert type4["data"] == REF["encodeCallData"].lower()
     (auth,) = type4["authorizationList"]
-    assert auth["chainId"] == hex(REF["chainId"])
-    assert auth["nonce"] == "0x0"
-    assert auth["yParity"] == "0x01"
+    assert auth["chainId"] == REF["chainId"]
+    assert auth["nonce"] == 0
+    assert auth["yParity"] == REF["authorization"]["yParity"]
+    assert auth["v"] == auth["yParity"] + 27
 
 
 def test_builder_code_suffix_appended():

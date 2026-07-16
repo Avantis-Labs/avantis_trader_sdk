@@ -19,8 +19,9 @@ Ground-up rewrite for Avantis v2. **Breaking: the 1.x API is removed.**
 ### New in v2
 
 - Full v2 trading surface: coin-sized opens/closes, zero-fee (PnL) orders,
-  position increases, partial TP/SL trigger orders (off-chain stored),
-  TWAP and RFQ.
+  position increases, partial TP/SL trigger orders (off-chain stored), TWAP.
+  (RFQ methods exist in the client but the product is not live yet —
+  undocumented on purpose.)
 - Local intent builder + nonce pool for market makers (zero HTTP on the hot
   path), validated against on-chain golden vectors.
 - Markets snapshot models for the 100+ pair catalog; UI-parity compute layer
@@ -32,6 +33,17 @@ Ground-up rewrite for Avantis v2. **Breaking: the 1.x API is removed.**
 - LP (ERC-4626 tranche) and referral namespaces, builder codes, claims.
 - Typed error taxonomy; digest verification on every signed intent.
 - AWS KMS signer (optional extra), EIP-7702 authorization support.
+
+### Fixes from live testnet E2E (2026-07-16)
+
+- `market_open_coin` / `increase_position_coin` now take the contract-required
+  `leverage` (target fill leverage) in addition to the min/max bounds; calls
+  without it were rejected by the tx-builder.
+- Markets snapshot: `GroupInfo` now reads the live `groupMaxOI` / `groupOI`
+  fields (compute OI-headroom / `validate_order` previously saw zero group
+  headroom and rejected valid orders).
+- Lazer SSE stream: feed-v3 sends `timestampUs` as a string — price updates no
+  longer crash the callback loop.
 
 ### Testing
 

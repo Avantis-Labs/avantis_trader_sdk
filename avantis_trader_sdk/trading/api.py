@@ -69,13 +69,12 @@ class TradeApi(ExecutingApi):
         }
         if self._engine.is_relayer_mode:
             intent = await self._txb.intent("/v2/intents/open", **params)
-            companion = await self._calldata("/v2/trade/open", params)
             agg = (
                 AggregatorOrderType.MARKET_OPEN_PNL
                 if zero_fee
                 else AggregatorOrderType.MARKET_OPEN
             )
-            return await self._engine.submit_intent_batch(intent, agg, companion, wait=wait)
+            return await self._engine.submit_intent_batch(intent, agg, wait=wait)
         return await self._engine.submit_direct(
             await self._calldata("/v2/trade/open", params), wait=wait
         )
@@ -87,6 +86,7 @@ class TradeApi(ExecutingApi):
         collateral: Num,
         coin_exposure: Num,
         *,
+        leverage: Num,
         min_leverage: Num | None = None,
         max_leverage: Num | None = None,
         slippage_percent: Num = 1,
@@ -96,7 +96,11 @@ class TradeApi(ExecutingApi):
         skip_validation: bool = False,
         wait: bool = True,
     ) -> ExecutionReceipt:
-        """Open sized in coin units (leverage floats within [min, max] bounds)."""
+        """Open sized in coin units (fill leverage floats within [min, max] bounds).
+
+        ``leverage`` is the target/reference leverage (contract-required);
+        min/max default to the pair envelope when omitted.
+        """
         params: dict[str, Any] = {
             **_pair_params(pair),
             "trader": self.trader,
@@ -104,6 +108,7 @@ class TradeApi(ExecutingApi):
             "orderType": (OrderType.MARKET_PNL if zero_fee else OrderType.MARKET).value,
             "collateralUsdc": collateral,
             "coinExposure": coin_exposure,
+            "leverage": leverage,
             "minLeverage": min_leverage,
             "maxLeverage": max_leverage,
             "slippagePercent": slippage_percent,
@@ -113,13 +118,12 @@ class TradeApi(ExecutingApi):
         }
         if self._engine.is_relayer_mode:
             intent = await self._txb.intent("/v2/intents/open-coin", **params)
-            companion = await self._calldata("/v2/trade/open-coin", params)
             agg = (
                 AggregatorOrderType.MARKET_OPEN_PNL_WITH_COIN_EXPOSURE
                 if zero_fee
                 else AggregatorOrderType.MARKET_OPEN_WITH_COIN_EXPOSURE
             )
-            return await self._engine.submit_intent_batch(intent, agg, companion, wait=wait)
+            return await self._engine.submit_intent_batch(intent, agg, wait=wait)
         return await self._engine.submit_direct(
             await self._calldata("/v2/trade/open-coin", params), wait=wait
         )
@@ -170,7 +174,7 @@ class TradeApi(ExecutingApi):
         trade_index: int,
         collateral_to_close: Num,
         *,
-        wanted_price: Num | None = None,
+        expected_price: Num | None = None,
         is_pnl: bool = False,
         open_timestamp: int | None = None,
         wait: bool = True,
@@ -180,20 +184,19 @@ class TradeApi(ExecutingApi):
             **_pair_params(pair),
             "trader": self.trader,
             "tradeIndex": trade_index,
-            "collateralUsdc": collateral_to_close,
-            "wantedPrice": wanted_price,
+            "collateralToCloseUsdc": collateral_to_close,
+            "expectedPrice": expected_price,
         }
         if self._engine.is_relayer_mode:
             intent = await self._txb.intent(
                 "/v2/intents/close", **params, openTimestamp=open_timestamp
             )
-            companion = await self._calldata("/v2/trade/close", params)
             agg = (
                 AggregatorOrderType.MARKET_CLOSE_PNL
                 if is_pnl
                 else AggregatorOrderType.MARKET_CLOSE
             )
-            return await self._engine.submit_intent_batch(intent, agg, companion, wait=wait)
+            return await self._engine.submit_intent_batch(intent, agg, wait=wait)
         return await self._engine.submit_direct(
             await self._calldata("/v2/trade/close", params), wait=wait
         )
@@ -204,7 +207,7 @@ class TradeApi(ExecutingApi):
         trade_index: int,
         coin_exposure: Num,
         *,
-        wanted_price: Num | None = None,
+        expected_price: Num | None = None,
         is_pnl: bool = False,
         open_timestamp: int | None = None,
         wait: bool = True,
@@ -214,19 +217,18 @@ class TradeApi(ExecutingApi):
             "trader": self.trader,
             "tradeIndex": trade_index,
             "coinExposure": coin_exposure,
-            "wantedPrice": wanted_price,
+            "expectedPrice": expected_price,
         }
         if self._engine.is_relayer_mode:
             intent = await self._txb.intent(
                 "/v2/intents/close-coin", **params, openTimestamp=open_timestamp
             )
-            companion = await self._calldata("/v2/trade/close-coin", params)
             agg = (
                 AggregatorOrderType.MARKET_CLOSE_PNL_WITH_COIN_EXPOSURE
                 if is_pnl
                 else AggregatorOrderType.MARKET_CLOSE_WITH_COIN_EXPOSURE
             )
-            return await self._engine.submit_intent_batch(intent, agg, companion, wait=wait)
+            return await self._engine.submit_intent_batch(intent, agg, wait=wait)
         return await self._engine.submit_direct(
             await self._calldata("/v2/trade/close-coin", params), wait=wait
         )
@@ -301,16 +303,15 @@ class TradeApi(ExecutingApi):
             **_pair_params(pair),
             "trader": self.trader,
             "tradeIndex": trade_index,
-            "collateralUsdc": collateral,
+            "additionalCollateralUsdc": collateral,
             "leverage": leverage,
             "openPrice": open_price,
             "slippagePercent": slippage_percent,
         }
         if self._engine.is_relayer_mode:
             intent = await self._txb.intent("/v2/intents/increase", **params)
-            companion = await self._calldata("/v2/position/increase", params)
             return await self._engine.submit_intent_batch(
-                intent, AggregatorOrderType.INCREASE_SIZE, companion, wait=wait
+                intent, AggregatorOrderType.INCREASE_SIZE, wait=wait
             )
         return await self._engine.submit_direct(
             await self._calldata("/v2/position/increase", params), wait=wait
@@ -323,18 +324,22 @@ class TradeApi(ExecutingApi):
         collateral: Num,
         coin_exposure: Num,
         *,
+        leverage: Num,
         min_leverage: Num,
         max_leverage: Num,
         open_price: Num | None = None,
         slippage_percent: Num = 1,
         wait: bool = True,
     ) -> ExecutionReceipt:
+        """Increase sized in coin units (``leverage`` = reference leverage for
+        the added collateral; fill floats within [min, max])."""
         params: dict[str, Any] = {
             **_pair_params(pair),
             "trader": self.trader,
             "tradeIndex": trade_index,
-            "collateralUsdc": collateral,
+            "additionalCollateralUsdc": collateral,
             "coinExposure": coin_exposure,
+            "leverage": leverage,
             "minLeverage": min_leverage,
             "maxLeverage": max_leverage,
             "openPrice": open_price,
@@ -342,11 +347,9 @@ class TradeApi(ExecutingApi):
         }
         if self._engine.is_relayer_mode:
             intent = await self._txb.intent("/v2/intents/increase-coin", **params)
-            companion = await self._calldata("/v2/position/increase-coin", params)
             return await self._engine.submit_intent_batch(
                 intent,
                 AggregatorOrderType.INCREASE_SIZE_WITH_COIN_EXPOSURE,
-                companion,
                 wait=wait,
             )
         return await self._engine.submit_direct(
@@ -376,7 +379,7 @@ class TradeApi(ExecutingApi):
         }
         intent = await self._txb.intent("/v2/intents/tpsl-update", **params)
         return await self._engine.submit_intent_batch(
-            intent, AggregatorOrderType.UPDATE_SL, None, wait=wait
+            intent, AggregatorOrderType.UPDATE_SL, wait=wait
         )
 
     async def partial_tp_sl(
@@ -384,8 +387,9 @@ class TradeApi(ExecutingApi):
         pair: PairRef,
         trade_index: int,
         *,
-        kind: str,  # "tp" | "sl"
-        coin_size: Num,
+        side: Side | str,  # side of the POSITION being trimmed
+        kind: str,  # "tp"/"take_profit" | "sl"/"stop_loss"
+        coin_exposure: Num,
         trigger: TriggerType | str = TriggerType.FIXED,
         price: Num | None = None,
         percentage: Num | None = None,
@@ -399,12 +403,14 @@ class TradeApi(ExecutingApi):
         Returns the stored order fields (keep them to cancel later).
         """
         trigger = TriggerType(trigger)
+        kind_full = {"tp": "take_profit", "sl": "stop_loss"}.get(kind, kind)
         params: dict[str, Any] = {
             **_pair_params(pair),
             "trader": self.trader,
             "tradeIndex": trade_index,
-            "orderType": f"partial_{kind}",
-            "coinSize": coin_size,
+            "side": Side(side).value,
+            "kind": kind_full,
+            "coinExposure": coin_exposure,
             "triggerType": trigger.value,
             "price": price,
             "percentage": percentage,
@@ -505,14 +511,14 @@ class TradeApi(ExecutingApi):
         collateral: Num,
         run_time_seconds: int,
         *,
-        default_leverage: Num,
+        leverage: Num,
         max_leverage: Num,
-        coin_size: Num | None = None,
+        coin_exposure: Num | None = None,
         wait: bool = True,
     ) -> ExecutionReceipt:
         """Open a TWAP order (collateral spread over run_time_seconds slices).
 
-        ``coin_size`` switches to fixed coin-exposure targeting. Leverage
+        ``coin_exposure`` switches to fixed exposure targeting. Leverage
         bounds are required by the contract struct.
         """
         params: dict[str, Any] = {
@@ -520,8 +526,8 @@ class TradeApi(ExecutingApi):
             "trader": self.trader,
             "side": Side(side).value,
             "collateralUsdc": collateral,
-            "coinSize": coin_size,
-            "defaultLeverage": default_leverage,
+            "coinExposure": coin_exposure,
+            "leverage": leverage,
             "maxLeverage": max_leverage,
             "runTimeSeconds": run_time_seconds,
         }
@@ -531,7 +537,7 @@ class TradeApi(ExecutingApi):
         self,
         pair: PairRef,
         trade_index: int,
-        coin_size_to_close: Num,
+        coin_exposure_to_close: Num,
         run_time_seconds: int,
         *,
         wait: bool = True,
@@ -540,7 +546,7 @@ class TradeApi(ExecutingApi):
             **_pair_params(pair),
             "trader": self.trader,
             "tradeIndex": trade_index,
-            "coinSizeToClose": coin_size_to_close,
+            "coinExposureToClose": coin_exposure_to_close,
             "runTimeSeconds": run_time_seconds,
         }
         return await self._passthrough_or_direct("/v2/twap/close", params, wait)
@@ -555,27 +561,29 @@ class TradeApi(ExecutingApi):
         side: Side | str,
         collateral: Num,
         *,
-        default_leverage: Num,
+        leverage: Num,
         max_leverage: Num,
         max_slippage_percent: Num,
-        wanted_price: Num | None = None,
-        coin_size: Num | None = None,
+        expected_price: Num | None = None,
+        coin_exposure: Num | None = None,
         wait: bool = True,
     ) -> ExecutionReceipt:
-        """Open an RFQ order (fill at wanted_price ± max_slippage_percent).
+        """Open an RFQ order (fill at expected_price ± max_slippage_percent).
 
-        ``wanted_price`` is resolved from the live feed when omitted. There is
-        no trader-side RFQ cancel on-chain (operator-only).
+        NOTE: RFQ is not live on Avantis yet — kept for when it ships.
+
+        ``expected_price`` is resolved from the live feed when omitted. There
+        is no trader-side RFQ cancel on-chain (operator-only).
         """
         params: dict[str, Any] = {
             **_pair_params(pair),
             "trader": self.trader,
             "side": Side(side).value,
             "collateralUsdc": collateral,
-            "coinSize": coin_size,
-            "defaultLeverage": default_leverage,
+            "coinExposure": coin_exposure,
+            "leverage": leverage,
             "maxLeverage": max_leverage,
-            "wantedPrice": wanted_price,
+            "expectedPrice": expected_price,
             "maxSlippagePercent": max_slippage_percent,
         }
         return await self._passthrough_or_direct("/v2/rfq/open", params, wait)
@@ -584,18 +592,19 @@ class TradeApi(ExecutingApi):
         self,
         pair: PairRef,
         trade_index: int,
-        coin_size_to_close: Num,
+        coin_exposure_to_close: Num,
         *,
         max_slippage_percent: Num,
-        wanted_price: Num | None = None,
+        expected_price: Num | None = None,
         wait: bool = True,
     ) -> ExecutionReceipt:
+        """NOTE: RFQ is not live on Avantis yet — kept for when it ships."""
         params: dict[str, Any] = {
             **_pair_params(pair),
             "trader": self.trader,
             "tradeIndex": trade_index,
-            "coinSizeToClose": coin_size_to_close,
-            "wantedPrice": wanted_price,
+            "coinExposureToClose": coin_exposure_to_close,
+            "expectedPrice": expected_price,
             "maxSlippagePercent": max_slippage_percent,
         }
         return await self._passthrough_or_direct("/v2/rfq/close", params, wait)

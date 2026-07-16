@@ -23,12 +23,13 @@ async def main() -> None:
 
         # partial TP: close 25% of the coin exposure at a fixed price
         price = await client.markets.price(pos.pair_index)
-        coin_size = float(pos.position_size) / price * 0.25
+        coin_exposure = float(pos.position_size) / price * 0.25
         order = await client.trade.partial_tp_sl(
             pos.pair_index,
             pos.index,
-            kind="tp",
-            coin_size=coin_size,
+            side=pos.side,
+            kind="take_profit",
+            coin_exposure=coin_exposure,
             trigger="fixed",
             price=price * 1.05,
         )

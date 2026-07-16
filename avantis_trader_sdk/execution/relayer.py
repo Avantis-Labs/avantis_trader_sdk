@@ -1,9 +1,14 @@
-"""Operator relayer client (`POST /v2/relay/queue`, `GET /v2/relay/{id}`).
+"""Blitz relayer client (`POST /relays`, `GET /relays/{requestId}`).
 
-Semantics reverse-engineered from avantis-ui-v2 ``lib/relayer.ts``:
-- queue returns the requestId as a plain string or ``{requestId|id}``
-- status 404 means "not settled yet" (NOT an error)
-- ``{errorMessage}`` -> failed; ``{success: true, receipt.transactionHash}`` -> done
+The blitz relayer (avantis-backend-monorepo src/blitz-relayer-app) is a pure
+transaction broadcaster: callers submit ready-to-broadcast ``txParams`` and it
+handles wallet selection, nonces, gas bumping, and receipt tracking.
+
+- type-2 relays may only target whitelisted contracts (the TradingRouter);
+- type-4 (EIP-7702) relays may target any account (delegated smart accounts);
+- ``wallet`` is the originating EOA, used only for broadcast routing;
+- status lifecycle: ``Inflight`` -> ``Finalised`` (mined; check
+  ``receipt.status`` for revert) or ``Failed`` (timed out / rejected).
 """
 
 from __future__ import annotations
@@ -13,7 +18,7 @@ from typing import Any
 
 from ..errors import ApiError, RelayError, RelayTimeoutError
 from ..transport import HttpTransport
-from ..types import RelayAction, RelayStatus
+from ..types import RelayStatus
 
 
 class RelayerClient:
@@ -30,51 +35,71 @@ class RelayerClient:
         self.poll_interval_s = poll_interval_s
         self.poll_timeout_s = poll_timeout_s
 
-    async def queue(self, wallet: str, action: RelayAction, payload: dict[str, Any]) -> str:
-        # retries=0: a retried POST could enqueue the same signed action twice.
-        # (Nonces make double-execution impossible, but the duplicate would
-        # surface as a confusing InvalidNonce failure on the second run.)
-        resp = await self._t.request(
-            "POST",
-            f"{self._base}/v2/relay/queue",
-            json={"wallet": wallet, "action": action.value, "payload": payload},
-            retries=0,
-        )
-        text = resp.text
-        if resp.status_code >= 400:
-            raise RelayError(f"relayer queue HTTP {resp.status_code}: {text[:300]}")
-        try:
-            body = resp.json()
-        except ValueError:
-            body = text
-        request_id = (
-            body if isinstance(body, str) else (body.get("requestId") or body.get("id"))
-        )
-        if not request_id:
-            raise RelayError(f"relayer queue returned no requestId: {text[:300]}")
-        return str(request_id)
+    async def create(self, tx_params: dict[str, Any], wallet: str | None = None) -> str:
+        """Submit txParams for broadcast; returns the requestId to poll.
+
+        503 means every relayer wallet is busy — retried a few times since it
+        clears as soon as an in-flight relay settles.
+        """
+        body: dict[str, Any] = {"txParams": tx_params}
+        if wallet:
+            body["wallet"] = wallet
+
+        last_error = ""
+        for attempt in range(4):
+            # retries=0 in the transport: a blind re-POST after an ambiguous
+            # network failure could double-broadcast.
+            resp = await self._t.request(
+                "POST", f"{self._base}/relays", json=body, retries=0
+            )
+            if resp.status_code == 503:  # all wallets busy
+                last_error = resp.text[:200]
+                await asyncio.sleep(1.0 * (attempt + 1))
+                continue
+            if resp.status_code >= 400:
+                raise RelayError(
+                    f"blitz relayer rejected relay ({resp.status_code}): {resp.text[:300]}"
+                )
+            data = resp.json()
+            request_id = data.get("requestId")
+            if not request_id:
+                raise RelayError(f"blitz relayer returned no requestId: {resp.text[:300]}")
+            return str(request_id)
+        raise RelayError(f"blitz relayer busy (503) after retries: {last_error}")
 
     async def status(self, request_id: str) -> RelayStatus:
         resp = await self._t.request(
-            "GET", f"{self._base}/v2/relay/{request_id}", allow_404=True
+            "GET", f"{self._base}/relays/{request_id}", allow_404=True
         )
         if resp.status_code == 404:
-            return RelayStatus(settled=False)
+            raise RelayError(f"unknown relay {request_id}", request_id=request_id)
         try:
             body = resp.json()
         except ValueError as exc:
             raise ApiError(
-                f"relayer status returned non-JSON: {resp.text[:300]}",
+                f"blitz relayer status returned non-JSON: {resp.text[:300]}",
                 status=resp.status_code,
             ) from exc
-        if body.get("errorMessage"):
+
+        state = body.get("status")
+        receipt = body.get("receipt")
+        if state == "Failed":
             return RelayStatus(
-                settled=True, success=False, error_message=str(body["errorMessage"])
+                settled=True, success=False, error_message="relay failed (timed out)"
             )
-        receipt = body.get("receipt") or {}
-        tx_hash = receipt.get("transactionHash")
-        if body.get("success") is True and tx_hash:
+        if state == "Finalised":
+            tx_hash = (receipt or {}).get("transactionHash") or (receipt or {}).get("hash")
+            reverted = _receipt_reverted(receipt)
+            if reverted:
+                return RelayStatus(
+                    settled=True,
+                    success=False,
+                    tx_hash=tx_hash,
+                    receipt=receipt,
+                    error_message=f"transaction {tx_hash} reverted",
+                )
             return RelayStatus(settled=True, success=True, tx_hash=tx_hash, receipt=receipt)
+        # Pending / Inflight
         return RelayStatus(settled=False)
 
     async def wait(self, request_id: str, timeout_s: float | None = None) -> RelayStatus:
@@ -92,3 +117,14 @@ class RelayerClient:
         raise RelayTimeoutError(
             f"relay {request_id} not settled after {timeout:.0f}s", request_id=request_id
         )
+
+
+def _receipt_reverted(receipt: dict[str, Any] | None) -> bool:
+    if not receipt:
+        return False
+    status = receipt.get("status")
+    if status is None:
+        return False
+    if isinstance(status, str):
+        return int(status, 16 if status.startswith("0x") else 10) == 0
+    return int(status) == 0

@@ -112,6 +112,8 @@ class HttpTransport:
                 status=resp.status_code,
                 url=url,
             )
+        if not resp.content:  # e.g. 200/204 with empty body (core API deletes)
+            return None
         try:
             return resp.json()
         except ValueError as exc:

@@ -62,15 +62,9 @@ def max_position_size(pair_info, snapshot, *, is_long: bool, wallet_oi: float = 
     trader's current total notional (sum of collateral * leverage).
     """
     group = snapshot.group_info.get(str(pair_info.group_index))
-    group_max = getattr(group, "max_open_interest", None) or 0.0
-    group_oi_data = getattr(group, "open_interest", None) or {}
-    group_oi = float(group_oi_data.get("long", 0)) + float(group_oi_data.get("short", 0))
-    extra = pair_info.model_extra or {}
-    group_pct = float(
-        (extra.get("values") or {}).get("groupOpenInterestPercentageP", 100)
-        if isinstance(extra.get("values"), dict)
-        else 100
-    )
+    group_max = getattr(group, "group_max_oi", 0.0) or 0.0
+    group_oi = getattr(group, "group_oi", 0.0) or 0.0
+    group_pct = pair_info.values.group_open_interest_percentage_p
     liq = available_liquidity(
         max_open_interest=snapshot.max_open_interest,
         total_oi=snapshot.total_oi,
