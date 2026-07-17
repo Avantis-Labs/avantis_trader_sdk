@@ -45,9 +45,30 @@ async with AsyncAvantis() as client:
 
 Payloads are `IntentPayload` objects identical to what the tx-builder would return, and go through the same digest-verified signer.
 
+## Settling relays
+
+`wait=False` returns as soon as the relayer accepts the request — but a queued relay can still **fail** (reverted on-chain, or timed out inside the relayer). You own the settlement check. Off the hot path, poll by the `request_id` from the receipt:
+
+```python
+from avantis_trader_sdk.errors import RelayError, RelayTimeoutError
+
+try:
+    status = await engine.relayer.wait(receipt.request_id)  # polls until settled
+    print("mined:", status.tx_hash)
+except RelayTimeoutError:
+    # not settled within relay_poll_timeout_s — it may still land,
+    # so check positions before assuming failure
+    ...
+except RelayError as exc:
+    # rejected by the relayer or reverted on-chain (exc.request_id)
+    ...
+```
+
+For your own reconciliation loop, `engine.relayer.status(request_id)` is a single non-blocking poll returning a `RelayStatus` (`settled`, `success`, `tx_hash`, `error_message`) — this is exactly what the default `wait=True` path runs internally.
+
 ## Pair with
 
-- `wait=False` on submission, confirming fills via the [order event stream](/data/prices-and-streams) instead of polling.
+- `wait=False` on submission, confirming fills via the [order event stream](/data/prices-and-streams) or by polling `engine.relayer` as above.
 - The Lazer SSE price stream for the freshest `open_price`.
 
 Quote-to-order latency is then bounded only by the relayer POST.

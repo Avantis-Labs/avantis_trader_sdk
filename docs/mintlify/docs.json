@@ -63,7 +63,7 @@
       },
       {
         "tab": "API Reference",
-        "openapi": "https://tx-builder.avantisfi.com/openapi.json"
+        "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json"
       }
     ]
   },

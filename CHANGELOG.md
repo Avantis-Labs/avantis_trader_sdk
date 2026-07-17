@@ -52,6 +52,9 @@ Ground-up rewrite for Avantis v2. **Breaking: the 1.x API is removed.**
   limit, TP/SL, margin/size, TWAP), account & portfolio (positions, analytics,
   delegates, approvals), data & compute, LP vault, referrals, and advanced
   (execution modes, MM fast path, security model, error taxonomy).
+- MM fast path ("Settling relays") + example 13: after `wait=False`, reconcile
+  queued relays by `request_id` via `engine.relayer.wait()` / `.status()` —
+  a queued relay can still revert or time out.
 
 ### Testing
 
