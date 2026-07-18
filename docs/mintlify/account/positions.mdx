@@ -38,7 +38,7 @@ for order in data.limit_orders:
 Combine a position with its pair snapshot and the live price for a UI-parity net PnL breakdown:
 
 ```python
-from avantis_trader_sdk.compute import position_net_pnl
+from avantis_trader_sdk_v2.compute import position_net_pnl
 
 pair = await client.markets.pair(pos.pair_index)
 price = await client.markets.price(pos.pair_index)

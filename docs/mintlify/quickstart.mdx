@@ -6,7 +6,7 @@ description: "From zero to a filled trade."
 ## 1. Install
 
 ```bash
-pip install avantis-trader-sdk
+pip install avantis-trader-sdk-v2
 ```
 
 ## 2. Create an API key
@@ -29,7 +29,7 @@ USDC, or add other delegates. Revoke it anytime from the UI.
 
 ```python
 import asyncio
-from avantis_trader_sdk import AsyncAvantis
+from avantis_trader_sdk_v2 import AsyncAvantis
 
 async def main():
     async with AsyncAvantis() as client:

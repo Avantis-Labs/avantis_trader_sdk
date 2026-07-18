@@ -7,9 +7,9 @@ import httpx
 import pytest
 import respx
 
-from avantis_trader_sdk import AsyncAvantis
-from avantis_trader_sdk.errors import ConfigError
-from avantis_trader_sdk.intents_schema import INTENT_TYPES
+from avantis_trader_sdk_v2 import AsyncAvantis
+from avantis_trader_sdk_v2.errors import ConfigError
+from avantis_trader_sdk_v2.intents_schema import INTENT_TYPES
 from tests.conftest import META, TEST_ADDRESS, TEST_KEY, TRADER, VECTORS
 
 TXB = "https://txb.test"
@@ -190,7 +190,7 @@ async def test_direct_route_via_rpc():
 @pytest.mark.asyncio
 @respx.mock
 async def test_register_delegate_flow():
-    from avantis_trader_sdk.signing import LocalSigner
+    from avantis_trader_sdk_v2.signing import LocalSigner
 
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
     payload = _vector_payload("DelegateReq", signerRule="trader-only")

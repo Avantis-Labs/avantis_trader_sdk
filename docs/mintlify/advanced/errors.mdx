@@ -3,10 +3,10 @@ title: Errors
 description: "Typed exception taxonomy — catch precisely, retry safely."
 ---
 
-Every failure raises a typed exception from `avantis_trader_sdk.errors`, all descending from `AvantisError`.
+Every failure raises a typed exception from `avantis_trader_sdk_v2.errors`, all descending from `AvantisError`.
 
 ```python
-from avantis_trader_sdk.errors import ValidationError, RelayTimeoutError
+from avantis_trader_sdk_v2.errors import ValidationError, RelayTimeoutError
 
 try:
     await client.trade.market_open("ETH/USD", "long", collateral=100, leverage=10)

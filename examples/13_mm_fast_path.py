@@ -13,9 +13,9 @@ timeout), so YOU own the settlement check. Reconcile off the hot path with
 
 import asyncio
 
-from avantis_trader_sdk import AsyncAvantis
-from avantis_trader_sdk.errors import RelayError, RelayTimeoutError
-from avantis_trader_sdk.types import AggregatorOrderType
+from avantis_trader_sdk_v2 import AsyncAvantis
+from avantis_trader_sdk_v2.errors import RelayError, RelayTimeoutError
+from avantis_trader_sdk_v2.types import AggregatorOrderType
 
 
 async def main() -> None:

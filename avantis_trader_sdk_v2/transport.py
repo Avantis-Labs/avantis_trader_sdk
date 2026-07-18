@@ -24,7 +24,7 @@ class HttpTransport:
     def __init__(self, timeout_s: float = 30.0) -> None:
         self._client = httpx.AsyncClient(
             timeout=timeout_s,
-            headers={"User-Agent": "avantis-trader-sdk/2.0"},
+            headers={"User-Agent": "avantis-trader-sdk-v2/2.0"},
         )
 
     async def aclose(self) -> None:

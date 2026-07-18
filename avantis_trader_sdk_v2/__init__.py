@@ -5,7 +5,7 @@ Quick start (relayer route, delegate key from the Avantis UI):
     export AVANTIS_PRIVATE_KEY=0x...      # your API/agent key
     export AVANTIS_TRADER_ADDRESS=0x...   # your wallet
 
-    from avantis_trader_sdk import AsyncAvantis
+    from avantis_trader_sdk_v2 import AsyncAvantis
 
     async def main():
         async with AsyncAvantis() as client:

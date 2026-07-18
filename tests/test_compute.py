@@ -3,7 +3,7 @@ mirror the avantis-ui-v2 implementations."""
 
 import pytest
 
-from avantis_trader_sdk.compute import (
+from avantis_trader_sdk_v2.compute import (
     adjusted_max_gain_p,
     available_liquidity,
     estimate_liquidation_price,
@@ -18,7 +18,7 @@ from avantis_trader_sdk.compute import (
     tp_price_to_percent,
     validate_order,
 )
-from avantis_trader_sdk.markets.models import TradingSnapshot
+from avantis_trader_sdk_v2.markets.models import TradingSnapshot
 
 # ETH/USD pair snapshot subset (from the testnet /v2/trading payload)
 ETH_PAIR = {

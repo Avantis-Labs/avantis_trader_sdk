@@ -2,7 +2,7 @@
 
 import asyncio
 
-from avantis_trader_sdk import AsyncAvantis
+from avantis_trader_sdk_v2 import AsyncAvantis
 
 
 async def main() -> None:
@@ -27,7 +27,7 @@ async def main() -> None:
         await prices.run(on_price)
 
         # --- pair data stream (funding/OI/spread updates) ---
-        # needs the extra: pip install 'avantis-trader-sdk[streams]'
+        # needs the extra: pip install 'avantis-trader-sdk-v2[streams]'
         # pairdata = client.pair_data_stream()
         # await pairdata.run(lambda payload: print("pairs updated:", list(payload)[:3]))
 

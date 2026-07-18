@@ -1,7 +1,7 @@
 """Pair/OI/funding snapshot stream — Socket.IO ``RES:DATA`` broadcasts from
 the data-service (same host as /v2/trading).
 
-Requires the ``streams`` extra: ``pip install avantis-trader-sdk[streams]``.
+Requires the ``streams`` extra: ``pip install avantis-trader-sdk-v2[streams]``.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ class PairDataStream:
         except ImportError as exc:  # pragma: no cover
             raise ImportError(
                 "PairDataStream needs python-socketio: "
-                "pip install 'avantis-trader-sdk[streams]'"
+                "pip install 'avantis-trader-sdk-v2[streams]'"
             ) from exc
 
         sio = socketio.AsyncClient(

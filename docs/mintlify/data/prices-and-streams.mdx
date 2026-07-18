@@ -17,7 +17,7 @@ Good for scripts. For anything latency-sensitive, stream instead.
 | --- | --- | --- | --- |
 | `client.lazer_price_stream(feed_ids)` | SSE | Prices, lowest latency | Feed ids from `pair.lazer_feed.feed_id` |
 | `client.hermes_price_stream(feed_ids)` | Pyth Hermes WS | Prices | 0x-hex Pyth feed ids |
-| `client.pair_data_stream()` | Socket.IO | Funding / OI / spread updates | Needs `pip install 'avantis-trader-sdk[streams]'` |
+| `client.pair_data_stream()` | Socket.IO | Funding / OI / spread updates | Needs `pip install 'avantis-trader-sdk-v2[streams]'` |
 | `client.order_event_stream(trader=None)` | Pusher WS | Your fills and cancels | Idle unless your orders execute |
 
 All streams share the same API: `await stream.run(callback)` blocks and invokes the callback per event; `stream.stop()` ends it.

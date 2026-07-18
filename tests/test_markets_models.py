@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from avantis_trader_sdk.markets.models import TradingSnapshot
+from avantis_trader_sdk_v2.markets.models import TradingSnapshot
 
 RAW = json.loads((Path(__file__).parent / "vectors" / "trading_snapshot.json").read_text())
 

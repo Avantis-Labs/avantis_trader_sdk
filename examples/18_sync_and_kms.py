@@ -1,10 +1,10 @@
 """Synchronous facade and AWS KMS signing.
 
 - ``Avantis`` mirrors ``AsyncAvantis`` for scripts that don't use asyncio.
-- ``KmsSigner`` keeps the key in AWS KMS (install extra: avantis-trader-sdk[kms]).
+- ``KmsSigner`` keeps the key in AWS KMS (install extra: avantis-trader-sdk-v2[kms]).
 """
 
-from avantis_trader_sdk import Avantis
+from avantis_trader_sdk_v2 import Avantis
 
 
 def main() -> None:
@@ -16,7 +16,7 @@ def main() -> None:
     client.close()
 
     # --- KMS signer ---
-    # from avantis_trader_sdk.signing import KmsSigner
+    # from avantis_trader_sdk_v2.signing import KmsSigner
     # signer = KmsSigner("your-kms-key-id", region_name="us-east-1")
     # client = Avantis(signer=signer, trader_address="0xYourWallet")
 

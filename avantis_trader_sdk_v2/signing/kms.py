@@ -1,4 +1,4 @@
-"""AWS KMS signer (optional extra: ``pip install avantis-trader-sdk[kms]``).
+"""AWS KMS signer (optional extra: ``pip install avantis-trader-sdk-v2[kms]``).
 
 Signs raw 32-byte digests with a KMS ECDSA (secp256k1) key and adapts them to
 EIP-712 messages, transactions, and EIP-7702 authorizations. The private key

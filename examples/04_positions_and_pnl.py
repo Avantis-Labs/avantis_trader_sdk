@@ -2,8 +2,8 @@
 
 import asyncio
 
-from avantis_trader_sdk import AsyncAvantis
-from avantis_trader_sdk.compute import position_net_pnl
+from avantis_trader_sdk_v2 import AsyncAvantis
+from avantis_trader_sdk_v2.compute import position_net_pnl
 
 
 async def main() -> None:
