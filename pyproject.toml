@@ -3,7 +3,7 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "avantis-trader-sdk"
+name = "avantis-trader-sdk-v2"
 version = "2.0.0a1"
 description = "Python SDK for Avantis v2 — API-first perpetuals trading on Base"
 readme = "README.md"
@@ -36,7 +36,7 @@ Documentation = "https://sdk.avantisfi.com"
 Source = "https://github.com/Avantis-Labs/avantis_trader_sdk"
 
 [tool.setuptools.packages.find]
-include = ["avantis_trader_sdk*"]
+include = ["avantis_trader_sdk_v2*"]
 
 [tool.ruff]
 line-length = 100

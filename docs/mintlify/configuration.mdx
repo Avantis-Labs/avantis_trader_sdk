@@ -27,7 +27,7 @@ Per-service endpoint overrides (rarely needed): `AVANTIS_TX_BUILDER_URL`, `AVANT
 Anything the env can set, the constructor can override:
 
 ```python
-from avantis_trader_sdk import AsyncAvantis
+from avantis_trader_sdk_v2 import AsyncAvantis
 
 client = AsyncAvantis(
     private_key="0x...",
@@ -45,7 +45,7 @@ Other useful options: `timeout_s` (default 30), `relay_poll_timeout_s` (default 
 `Avantis` mirrors the async surface with blocking calls — same namespaces, same methods:
 
 ```python
-from avantis_trader_sdk import Avantis
+from avantis_trader_sdk_v2 import Avantis
 
 client = Avantis()
 client.trade.market_open("ETH/USD", "long", collateral=100, leverage=10)
@@ -54,15 +54,15 @@ client.close()
 
 ## Custom signers
 
-By default the SDK builds a `LocalSigner` from `private_key`. Pass any `BaseSigner` instead — e.g. AWS KMS (install with `pip install 'avantis-trader-sdk[kms]'`):
+By default the SDK builds a `LocalSigner` from `private_key`. Pass any `BaseSigner` instead — e.g. AWS KMS (install with `pip install 'avantis-trader-sdk-v2[kms]'`):
 
 ```python
-from avantis_trader_sdk.signing import KmsSigner
+from avantis_trader_sdk_v2.signing import KmsSigner
 
 client = AsyncAvantis(signer=KmsSigner("alias/avantis-agent", region_name="us-east-1"))
 ```
 
 <Note>
-Streams (Socket.IO pair data) need an extra: `pip install 'avantis-trader-sdk[streams]'`.
+Streams (Socket.IO pair data) need an extra: `pip install 'avantis-trader-sdk-v2[streams]'`.
 Python 3.10+ is required.
 </Note>

@@ -4,6 +4,11 @@
 
 Ground-up rewrite for Avantis v2. **Breaking: the 1.x API is removed.**
 
+### Packaging
+
+- Import / distribution name is now `avantis_trader_sdk_v2` /
+  `avantis-trader-sdk-v2` (was `avantis_trader_sdk` / `avantis-trader-sdk`).
+
 ### Architecture
 
 - API-first: all transaction payloads (calldata and EIP-712 intents) come from

@@ -11,8 +11,8 @@ import httpx
 import pytest
 import respx
 
-from avantis_trader_sdk import AsyncAvantis
-from avantis_trader_sdk.intents_schema import INTENT_TYPES
+from avantis_trader_sdk_v2 import AsyncAvantis
+from avantis_trader_sdk_v2.intents_schema import INTENT_TYPES
 from tests.conftest import META, TEST_KEY, TRADER, VECTORS
 
 TXB = "https://txb.test"
@@ -258,7 +258,7 @@ async def test_positions_read():
 @pytest.mark.asyncio
 @respx.mock
 async def test_relayer_reverted_receipt_raises():
-    from avantis_trader_sdk.errors import RelayError
+    from avantis_trader_sdk_v2.errors import RelayError
 
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
     respx.post(f"{TXB}/v2/intents/open").mock(return_value=_ok(_open_intent_payload()))
@@ -287,7 +287,7 @@ async def test_relayer_reverted_receipt_raises():
 @pytest.mark.asyncio
 @respx.mock
 async def test_relayer_failed_status_raises():
-    from avantis_trader_sdk.errors import RelayError
+    from avantis_trader_sdk_v2.errors import RelayError
 
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
     respx.post(f"{TXB}/v2/intents/open").mock(return_value=_ok(_open_intent_payload()))
@@ -335,7 +335,7 @@ async def test_relayer_busy_503_retries_then_succeeds():
 @pytest.mark.asyncio
 @respx.mock
 async def test_api_validation_error_maps_to_typed_exception():
-    from avantis_trader_sdk.errors import ValidationError
+    from avantis_trader_sdk_v2.errors import ValidationError
 
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
     respx.post(f"{TXB}/v2/intents/open").mock(

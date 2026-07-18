@@ -23,7 +23,7 @@ Generate an API key under **API Keys** in the web app — one wallet signature r
 Register any key programmatically. The trader key signs one `DelegateReq` intent (used transiently, never stored); submission is gasless:
 
 ```python
-from avantis_trader_sdk import AsyncAvantis, LocalSigner
+from avantis_trader_sdk_v2 import AsyncAvantis, LocalSigner
 
 async with AsyncAvantis(private_key=DELEGATE_KEY, trader_address=WALLET) as client:
     await client.account.register_delegate(

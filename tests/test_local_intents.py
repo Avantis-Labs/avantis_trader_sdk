@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from avantis_trader_sdk.execution.local_intents import LocalIntentBuilder, NoncePool
-from avantis_trader_sdk.intents_schema import INTENT_TYPES
-from avantis_trader_sdk.signing import LocalSigner, sign_intent
+from avantis_trader_sdk_v2.execution.local_intents import LocalIntentBuilder, NoncePool
+from avantis_trader_sdk_v2.intents_schema import INTENT_TYPES
+from avantis_trader_sdk_v2.signing import LocalSigner, sign_intent
 from tests.conftest import TEST_KEY, VECTORS
 
 ENC_REF = json.loads(

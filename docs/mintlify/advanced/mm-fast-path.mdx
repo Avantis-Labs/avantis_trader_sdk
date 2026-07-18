@@ -6,8 +6,8 @@ description: "Build and sign orders locally — zero HTTP on the hot path."
 Normal SDK calls make one round-trip to the tx-builder API per order. For market makers, `local_intents()` removes it: the `LocalIntentBuilder` mirrors the on-chain EIP-712 schemas (proven byte-for-byte by the golden-vector test suite), so the hot path becomes **local build → local sign → relayer POST**.
 
 ```python
-from avantis_trader_sdk import AsyncAvantis
-from avantis_trader_sdk.types import AggregatorOrderType
+from avantis_trader_sdk_v2 import AsyncAvantis
+from avantis_trader_sdk_v2.types import AggregatorOrderType
 
 async with AsyncAvantis() as client:
     builder = await client.local_intents()      # one-time meta bootstrap
@@ -50,7 +50,7 @@ Payloads are `IntentPayload` objects identical to what the tx-builder would retu
 `wait=False` returns as soon as the relayer accepts the request — but a queued relay can still **fail** (reverted on-chain, or timed out inside the relayer). You own the settlement check. Off the hot path, poll by the `request_id` from the receipt:
 
 ```python
-from avantis_trader_sdk.errors import RelayError, RelayTimeoutError
+from avantis_trader_sdk_v2.errors import RelayError, RelayTimeoutError
 
 try:
     status = await engine.relayer.wait(receipt.request_id)  # polls until settled

@@ -13,7 +13,7 @@ gotchas) and docs/v2/PROGRESS.md (state + discoveries). Read them first.
 
 ### Async-first
 ```python
-from avantis_trader_sdk import AsyncAvantis
+from avantis_trader_sdk_v2 import AsyncAvantis
 async with AsyncAvantis() as client:          # env: AVANTIS_PRIVATE_KEY, AVANTIS_TRADER_ADDRESS
     await client.trade.market_open("ETH/USD", "long", collateral=100, leverage=10)
 ```
@@ -25,7 +25,7 @@ Sync facade: `Avantis()` (same surface, blocking).
 - client.markets  - pair catalog, prices, dynamic spread, candles
 - client.info     - history, portfolio, referral stats, vault APY
 - client.referral / client.lp - actions (caller-scoped; trader key only)
-- avantis_trader_sdk.compute  - pure UI-parity math (PnL, liq, validation)
+- avantis_trader_sdk_v2.compute  - pure UI-parity math (PnL, liq, validation)
 
 ### Execution routing (execution/engine.py) — blitz relayer (POST /relays)
 - relayer mode + intent-capable action -> SDK encodes executeMarketOrderBatched/
@@ -54,4 +54,4 @@ Sync facade: `Avantis()` (same surface, blocking).
 ## When Modifying
 - Keep methods async; pydantic v2 models; typed errors from errors.py.
 - Add an example for new features; update CHANGELOG.md and docs/v2/PROGRESS.md.
-- Run: pytest && ruff check --fix && mypy avantis_trader_sdk
+- Run: pytest && ruff check --fix && mypy avantis_trader_sdk_v2

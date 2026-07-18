@@ -8,9 +8,9 @@ the actual Gelato SDK from avantis-ui-v2's node_modules.
 import json
 from pathlib import Path
 
-from avantis_trader_sdk.eip7702 import Call, GelatoDelegationEncoder, encode_nonce
-from avantis_trader_sdk.eip7702.account import delegation_code
-from avantis_trader_sdk.signing import LocalSigner
+from avantis_trader_sdk_v2.eip7702 import Call, GelatoDelegationEncoder, encode_nonce
+from avantis_trader_sdk_v2.eip7702.account import delegation_code
+from avantis_trader_sdk_v2.signing import LocalSigner
 
 REF = json.loads((Path(__file__).parent / "vectors" / "eip7702_reference.json").read_text())
 

@@ -14,10 +14,10 @@ from pathlib import Path
 import pytest
 from eth_account import Account
 
-from avantis_trader_sdk.errors import DigestMismatchError
-from avantis_trader_sdk.intents_schema import INTENT_TYPES
-from avantis_trader_sdk.signing import LocalSigner, sign_intent
-from avantis_trader_sdk.types import IntentPayload
+from avantis_trader_sdk_v2.errors import DigestMismatchError
+from avantis_trader_sdk_v2.intents_schema import INTENT_TYPES
+from avantis_trader_sdk_v2.signing import LocalSigner, sign_intent
+from avantis_trader_sdk_v2.types import IntentPayload
 
 VECTORS = json.loads((Path(__file__).parent / "vectors" / "vectors.json").read_text())
 

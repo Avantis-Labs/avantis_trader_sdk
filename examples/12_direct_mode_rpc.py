@@ -6,7 +6,7 @@ still operator-driven (two-step), so poll positions after the tx confirms.
 
 import asyncio
 
-from avantis_trader_sdk import AsyncAvantis
+from avantis_trader_sdk_v2 import AsyncAvantis
 
 
 async def main() -> None:

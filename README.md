@@ -6,7 +6,7 @@ SDK signs locally and everything else comes from Avantis services.
 
 ```python
 import asyncio
-from avantis_trader_sdk import AsyncAvantis
+from avantis_trader_sdk_v2 import AsyncAvantis
 
 async def main():
     async with AsyncAvantis() as client:              # reads AVANTIS_* env vars
@@ -20,9 +20,9 @@ asyncio.run(main())
 ## Install
 
 ```bash
-pip install avantis-trader-sdk            # core
-pip install "avantis-trader-sdk[kms]"     # + AWS KMS signing
-pip install "avantis-trader-sdk[streams]" # + Socket.IO pair-data stream
+pip install avantis-trader-sdk-v2            # core
+pip install "avantis-trader-sdk-v2[kms]"     # + AWS KMS signing
+pip install "avantis-trader-sdk-v2[streams]" # + Socket.IO pair-data stream
 ```
 
 Python 3.10+.
@@ -101,7 +101,7 @@ See [`examples/`](examples/) — one runnable script per flow, from
 
 ## Errors
 
-All failures raise typed exceptions from `avantis_trader_sdk.errors`:
+All failures raise typed exceptions from `avantis_trader_sdk_v2.errors`:
 `ValidationError` (pre-trade checks, human-readable), `RelayError`,
 `DigestMismatchError`, `DelegationError`, `RateLimitedError`, `RpcError`, etc.
 
@@ -118,5 +118,5 @@ it expires. Keep expiries short (90 days recommended) and never commit keys.
 pip install -e ".[dev]"
 pytest            # 80+ tests incl. golden vectors and EIP-7702 parity
 ruff check .
-mypy avantis_trader_sdk
+mypy avantis_trader_sdk_v2
 ```

@@ -2,7 +2,7 @@
 
 Default experience (HyperLiquid-style):
 
-    from avantis_trader_sdk import AsyncAvantis
+    from avantis_trader_sdk_v2 import AsyncAvantis
 
     client = AsyncAvantis()          # reads AVANTIS_* env vars
     await client.trade.market_open("ETH/USD", "long", collateral=100, leverage=10)

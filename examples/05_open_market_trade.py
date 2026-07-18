@@ -7,7 +7,7 @@ ETH needed.
 
 import asyncio
 
-from avantis_trader_sdk import AsyncAvantis
+from avantis_trader_sdk_v2 import AsyncAvantis
 
 
 async def main() -> None:

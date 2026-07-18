@@ -11,7 +11,7 @@ import time
 
 from eth_account import Account
 
-from avantis_trader_sdk import AsyncAvantis, LocalSigner
+from avantis_trader_sdk_v2 import AsyncAvantis, LocalSigner
 
 
 async def main() -> None:
