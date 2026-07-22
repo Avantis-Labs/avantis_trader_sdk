@@ -44,7 +44,8 @@ class NetworkProfile:
 TESTNET = NetworkProfile(
     name="testnet",
     tx_builder_url="https://tx-builder-testnet.avantisfi.com",
-    relayer_url="https://blitz-relayer-testnet.avantisfi.com",
+    # TEMPORARY (branch v2-live-relayer): the live relayer-app, not blitz.
+    relayer_url="https://relayer-testnet.avantisfi.com",
     data_api_url="https://testnet-data.avantisfi.com",
     core_api_url="https://core-testnet.avantisfi.com",
     history_api_url="https://testnet-api.avantisfi.com",
@@ -59,8 +60,9 @@ TESTNET = NetworkProfile(
 MAINNET = NetworkProfile(
     name="mainnet",
     tx_builder_url="https://tx-builder.avantisfi.com",
-    # NOTE: unverified guess — confirm the mainnet blitz host before release.
-    relayer_url="https://blitz-relayer.avantisfi.com",
+    # NOTE: unverified guess — only the testnet relayer-app deployment is
+    # confirmed (avantis-cd/services/relayer-app/testnet).
+    relayer_url="https://relayer.avantisfi.com",
     data_api_url="https://data.avantisfi.com",
     core_api_url="https://core.avantisfi.com",
     history_api_url="https://api.avantisfi.com",

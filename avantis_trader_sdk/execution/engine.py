@@ -1,11 +1,15 @@
 """Execution engine: routes signed actions to the chain.
 
+TEMPORARY (branch v2-live-relayer): relays go to the live relayer-app
+(`POST /v2/relay/queue`) instead of blitz.
+
 Routes:
-- ``relayer-batch``        signed EIP-712 intent -> executeMarketOrderBatched /
-                           executePositionUpdateBatched calldata encoded locally
-                           (price update from feed-v3) -> blitz POST /relays (type 2)
+- ``relayer-batch``        signed EIP-712 intent -> erc712 payload
+                           (BATCH_MARKET_EXECUTION / BATCH_POSITION_UPDATE);
+                           the relayer fetches the price update and encodes
+                           the trading-contract call server-side
 - ``relayer-passthrough``  calldata wrapped in a type4 smart-account tx
-                           -> blitz POST /relays (type 4)
+                           -> TX_RELAY with a type4 payload
 - ``rpc``                  normal signed transaction via the user's RPC
 - ``txbuilder-relay``      normal signed transaction via POST {tx-builder}/v2/relay
 """
@@ -15,13 +19,10 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from eth_abi import encode as abi_encode
-from eth_utils import keccak, to_bytes
-
 from ..config import AvantisConfig
 from ..eip7702 import Call, GelatoDelegationEncoder
 from ..eip7702.account import fresh_nonce
-from ..errors import ApiError, ConfigError, RelayError
+from ..errors import ConfigError, RelayError
 from ..signing import BaseSigner, sign_intent
 from ..transport import HttpTransport
 from ..txbuilder import TxBuilderClient
@@ -37,21 +38,31 @@ from ..types import (
 from .relayer import RelayerClient
 from .rpc import JsonRpcClient
 
-# aggregator batch entry points (mirrors avantis-backend-monorepo relayBatched)
-_BATCH_ABI_ARGS = "(uint8,bytes,bytes,bytes[],uint8,(int256,uint256,int256,bool,int256,bool,int256))"
-_BATCH_SELECTORS = {
-    RelayAction.BATCH_MARKET_EXECUTION: keccak(
-        text=f"executeMarketOrderBatched{_BATCH_ABI_ARGS}"
-    )[:4],
-    RelayAction.BATCH_POSITION_UPDATE: keccak(
-        text=f"executePositionUpdateBatched{_BATCH_ABI_ARGS}"
-    )[:4],
-}
-_BATCH_GAS_LIMIT = 2_500_000
-# Pyth Core (Hermes) requires a 0.000015 ETH fee; Lazer uses 1 wei.
-_PYTH_CORE_FEE_WEI = 15_000_000_000_000
-_PRICE_SOURCING = {"core": 0, "pro": 1}  # HERMES / PRO(Lazer), from /v2/meta enums
-_ZERO_SPREAD_PARAMS = (0, 0, 0, False, 0, False, 0)
+
+def _serialize_type4(tx_params: dict[str, Any]) -> dict[str, Any]:
+    """Blitz-shaped txParams -> live relayer-app type4 payload.
+
+    The relayer-app DTO wants string numerics, ``gas`` (not ``gasLimit``),
+    and no value/transactionType (the server forces value=0, type=4).
+    """
+    return {
+        "chainId": str(tx_params["chainId"]),
+        "to": tx_params["to"],
+        "data": tx_params["data"],
+        "gas": str(tx_params["gasLimit"]),
+        "authorizationList": [
+            {
+                "address": a["address"],
+                "chainId": str(a["chainId"]),
+                "nonce": str(a["nonce"]),
+                "r": a["r"],
+                "s": a["s"],
+                "yParity": a["yParity"],
+                "v": str(a["v"]),
+            }
+            for a in tx_params.get("authorizationList", [])
+        ],
+    }
 
 
 class ExecutionEngine:
@@ -99,24 +110,6 @@ class ExecutionEngine:
             await self.chain_id()
         assert self._trading_router is not None
         return self._trading_router
-
-    async def _fresh_price_update(self, pair_index: int) -> tuple[bytes, int, int]:
-        """(priceUpdateData, sourcing, txValueWei) for a batched execution.
-
-        Prefers the Lazer ('pro') update (1 wei fee) and falls back to Pyth
-        Core ('core', 0.000015 ETH fee). Fetched from feed-v3, same source the
-        operator services use.
-        """
-        data = await self._transport.json(
-            "GET", f"{self.config.feed_url}/v2/pairs/{pair_index}/price-update-data"
-        )
-        for key in ("pro", "core"):
-            entry = (data or {}).get(key)
-            update = (entry or {}).get("priceUpdateData")
-            if update:
-                value = 1 if key == "pro" else _PYTH_CORE_FEE_WEI
-                return to_bytes(hexstr=update), _PRICE_SOURCING[key], value
-        raise ApiError(f"no price update data available for pairIndex={pair_index}")
 
     async def encoder(self) -> GelatoDelegationEncoder:
         if self._encoder is None:
@@ -176,14 +169,12 @@ class ExecutionEngine:
         *,
         wait: bool = True,
     ) -> ExecutionReceipt:
-        """Sign an intent and broadcast the batched execution via blitz.
+        """Sign an intent and queue the batched execution via the live relayer.
 
-        The blitz relayer is a pure broadcaster, so the SDK encodes the
-        operator entry-point call itself: executeMarketOrderBatched /
-        executePositionUpdateBatched(orderType, signature, intent,
-        [priceUpdate], sourcing, zeroSpreadParams), with a fresh price update
-        from feed-v3 and the Pyth fee as tx value (mirrors the retired
-        relayer-app's `relayBatched`). Blitz wallets are protocol operators.
+        The relayer-app encodes the trading-contract call itself
+        (executeMarketOrderBatched / executePositionUpdateBatched) from the
+        erc712 payload: it fetches a fresh price update, appends the builder
+        code, and sets the Pyth fee value server-side.
         """
         signer = self._require_signer()
         action = INTENT_BATCH_ACTION.get(payload.primary_type)
@@ -194,34 +185,20 @@ class ExecutionEngine:
                 "trade.partial_tp_sl (off-chain storage)."
             )
         signed = sign_intent(payload, signer)
-        price_update, sourcing, value = await self._fresh_price_update(payload.pair_index)
 
-        data = _BATCH_SELECTORS[action] + abi_encode(
-            ["uint8", "bytes", "bytes", "bytes[]", "uint8",
-             "(int256,uint256,int256,bool,int256,bool,int256)"],
-            [
-                int(order_type),
-                to_bytes(hexstr=signed.signature),
-                to_bytes(hexstr=payload.encoded_intent),
-                [price_update],
-                sourcing,
-                _ZERO_SPREAD_PARAMS,
-            ],
-        )
-        data_hex = "0x" + data.hex()
-        if self.config.builder_code:
-            data_hex += self.config.builder_code.removeprefix("0x")
-
-        tx_params = {
-            "to": await self.trading_router(),
-            "data": data_hex,
-            "value": str(value),
-            "gasLimit": str(_BATCH_GAS_LIMIT),
-            "chainId": await self.chain_id(),
-            "transactionType": 2,
-        }
         wallet = self.config.trader_address or signer.address
-        request_id = await self.relayer.create(tx_params, wallet)
+        request_id = await self.relayer.queue(
+            action,
+            {
+                "erc712": {
+                    "userIntent": payload.encoded_intent,
+                    "userSignature": signed.signature,
+                    "pairIndex": payload.pair_index,
+                    "orderType": int(order_type),
+                }
+            },
+            wallet,
+        )
         receipt = ExecutionReceipt(
             route="relayer-batch", request_id=request_id, description=payload.intent
         )
@@ -239,7 +216,9 @@ class ExecutionEngine:
         calls = [Call.from_hex(calldata.to, calldata.data, calldata.value_wei)]
         tx_params = await self._build_type4(calls)
         wallet = self.config.trader_address or signer.address
-        request_id = await self.relayer.create(tx_params, wallet)
+        request_id = await self.relayer.queue(
+            RelayAction.TX_RELAY, {"type4": _serialize_type4(tx_params)}, wallet
+        )
         receipt = ExecutionReceipt(
             route="relayer-passthrough",
             request_id=request_id,

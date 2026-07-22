@@ -108,14 +108,14 @@ async def test_referral_register_gasless_wraps_with_sig():
     payload = _vector_payload("RegisterCodeReq")
     payload["domain"] = dict(VECTORS["domain"])  # referral domain (same shape)
     respx.post(f"{TXB}/v2/intents/referral-register-code").mock(return_value=_ok(payload))
-    queue_route = respx.post(f"{RELAYER}/relays").mock(
+    queue_route = respx.post(f"{RELAYER}/v2/relay/queue").mock(
         return_value=httpx.Response(200, json={"requestId": "r1"})
     )
-    respx.get(f"{RELAYER}/relays/r1").mock(
+    respx.get(f"{RELAYER}/v2/relay/r1").mock(
         return_value=httpx.Response(
             200,
-            json={"requestId": "r1", "status": "Finalised",
-                  "receipt": {"transactionHash": "0xr", "status": "0x1"}},
+            json={"success": True, "errorMessage": None,
+                  "receipt": {"transactionHash": "0xr"}},
         )
     )
 
@@ -125,8 +125,8 @@ async def test_referral_register_gasless_wraps_with_sig():
 
     assert receipt.tx_hash == "0xr"
     body = json.loads(queue_route.calls[0].request.content)
-    tx = body["txParams"]
-    assert tx["transactionType"] == 4
+    assert body["action"] == "TX_RELAY"
+    tx = body["payload"]["type4"]
     assert tx["data"].startswith("0xe9ae5c53")  # execute() wrapper
 
 
@@ -195,14 +195,14 @@ async def test_register_delegate_flow():
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
     payload = _vector_payload("DelegateReq", signerRule="trader-only")
     respx.post(f"{TXB}/v2/intents/delegate-set").mock(return_value=_ok(payload))
-    queue_route = respx.post(f"{RELAYER}/relays").mock(
+    queue_route = respx.post(f"{RELAYER}/v2/relay/queue").mock(
         return_value=httpx.Response(200, json={"requestId": "d1"})
     )
-    respx.get(f"{RELAYER}/relays/d1").mock(
+    respx.get(f"{RELAYER}/v2/relay/d1").mock(
         return_value=httpx.Response(
             200,
-            json={"requestId": "d1", "status": "Finalised",
-                  "receipt": {"transactionHash": "0xd", "status": "0x1"}},
+            json={"success": True, "errorMessage": None,
+                  "receipt": {"transactionHash": "0xd"}},
         )
     )
 
@@ -214,8 +214,8 @@ async def test_register_delegate_flow():
     assert receipt.tx_hash == "0xd"
     body = json.loads(queue_route.calls[0].request.content)
     # inner calldata targets setDelegateWithSig on the router (via execute wrapper)
-    assert body["txParams"]["transactionType"] == 4
-    assert body["txParams"]["data"].startswith("0xe9ae5c53")
+    assert body["action"] == "TX_RELAY"
+    assert body["payload"]["type4"]["data"].startswith("0xe9ae5c53")
 
 
 @pytest.mark.asyncio
@@ -234,14 +234,14 @@ async def test_lp_deposit_trader_mode():
             }
         )
     )
-    respx.post(f"{RELAYER}/relays").mock(
+    respx.post(f"{RELAYER}/v2/relay/queue").mock(
         return_value=httpx.Response(200, json={"requestId": "lp1"})
     )
-    respx.get(f"{RELAYER}/relays/lp1").mock(
+    respx.get(f"{RELAYER}/v2/relay/lp1").mock(
         return_value=httpx.Response(
             200,
-            json={"requestId": "lp1", "status": "Finalised",
-                  "receipt": {"transactionHash": "0xlp", "status": "0x1"}},
+            json={"success": True, "errorMessage": None,
+                  "receipt": {"transactionHash": "0xlp"}},
         )
     )
 

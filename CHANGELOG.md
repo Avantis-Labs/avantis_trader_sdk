@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased (branch v2-live-relayer)
+
+- TEMPORARY: relayer route targets the live relayer-app
+  (`relayer-testnet.avantisfi.com`, `POST /v2/relay/queue`) instead of the
+  not-yet-ready blitz relayer. Intent batches are sent as erc712 payloads
+  (server-side price update + encoding); passthroughs as TX_RELAY type4
+  payloads. Revert when blitz ships.
+
 ## 2.0.0a1 (unreleased)
 
 Ground-up rewrite for Avantis v2. **Breaking: the 1.x API is removed.**
