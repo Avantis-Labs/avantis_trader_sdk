@@ -74,6 +74,13 @@ class Position(BaseModel):
         """Notional in USDC (collateral * leverage)."""
         return self.collateral * self.leverage
 
+    @property
+    def size_in_asset(self) -> Decimal:
+        """Position size in the base asset (collateral * leverage / open price)."""
+        if self.open_price == 0:
+            return Decimal(0)
+        return self.position_size / self.open_price
+
 
 class LimitOrder(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="allow")

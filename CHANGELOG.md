@@ -33,6 +33,8 @@ Ground-up rewrite for Avantis v2. **Breaking: the 1.x API is removed.**
 - LP (ERC-4626 tranche) and referral namespaces, builder codes, claims.
 - Typed error taxonomy; digest verification on every signed intent.
 - AWS KMS signer (optional extra), EIP-7702 authorization support.
+- `Position.size_in_asset`: position size in the base asset
+  (collateral × leverage ÷ open price).
 
 ### Fixes from live testnet E2E (2026-07-16)
 

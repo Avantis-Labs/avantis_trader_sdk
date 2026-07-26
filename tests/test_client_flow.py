@@ -253,6 +253,7 @@ async def test_positions_read():
     assert float(pos.leverage) == 10.0
     assert float(pos.open_price) == pytest.approx(61768.1861478347)
     assert float(pos.position_size) == 125000.0
+    assert float(pos.size_in_asset) == pytest.approx(125000.0 / 61768.1861478347)
 
 
 @pytest.mark.asyncio
