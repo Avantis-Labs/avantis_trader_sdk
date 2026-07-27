@@ -20,6 +20,7 @@ TXB = "https://txb.test"
 RELAYER = "https://relayer.test"
 CORE = "https://core.test"
 FEED = "https://feed.test"
+DATA = "https://data.test"
 
 def _client() -> AsyncAvantis:
     return AsyncAvantis(
@@ -30,6 +31,7 @@ def _client() -> AsyncAvantis:
         relayer_url=RELAYER,
         core_api_url=CORE,
         feed_url=FEED,
+        data_api_url=DATA,
         relay_poll_interval_s=0.01,
     )
 
@@ -222,24 +224,53 @@ async def test_positions_read():
                         "lossProtection": "0",
                         "openedAt": 1782374525,
                         "offchainOrders": [],
-                    }
+                    },
+                    {
+                        "trader": TRADER,
+                        "pairIndex": 20,
+                        "index": 0,
+                        "buy": True,
+                        "isPnl": False,
+                        "collateral": "1000000000",  # 1_000 USDC
+                        "leverage": "500000000000",  # 50x
+                        "openPrice": "1554500000000",  # 155.45 JPY per USD
+                        "openedAt": 1782374525,
+                        "offchainOrders": [],
+                    },
                 ],
                 "limitOrders": [],
             },
         )
     )
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
+    respx.get(f"{DATA}/v2/trading").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "pairInfos": {
+                    "1": {"index": 1, "from": "BTC", "to": "USD"},
+                    "20": {"index": 20, "from": "USD", "to": "JPY"},
+                }
+            },
+        )
+    )
 
     async with _client() as client:
         data = await client.account.positions()
 
-    (pos,) = data.positions
+    pos, jpy = data.positions
     assert pos.side == "long"
     assert float(pos.collateral) == 12500.0
     assert float(pos.leverage) == 10.0
     assert float(pos.open_price) == pytest.approx(61768.1861478347)
     assert float(pos.position_size) == 125000.0
+    # quote-USD pair: coin size = notional / open price
+    assert pos.base_symbol == "BTC"
     assert float(pos.size_in_asset) == pytest.approx(125000.0 / 61768.1861478347)
+    # USD-base pair (USD/JPY): the USDC notional already IS the base-asset size
+    assert jpy.base_symbol == "USD"
+    assert float(jpy.position_size) == 50000.0
+    assert float(jpy.size_in_asset) == 50000.0
 
 
 @pytest.mark.asyncio

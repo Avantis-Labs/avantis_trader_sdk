@@ -13,6 +13,7 @@ from ..base_api import ExecutingApi
 from ..config import AvantisConfig
 from ..errors import ConfigError, DelegationError
 from ..execution import ExecutionEngine
+from ..markets.models import PairInfo
 from ..signing import BaseSigner, sign_intent
 from ..transport import HttpTransport
 from ..txbuilder import TxBuilderClient
@@ -30,21 +31,35 @@ class AccountApi(ExecutingApi):
         txb: TxBuilderClient,
         transport: HttpTransport,
         get_meta: Callable[[], Awaitable[dict[str, Any]]],
+        get_pairs: Callable[[], Awaitable[dict[int, PairInfo]]],
     ) -> None:
         super().__init__(config, engine, txb, transport)
         self._get_meta = get_meta
+        self._get_pairs = get_pairs
 
     # ------------------------------------------------------------------ reads
 
     async def positions(self, trader: str | None = None) -> UserData:
         """Open positions + standing limit orders (core API, enriched with
-        liquidation price, rollover, and unrealized funding)."""
+        liquidation price, rollover, and unrealized funding).
+
+        Each position also gets ``base_symbol`` from the markets pair catalog
+        so ``Position.size_in_asset`` handles USD-base pairs (USD/JPY, ...)
+        correctly.
+        """
         addr = trader or self.trader
         assert self._t is not None
         data = await self._t.json(
             "GET", f"{self._cfg.core_api_url}/user-data", params={"trader": addr}
         )
-        return UserData.model_validate(data)
+        user_data = UserData.model_validate(data)
+        if user_data.positions:
+            pairs = await self._get_pairs()
+            for pos in user_data.positions:
+                info = pairs.get(pos.pair_index)
+                if info is not None:
+                    pos.base_symbol = info.from_symbol
+        return user_data
 
     async def positions_onchain(self, trader: str | None = None) -> dict[str, Any]:
         """Positions via the tx-builder RPC read (raw bigint strings)."""
