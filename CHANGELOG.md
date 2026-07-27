@@ -34,7 +34,9 @@ Ground-up rewrite for Avantis v2. **Breaking: the 1.x API is removed.**
 - Typed error taxonomy; digest verification on every signed intent.
 - AWS KMS signer (optional extra), EIP-7702 authorization support.
 - `Position.size_in_asset`: position size in the base asset
-  (collateral × leverage ÷ open price).
+  (collateral × leverage ÷ open price; for USD-base pairs like USD/JPY the
+  USDC notional is returned as-is). `account.positions()` tags each position
+  with `base_symbol` from the markets pair catalog to support this.
 
 ### Fixes from live testnet E2E (2026-07-16)
 

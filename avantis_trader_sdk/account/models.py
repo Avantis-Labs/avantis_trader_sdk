@@ -30,6 +30,10 @@ class Position(BaseModel):
     loss_protection_raw: str = Field(alias="lossProtection", default="0")
     opened_at: int = Field(alias="openedAt", default=0)
     offchain_orders: list[dict[str, Any]] = Field(alias="offchainOrders", default_factory=list)
+    base_symbol: str | None = None
+    """Base ("from") asset of the pair, e.g. "ETH" for ETH/USD or "USD" for
+    USD/JPY. Not part of the core API payload — populated by
+    ``AccountApi.positions()`` from the markets pair catalog."""
 
     # -- human units ---------------------------------------------------------
 
@@ -76,7 +80,15 @@ class Position(BaseModel):
 
     @property
     def size_in_asset(self) -> Decimal:
-        """Position size in the base asset (collateral * leverage / open price)."""
+        """Position size in the base asset (collateral * leverage / open price).
+
+        For USD-base pairs (USD/JPY, USD/CHF, ...) the USDC notional already
+        IS the base-asset size, so no division by the open price. This relies
+        on ``base_symbol`` (set by ``AccountApi.positions()``); when it is
+        missing the usual quote-USD convention is assumed.
+        """
+        if self.base_symbol is not None and self.base_symbol.upper() == "USD":
+            return self.position_size
         if self.open_price == 0:
             return Decimal(0)
         return self.position_size / self.open_price
