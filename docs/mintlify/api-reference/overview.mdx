@@ -1,0 +1,93 @@
+---
+title: How the API Works
+description: "Build a payload, sign it locally, submit it. The three-step flow behind every endpoint."
+---
+
+These endpoints belong to the Avantis **tx-builder**, a stateless HTTP
+service that turns every user-callable protocol action into a payload you
+can sign. It holds no keys and stores nothing: you build, you sign locally,
+you submit. If you use the Python SDK you never call these endpoints
+directly; this reference is for integrators building their own stack.
+
+## Base URLs
+
+| Network | Base URL |
+| --- | --- |
+| Testnet | `https://tx-builder-testnet.avantisfi.com` (this reference renders the testnet spec) |
+| Mainnet | `https://tx-builder.avantisfi.com` |
+
+Every endpoint accepts both GET (query parameters) and POST (JSON body).
+Responses use a standard envelope: `{ok, data, error: {code, message, details}}`.
+
+## The flow
+
+**1. Bootstrap once.** Call `GET /v2/meta` at startup. It returns the
+chainId, contract addresses, both EIP-712 signing domains, enum mappings,
+and unit conventions. Never hard-code any of these.
+
+**2. Build the payload.** Each action comes in two flavors, matching the
+two [execution routes](/advanced/execution-modes):
+
+- **Signable intents** (`/v2/intents/*`), for the gasless relayer route.
+  The response carries the exact EIP-712 typed data
+  (`domain`, `types`, `primaryType`, `message`) plus its digest and the
+  abi-encoded `userIntent`.
+- **Unsigned transactions** (`/v2/trade/*`, `/v2/limit/*`, `/v2/margin/*`,
+  `/v2/position/*`, and so on), for self-broadcasting. The response is
+  `{to, from, data, value}`, ready to sign as a regular transaction.
+
+**3. Sign and submit.**
+
+- **Intents**: recompute the EIP-712 digest locally and check it matches
+  the one in the response (this protects you from a tampered or buggy
+  build), then sign it with the trader key or a registered delegate key.
+  Signatures are 65-byte `r||s||v` with `v` of 27 or 28. Submission goes
+  to the Avantis execution services: market opens, closes, and increases
+  to the batched-market endpoint, TWAP intents to the TWAP API, the rest
+  through the relayer. The
+  [direct integrators guide](/migration/direct-integrators) covers the
+  submission targets and conventions in detail.
+- **Transactions**: sign an EIP-1559 transaction and broadcast it through
+  your own RPC, or forward it via `POST /v2/relay` (whitelisted contracts
+  only, with simulation before submission). Check the outcome with
+  `GET /v2/relay/{hash}`.
+
+## Keys: how to get a delegate
+
+You can sign everything with your wallet's own key, but the recommended
+setup for bots and integrations is a **delegate key** (also called an API
+key): a separate key registered to your wallet that can trade but can never
+withdraw funds, approve USDC, or add other delegates.
+
+Two ways to get one:
+
+- **The easy way**: generate one with the
+  [Avantis API Key Generator](https://avantis-delegate-ui.preview.avantisfi.link/).
+  One wallet signature registers it, and USDC approval happens in the same
+  flow.
+- **Programmatically**: generate your own keypair, then register it with
+  `/v2/intents/delegate` (a gasless `DelegateReq` intent signed once by the
+  trader key) or `/v2/delegate/set` (a regular transaction). Check status
+  anytime with `/v2/reads/delegation`.
+
+See [Delegates & API keys](/account/delegates) for the full permission
+matrix.
+
+## Conventions that bite people
+
+- **Human units in requests.** `collateralUsdc=100` means 100 USDC,
+  `leverage=10` means 10x. `/v2/meta` documents the on-chain scaling
+  (USDC 1e6; prices, leverage, and coin exposure 1e10).
+- **Intent deadlines are milliseconds**; delegate expiry is an absolute
+  unix timestamp in **seconds**. Don't mix them up.
+- **Nonces are an unordered bitmap** (Permit2-style), not a counter. Any
+  unused 256-bit value works; `GET /v2/reads/nonce` suggests a free one.
+- **A one-time USDC approval** to TradingStorage is required before the
+  first trade (`/v2/token/approve`, or done for you by the API Key
+  Generator flow).
+
+## Prefer not to deal with any of this?
+
+The [Python SDK](/quickstart) wraps the whole surface: digest verification,
+signing, nonce management, submission, and settlement tracking, with one
+method call per action.

@@ -1,6 +1,6 @@
 """SDK configuration: constructor args > environment variables > network profile.
 
-Environment variables (HyperLiquid-style semantics):
+Environment variables:
 
 - ``AVANTIS_PRIVATE_KEY``    the signing key (delegate/agent key or trader key)
 - ``AVANTIS_TRADER_ADDRESS`` if set and != key's address -> delegate mode

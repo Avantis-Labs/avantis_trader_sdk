@@ -80,7 +80,16 @@
       },
       {
         "tab": "API Reference",
-        "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json"
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": ["api-reference/overview"]
+          },
+          {
+            "group": "Endpoints",
+            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json"
+          }
+        ]
       }
     ]
   },

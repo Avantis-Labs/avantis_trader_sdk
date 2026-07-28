@@ -1,7 +1,7 @@
 # Avantis Trader SDK v2
 
 Python SDK for [Avantis](https://www.avantisfi.com) v2, leveraged perpetuals
-on Base. API-first (HyperLiquid-style): no ABIs, no web3, no RPC required. The
+on Base. API-first: no ABIs, no web3, no RPC required. The
 SDK signs locally and everything else comes from Avantis services.
 
 ```python

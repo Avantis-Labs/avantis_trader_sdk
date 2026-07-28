@@ -1,6 +1,6 @@
 """Bootstrap the SDK and inspect protocol metadata.
 
-Environment (the default HyperLiquid-style setup):
+Environment (the default setup):
     export AVANTIS_PRIVATE_KEY=0x...      # your API/agent key from the Avantis UI
     export AVANTIS_TRADER_ADDRESS=0x...   # your wallet address
     # optional: AVANTIS_NETWORK=testnet|mainnet (default testnet)

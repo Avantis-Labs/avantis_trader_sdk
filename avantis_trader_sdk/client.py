@@ -1,6 +1,6 @@
 """Avantis v2 client.
 
-Default experience (HyperLiquid-style):
+Default experience:
 
     from avantis_trader_sdk import AsyncAvantis
 
