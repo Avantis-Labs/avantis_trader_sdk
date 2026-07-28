@@ -99,6 +99,18 @@ batched-market execution, twap-app, off-chain order CRUD).
 
 ### Unreleased additions (2026-07-28)
 
+- **Docs overhauled and mirrored**: `docs/mintlify/` is now byte-identical
+  with the published `avantis-python-sdk` repo (sync = plain copy, see the
+  docs README). Market-orders page documents the batched-market lifecycle
+  (`tracking_id`, `wait=False`, seq-resumable status replay); the MM
+  fast-path page and `examples/13_mm_fast_path.py` were rewritten for the
+  dual-payload architecture (market orders need the EIP-7702 calldata leg;
+  settlement via `engine.batched_market.wait`); the delegates page example
+  passes an absolute unix expiry; execution-modes documents the trader-EOA
+  `rpc_url` requirement. API Reference endpoint names now render as route
+  paths (`positions`, `trade/open`) via `x-mint.metadata.sidebarTitle`
+  emitted by the tx-builder OpenAPI generator (was operationId-style
+  `V2Positions`).
 - `market_open` / `market_open_coin` accept an optional `open_price` — the
   reference price the fill is validated against (± `slippage_percent`);
   resolved from the live feed when omitted (matching `increase_position`).

@@ -23,15 +23,27 @@ Generate an API key under **API Keys** in the web app — one wallet signature r
 Register any key programmatically. The trader key signs one `DelegateReq` intent (used transiently, never stored); submission is gasless:
 
 ```python
+import time
 from avantis_trader_sdk import AsyncAvantis, LocalSigner
 
 async with AsyncAvantis(private_key=DELEGATE_KEY, trader_address=WALLET) as client:
     await client.account.register_delegate(
         delegate=LocalSigner(DELEGATE_KEY).address,
-        expiry_seconds=60 * 60 * 24 * 90,        # 90 days — NOTE: seconds, not ms
+        expiry_seconds=int(time.time()) + 60 * 60 * 24 * 90,  # ABSOLUTE unix ts, in seconds
         trader_signer=LocalSigner(WALLET_KEY),   # transient, one signature
     )
 ```
+
+<Warning>
+`expiry_seconds` is an **absolute** unix timestamp in seconds (not a
+duration, not milliseconds) — the API rejects anything that isn't a future
+timestamp.
+</Warning>
+
+Registration is gasless and needs no RPC: it rides the fresh delegate key's
+EIP-7702 smart account. (Only if you run the SDK with your **wallet key**
+as the signer does relayer mode need an `rpc_url` — see
+[Execution modes](/advanced/execution-modes).)
 
 ## Check and verify
 

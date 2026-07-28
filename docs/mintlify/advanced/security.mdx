@@ -21,7 +21,7 @@ Delegations expire (`expiry_seconds`) and can be revoked at any time from the UI
 ## Signing safety
 
 - **Digest verification** — for every intent, the SDK computes the EIP-712 digest locally and asserts it equals the API-provided digest before signing. A mismatch raises `DigestMismatchError` and nothing is submitted. This means a compromised or buggy API cannot trick the SDK into signing something other than what you asked for.
-- **Golden vectors** — all 15 intent kinds are tested against signature vectors produced by the on-chain hashing library itself, so local encoding provably matches the contracts.
+- **Golden vectors** — all 17 intent kinds are tested against signature vectors produced by the on-chain hashing library itself (the two off-chain-verified kinds, `TwapCancelReq` and `CancelOffchainOrder`, are pinned to ethers `TypedDataEncoder` digests), so local encoding provably matches the verifiers.
 - **EIP-7702 parity** — the relayer passthrough's smart-account encoding is tested byte-for-byte against the Gelato reference implementation.
 
 ## Key handling

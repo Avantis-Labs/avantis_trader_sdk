@@ -78,6 +78,40 @@ await client.trade.market_close_coin(pos.pair_index, pos.index, coin_exposure=0.
 The close intent binds the position's open timestamp. If you open and close in quick succession and hit a `PositionMismatch`-style simulation failure, pass `open_timestamp=pos.opened_at` explicitly, or re-fetch positions first.
 </Warning>
 
-## Fills are operator-driven
+## Track the order lifecycle
 
-The receipt confirms submission, not the fill. Poll `client.account.positions()` or use the [order event stream](/data/prices-and-streams) — see [Core concepts](/concepts#receipts-and-fills).
+Market orders route through the batched-market service, which streams the
+lifecycle back: `MarketOrderAccepted` → `MarketOrderInitiated` (on-chain
+order id + tx hash) → `MarketOrderExecuted`. With the default `wait=True`
+the receipt already reflects the executed fill:
+
+```python
+receipt = await client.trade.market_open("ETH/USD", "long", collateral=100, leverage=10)
+print(receipt.route)         # "batched-market"
+print(receipt.tx_hash)       # execution transaction
+print(receipt.order_id)      # on-chain order id
+print(receipt.tracking_id)   # lifecycle replay handle
+```
+
+A fill the protocol declines (e.g. price moved beyond `slippage_percent`)
+raises `RelayError` instead of returning a receipt.
+
+With `wait=False` the call returns at `MarketOrderAccepted` — `tx_hash` is
+still `None` and you settle later from the `tracking_id`:
+
+```python
+accepted = await client.trade.market_close(pos.pair_index, pos.index,
+                                           collateral_to_close=50, wait=False)
+
+outcome = await client.engine.batched_market.wait(accepted.tracking_id)
+print(outcome.tx_hash)                        # settled
+for ev in outcome.events:                     # full persisted lifecycle
+    print(ev.seq, ev.type, ev.data)
+```
+
+`client.engine.batched_market.status(tracking_id, after_seq=n)` is the
+non-blocking single poll — every event carries a `seq`, so you can resume
+replay after a crash without missing or double-processing events.
+
+For position-level confirmation, `client.account.positions()` reflects the
+fill after execution — see [Core concepts](/concepts#receipts-and-fills).

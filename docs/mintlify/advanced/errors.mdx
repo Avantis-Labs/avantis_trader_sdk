@@ -29,7 +29,7 @@ except RelayTimeoutError:
 | &nbsp;&nbsp;`UpstreamError` | 502 — upstream RPC/API failure on the server side | Yes, with backoff |
 | `SigningError` | Local signing failure | No |
 | &nbsp;&nbsp;`DigestMismatchError` | Local EIP-712 digest ≠ API digest | **Never** — see below |
-| `RelayError` | Relayer rejected or failed the request (`.request_id`) | Inspect message |
+| `RelayError` | Relayer rejected/failed the request (`.request_id`), or the batched-market service declined the fill (`MarketOrderCanceled`, e.g. slippage) | Inspect message |
 | &nbsp;&nbsp;`RelayTimeoutError` | Not settled within `relay_poll_timeout_s` | Check positions first — it may still land |
 | `RpcError` | JSON-RPC failure in direct mode (`.code`, `.data`) | Depends on code |
 | `TransactionRevertedError` | Transaction mined but reverted (`.tx_hash`) | Inspect on-chain |

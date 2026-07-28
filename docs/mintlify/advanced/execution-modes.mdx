@@ -8,9 +8,19 @@ Set once via `AVANTIS_EXECUTION` or `AsyncAvantis(execution=...)`. Method calls 
 | | `relayer` (default) | `direct` |
 | --- | --- | --- |
 | Gas | Paid by Avantis (gasless) | You pay (needs ETH on Base) |
-| Requirements | Signing key only | `rpc_url` + ETH |
+| Requirements | Signing key only (see note below for trader-key signing) | `rpc_url` + ETH |
 | Transport | Signed intents / EIP-7702 relays | EIP-1559 via your RPC |
 | Works with API keys | Yes | Yes (delegated actions) |
+
+<Note>
+Relayer-mode actions that ride your EIP-7702 smart account (limit orders,
+margin, approvals, delegate registration, …) sign an authorization over your
+EOA's account nonce. A delegate/API key is a fresh EOA, so the SDK needs no
+RPC at all — the normal setup. Signing with **your wallet key directly**
+requires `rpc_url` / `AVANTIS_RPC_URL` (any Base endpoint, e.g.
+`https://mainnet.base.org`) to read that nonce; the SDK raises a clear
+`ConfigError` if it's missing.
+</Note>
 
 ## Relayer mode
 
@@ -39,7 +49,7 @@ When trading with an API key in direct mode, calls are wrapped as delegated acti
 
 ## Choosing
 
-- **Relayer** for almost everyone: no ETH, no RPC, no nonce management.
+- **Relayer** for almost everyone: no ETH, no nonce management, and no RPC when using a delegate/API key.
 - **Direct** if you must control broadcasting — your own RPC/builder, custom gas strategy, or no dependency on Avantis infrastructure for submission.
 
 Latency-sensitive? Stay on relayer and use the [market-maker fast path](/advanced/mm-fast-path) to remove HTTP round-trips from order building.

@@ -1,11 +1,16 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Avantis SDK",
+  "name": "Avantis Python SDK",
   "colors": {
     "primary": "#6C5CE7",
     "light": "#A29BFE",
     "dark": "#4834D4"
+  },
+  "favicon": "/favicon.svg",
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
   },
   "navigation": {
     "tabs": [
@@ -14,7 +19,7 @@
         "groups": [
           {
             "group": "Getting Started",
-            "pages": ["introduction", "quickstart", "configuration", "concepts"]
+            "pages": ["index", "quickstart", "configuration", "concepts"]
           },
           {
             "group": "Trading",
@@ -67,8 +72,30 @@
       }
     ]
   },
-  "footerSocials": {
-    "x": "https://x.com/avantisfi",
-    "github": "https://github.com/Avantis-Labs"
+  "navbar": {
+    "links": [
+      {
+        "label": "Examples",
+        "href": "https://github.com/Avantis-Labs/avantis_trader_sdk/tree/main/examples"
+      }
+    ]
+  },
+  "contextual": {
+    "options": [
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "perplexity",
+      "mcp",
+      "cursor",
+      "vscode"
+    ]
+  },
+  "footer": {
+    "socials": {
+      "x": "https://x.com/avantisfi",
+      "github": "https://github.com/Avantis-Labs"
+    }
   }
 }

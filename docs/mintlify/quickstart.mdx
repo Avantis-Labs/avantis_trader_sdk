@@ -40,10 +40,9 @@ async def main():
             take_profit=4000,    # optional
             stop_loss=2800,      # optional
         )
-        print("submitted:", receipt.tx_hash)
+        # the receipt reflects the executed fill (batched-market route)
+        print("executed:", receipt.tx_hash, "order:", receipt.order_id)
 
-        # market fills are operator-driven; poll positions for the fill
-        await asyncio.sleep(3)
         positions = await client.account.positions()
         for p in positions.positions:
             print(p.side, float(p.collateral), "USDC at", float(p.open_price))
