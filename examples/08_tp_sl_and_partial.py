@@ -21,7 +21,9 @@ async def main() -> None:
             pos.pair_index, pos.index, take_profit=4200, stop_loss=2900
         )
 
-        # partial TP: close 25% of the coin exposure at a fixed price
+        # partial TP: close 25% of the coin exposure at a fixed price.
+        # The signed order is stored off-chain; the response carries its
+        # documentId — keep it to update or cancel later.
         price = await client.markets.price(pos.pair_index)
         coin_exposure = float(pos.position_size) / price * 0.25
         order = await client.trade.partial_tp_sl(
@@ -33,9 +35,22 @@ async def main() -> None:
             trigger="fixed",
             price=price * 1.05,
         )
-        print("stored partial TP:", order["price"])
+        print("stored partial TP:", order["price"], "documentId:", order["documentId"])
 
-        # cancel it again
+        # move the trigger: atomic in-place replacement (pass the FULL order)
+        order = await client.trade.update_partial_tp_sl(
+            order["documentId"],
+            pos.pair_index,
+            pos.index,
+            side=pos.side,
+            kind="take_profit",
+            coin_exposure=coin_exposure,
+            trigger="fixed",
+            price=price * 1.10,
+        )
+        print("updated partial TP:", order["price"])
+
+        # cancel it again (signs CancelOffchainOrder over the documentId)
         await client.trade.cancel_partial_tp_sl(order)
         print("cancelled")
 

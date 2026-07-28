@@ -5,16 +5,19 @@ description: "Execute large orders in time-weighted slices."
 
 TWAP orders split a large open or close into slices executed over `run_time_seconds`. Useful when a single fill would eat too much spread or exceed available liquidity.
 
+The SDK signs a TWAP intent (EIP-712) and submits it to the Avantis TWAP API, which registers the order on-chain itself and responds synchronously — the receipt carries the transaction hash and the on-chain `twapId` in `receipt.order_id`.
+
 ## Open
 
 ```python
-await client.trade.twap_open(
+receipt = await client.trade.twap_open(
     "ETH/USD", "long",
     collateral=1000,             # spread over the run time
     run_time_seconds=600,        # 10 minutes
     leverage=10,
     max_leverage=20,             # required by the contract struct
 )
+print(receipt.tx_hash, receipt.order_id)   # order_id = on-chain twapId
 ```
 
 | Parameter | Default | Notes |
@@ -41,9 +44,11 @@ await client.trade.twap_close(
 ## List and cancel
 
 ```python
-twaps = await client.account.twaps()             # paginated; include_canceled=True for history
-await client.trade.twap_cancel(twap_id=123)
+twaps = await client.account.twaps()             # paginated (0-based); include_canceled=True for history
+await client.trade.twap_cancel(twap_id=123)      # twapId from receipt.order_id / account.twaps()
 ```
+
+Cancelling signs a `TwapCancelReq` intent over the `twapId` — the trader key or an active delegate key both work.
 
 ## RFQ
 

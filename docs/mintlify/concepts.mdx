@@ -37,14 +37,16 @@ Write methods return an `ExecutionReceipt`:
 
 | Field | Meaning |
 | --- | --- |
-| `route` | `relayer-batch`, `relayer-passthrough`, `rpc`, or `txbuilder-relay` |
+| `route` | `batched-market`, `relayer-batch`, `relayer-passthrough`, `twap-api`, `rpc`, or `txbuilder-relay` |
 | `tx_hash` | On-chain hash once settled (may be `None` with `wait=False`) |
-| `request_id` | Relayer queue id (relayer routes) |
+| `request_id` | Relayer queue id (blitz relayer routes) |
+| `tracking_id` | Batched-market lifecycle id (status replay handle) |
+| `order_id` | On-chain order id / twapId, when the API reports it |
 
-`wait=True` (default) polls the relayer until the transaction settles or `relay_poll_timeout_s` elapses. Market fills are **operator-driven**: the receipt confirms your order was submitted, not that it filled.
+`wait=True` (default) follows the order until it settles or `relay_poll_timeout_s` elapses. On the batched-market route the receipt IS fill-aware: success means the terminal `MarketOrderExecuted` event arrived, and a protocol-declined fill raises `RelayError`. On the other relayer routes the receipt confirms your transaction landed, not that the operator filled the order.
 
 <Tip>
-For fill confirmation, poll `client.account.positions()` after a short delay, or subscribe to the [order event stream](/data/prices-and-streams). Don't treat the receipt as proof of a fill.
+For position-level confirmation, poll `client.account.positions()` after a short delay, or subscribe to the [order event stream](/data/prices-and-streams).
 </Tip>
 
 ```python

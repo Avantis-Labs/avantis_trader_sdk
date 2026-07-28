@@ -114,7 +114,7 @@ class RelayAction(str, Enum):
 
 # Intent kind -> relayer batch action. Only intents the operator relayer's
 # batch endpoints actually consume are listed; TWAP/RFQ initiation and
-# partial TP/SL storage use different transports (TX_RELAY passthrough /
+# partial TP/SL storage use different transports (twap-app intents /
 # core-API offchain orders), and delegate/referral sigs are relayed as
 # *WithSig calldata.
 INTENT_BATCH_ACTION: dict[str, RelayAction] = {
@@ -126,6 +126,25 @@ INTENT_BATCH_ACTION: dict[str, RelayAction] = {
     "IncreasePositionSizeWithCoinExposureReq": RelayAction.BATCH_POSITION_UPDATE,
     "UpdateTpSlReq": RelayAction.BATCH_POSITION_UPDATE,
 }
+
+# The batched-market endpoint's allow-list (avantis-backend-monorepo
+# src/market-app/batched-market/batched-order-types.ts). Membership routes an
+# intent to POST /market/execute-batched; anything else (UPDATE_SL) stays on
+# the blitz type-2 relay.
+BATCHED_MARKET_ORDER_TYPES: frozenset[AggregatorOrderType] = frozenset(
+    {
+        AggregatorOrderType.MARKET_OPEN,
+        AggregatorOrderType.MARKET_OPEN_PNL,
+        AggregatorOrderType.MARKET_OPEN_WITH_COIN_EXPOSURE,
+        AggregatorOrderType.MARKET_OPEN_PNL_WITH_COIN_EXPOSURE,
+        AggregatorOrderType.MARKET_CLOSE,
+        AggregatorOrderType.MARKET_CLOSE_PNL,
+        AggregatorOrderType.MARKET_CLOSE_WITH_COIN_EXPOSURE,
+        AggregatorOrderType.MARKET_CLOSE_PNL_WITH_COIN_EXPOSURE,
+        AggregatorOrderType.INCREASE_SIZE,
+        AggregatorOrderType.INCREASE_SIZE_WITH_COIN_EXPOSURE,
+    }
+)
 
 
 # ---------------------------------------------------------------------------
@@ -205,8 +224,17 @@ class RelayStatus(BaseModel):
 class ExecutionReceipt(BaseModel):
     """Uniform result of submitting an action through any route."""
 
-    route: Literal["relayer-batch", "relayer-passthrough", "rpc", "txbuilder-relay"]
+    route: Literal[
+        "batched-market",
+        "relayer-batch",
+        "relayer-passthrough",
+        "twap-api",
+        "rpc",
+        "txbuilder-relay",
+    ]
     tx_hash: str | None = None
     request_id: str | None = None
+    tracking_id: str | None = None  # batched-market lifecycle id (status replay)
+    order_id: int | None = None  # on-chain order id from the initiation event
     description: str | None = None
     raw: dict[str, Any] | None = None

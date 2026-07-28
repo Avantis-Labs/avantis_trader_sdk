@@ -30,6 +30,23 @@ class HttpTransport:
     async def aclose(self) -> None:
         await self._client.aclose()
 
+    def stream(
+        self,
+        method: str,
+        url: str,
+        *,
+        json: Any = None,
+        read_timeout_s: float | None = None,
+    ):
+        """Streaming request (SSE). Returns httpx's async context manager.
+
+        ``read_timeout_s`` bounds the gap between chunks — it must exceed the
+        server's keep-alive interval (batched-market heartbeats every 15s),
+        not the total stream lifetime.
+        """
+        timeout = httpx.Timeout(10.0, read=read_timeout_s)
+        return self._client.stream(method, url, json=json, timeout=timeout)
+
     async def request(
         self,
         method: str,

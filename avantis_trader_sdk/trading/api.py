@@ -11,14 +11,17 @@ either a symbol ("ETH/USD", "eth-usd") or a pair index.
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from ..base_api import ExecutingApi
 from ..errors import ConfigError
-from ..signing import sign_intent, to_int_message
+from ..execution.local_intents import LocalIntentBuilder
+from ..signing import sign_intent
 from ..types import (
     AggregatorOrderType,
     ExecutionReceipt,
+    IntentPayload,
     MarginAction,
     Num,
     OrderType,
@@ -36,6 +39,34 @@ def _pair_params(pair: PairRef) -> dict[str, Any]:
 
 
 class TradeApi(ExecutingApi):
+    _local: LocalIntentBuilder | None = None  # lazy; for locally-built intents
+
+    async def _local_intents(self) -> LocalIntentBuilder:
+        """Local builder for intents the tx-builder has no route for
+        (TwapCancelReq, CancelOffchainOrder)."""
+        if self._local is None:
+            self._local = LocalIntentBuilder(
+                await self._engine.chain_id(), await self._engine.trading_router()
+            )
+        return self._local
+
+    async def _intent_and_calldata(
+        self,
+        intent_path: str,
+        calldata_path: str,
+        params: dict[str, Any],
+        **intent_extra: Any,
+    ) -> tuple[IntentPayload, Any]:
+        """Both encodings of the same order, fetched concurrently.
+
+        The batched-market endpoint requires an EIP-712 intent AND a
+        pre-signed EIP-7702 transaction on every request (the server decides
+        which mechanism executes), so market flows always build both.
+        """
+        return await asyncio.gather(
+            self._txb.intent(intent_path, **params, **intent_extra),
+            self._calldata(calldata_path, params),
+        )
 
     # ------------------------------------------------------------------ opens
 
@@ -46,6 +77,7 @@ class TradeApi(ExecutingApi):
         collateral: Num,
         leverage: Num,
         *,
+        open_price: Num | None = None,
         take_profit: Num | None = None,
         stop_loss: Num | None = None,
         slippage_percent: Num = 1,
@@ -53,7 +85,11 @@ class TradeApi(ExecutingApi):
         skip_validation: bool = False,
         wait: bool = True,
     ) -> ExecutionReceipt:
-        """Open a market position (or a zero-fee/PnL position with zero_fee=True)."""
+        """Open a market position (or a zero-fee/PnL position with zero_fee=True).
+
+        ``open_price`` is the reference price the fill is validated against
+        (± slippage_percent); resolved from the live feed when omitted.
+        """
         order_type = OrderType.MARKET_PNL if zero_fee else OrderType.MARKET
         params: dict[str, Any] = {
             **_pair_params(pair),
@@ -62,19 +98,24 @@ class TradeApi(ExecutingApi):
             "orderType": order_type.value,
             "collateralUsdc": collateral,
             "leverage": leverage,
+            "openPrice": open_price,
             "slippagePercent": slippage_percent,
             "takeProfit": take_profit,
             "stopLoss": stop_loss,
             "skipValidation": skip_validation or None,
         }
         if self._engine.is_relayer_mode:
-            intent = await self._txb.intent("/v2/intents/open", **params)
+            intent, calldata = await self._intent_and_calldata(
+                "/v2/intents/open", "/v2/trade/open", params
+            )
             agg = (
                 AggregatorOrderType.MARKET_OPEN_PNL
                 if zero_fee
                 else AggregatorOrderType.MARKET_OPEN
             )
-            return await self._engine.submit_intent_batch(intent, agg, wait=wait)
+            return await self._engine.submit_intent_batch(
+                intent, agg, calldata=calldata, wait=wait
+            )
         return await self._engine.submit_direct(
             await self._calldata("/v2/trade/open", params), wait=wait
         )
@@ -89,6 +130,7 @@ class TradeApi(ExecutingApi):
         leverage: Num,
         min_leverage: Num | None = None,
         max_leverage: Num | None = None,
+        open_price: Num | None = None,
         slippage_percent: Num = 1,
         take_profit: Num | None = None,
         stop_loss: Num | None = None,
@@ -99,7 +141,9 @@ class TradeApi(ExecutingApi):
         """Open sized in coin units (fill leverage floats within [min, max] bounds).
 
         ``leverage`` is the target/reference leverage (contract-required);
-        min/max default to the pair envelope when omitted.
+        min/max default to the pair envelope when omitted. ``open_price`` is
+        the reference price the fill is validated against (± slippage_percent);
+        resolved from the live feed when omitted.
         """
         params: dict[str, Any] = {
             **_pair_params(pair),
@@ -111,19 +155,24 @@ class TradeApi(ExecutingApi):
             "leverage": leverage,
             "minLeverage": min_leverage,
             "maxLeverage": max_leverage,
+            "openPrice": open_price,
             "slippagePercent": slippage_percent,
             "takeProfit": take_profit,
             "stopLoss": stop_loss,
             "skipValidation": skip_validation or None,
         }
         if self._engine.is_relayer_mode:
-            intent = await self._txb.intent("/v2/intents/open-coin", **params)
+            intent, calldata = await self._intent_and_calldata(
+                "/v2/intents/open-coin", "/v2/trade/open-coin", params
+            )
             agg = (
                 AggregatorOrderType.MARKET_OPEN_PNL_WITH_COIN_EXPOSURE
                 if zero_fee
                 else AggregatorOrderType.MARKET_OPEN_WITH_COIN_EXPOSURE
             )
-            return await self._engine.submit_intent_batch(intent, agg, wait=wait)
+            return await self._engine.submit_intent_batch(
+                intent, agg, calldata=calldata, wait=wait
+            )
         return await self._engine.submit_direct(
             await self._calldata("/v2/trade/open-coin", params), wait=wait
         )
@@ -188,15 +237,18 @@ class TradeApi(ExecutingApi):
             "expectedPrice": expected_price,
         }
         if self._engine.is_relayer_mode:
-            intent = await self._txb.intent(
-                "/v2/intents/close", **params, openTimestamp=open_timestamp
+            intent, calldata = await self._intent_and_calldata(
+                "/v2/intents/close", "/v2/trade/close", params,
+                openTimestamp=open_timestamp,
             )
             agg = (
                 AggregatorOrderType.MARKET_CLOSE_PNL
                 if is_pnl
                 else AggregatorOrderType.MARKET_CLOSE
             )
-            return await self._engine.submit_intent_batch(intent, agg, wait=wait)
+            return await self._engine.submit_intent_batch(
+                intent, agg, calldata=calldata, wait=wait
+            )
         return await self._engine.submit_direct(
             await self._calldata("/v2/trade/close", params), wait=wait
         )
@@ -220,15 +272,18 @@ class TradeApi(ExecutingApi):
             "expectedPrice": expected_price,
         }
         if self._engine.is_relayer_mode:
-            intent = await self._txb.intent(
-                "/v2/intents/close-coin", **params, openTimestamp=open_timestamp
+            intent, calldata = await self._intent_and_calldata(
+                "/v2/intents/close-coin", "/v2/trade/close-coin", params,
+                openTimestamp=open_timestamp,
             )
             agg = (
                 AggregatorOrderType.MARKET_CLOSE_PNL_WITH_COIN_EXPOSURE
                 if is_pnl
                 else AggregatorOrderType.MARKET_CLOSE_WITH_COIN_EXPOSURE
             )
-            return await self._engine.submit_intent_batch(intent, agg, wait=wait)
+            return await self._engine.submit_intent_batch(
+                intent, agg, calldata=calldata, wait=wait
+            )
         return await self._engine.submit_direct(
             await self._calldata("/v2/trade/close-coin", params), wait=wait
         )
@@ -309,9 +364,11 @@ class TradeApi(ExecutingApi):
             "slippagePercent": slippage_percent,
         }
         if self._engine.is_relayer_mode:
-            intent = await self._txb.intent("/v2/intents/increase", **params)
+            intent, calldata = await self._intent_and_calldata(
+                "/v2/intents/increase", "/v2/position/increase", params
+            )
             return await self._engine.submit_intent_batch(
-                intent, AggregatorOrderType.INCREASE_SIZE, wait=wait
+                intent, AggregatorOrderType.INCREASE_SIZE, calldata=calldata, wait=wait
             )
         return await self._engine.submit_direct(
             await self._calldata("/v2/position/increase", params), wait=wait
@@ -346,10 +403,13 @@ class TradeApi(ExecutingApi):
             "slippagePercent": slippage_percent,
         }
         if self._engine.is_relayer_mode:
-            intent = await self._txb.intent("/v2/intents/increase-coin", **params)
+            intent, calldata = await self._intent_and_calldata(
+                "/v2/intents/increase-coin", "/v2/position/increase-coin", params
+            )
             return await self._engine.submit_intent_batch(
                 intent,
                 AggregatorOrderType.INCREASE_SIZE_WITH_COIN_EXPOSURE,
+                calldata=calldata,
                 wait=wait,
             )
         return await self._engine.submit_direct(
@@ -382,26 +442,20 @@ class TradeApi(ExecutingApi):
             intent, AggregatorOrderType.UPDATE_SL, wait=wait
         )
 
-    async def partial_tp_sl(
+    async def _partial_tp_sl_submission(
         self,
         pair: PairRef,
         trade_index: int,
         *,
-        side: Side | str,  # side of the POSITION being trimmed
-        kind: str,  # "tp"/"take_profit" | "sl"/"stop_loss"
+        side: Side | str,
+        kind: str,
         coin_exposure: Num,
-        trigger: TriggerType | str = TriggerType.FIXED,
-        price: Num | None = None,
-        percentage: Num | None = None,
-        open_timestamp: int | None = None,
+        trigger: TriggerType | str,
+        price: Num | None,
+        percentage: Num | None,
+        open_timestamp: int | None,
     ) -> dict[str, Any]:
-        """Create a partial TP/SL trigger order.
-
-        Signs a TpSlReq intent (no deadline by design; freshness comes from
-        signTimestamp) and stores it with the Avantis operator via the core
-        API. The operator executes it on-chain when the trigger price hits.
-        Returns the stored order fields (keep them to cancel later).
-        """
+        """Build + sign a TpSlReq and shape the core-API submission body."""
         trigger = TriggerType(trigger)
         kind_full = {"tp": "take_profit", "sl": "stop_loss"}.get(kind, kind)
         params: dict[str, Any] = {
@@ -438,71 +492,154 @@ class TradeApi(ExecutingApi):
         }
         if "nonce" in msg:
             submission["nonce"] = str(msg["nonce"])
-        assert self._t is not None
-        await self._t.json(
-            "PUT", f"{self._cfg.core_api_url}/offchain-orders", json=submission
-        )
         return submission
 
-    async def cancel_partial_tp_sl(self, order: dict[str, Any]) -> None:
+    async def partial_tp_sl(
+        self,
+        pair: PairRef,
+        trade_index: int,
+        *,
+        side: Side | str,  # side of the POSITION being trimmed
+        kind: str,  # "tp"/"take_profit" | "sl"/"stop_loss"
+        coin_exposure: Num,
+        trigger: TriggerType | str = TriggerType.FIXED,
+        price: Num | None = None,
+        percentage: Num | None = None,
+        open_timestamp: int | None = None,
+    ) -> dict[str, Any]:
+        """Create a partial TP/SL trigger order.
+
+        Signs a TpSlReq intent (no deadline by design; freshness comes from
+        signTimestamp) and stores it with the Avantis operator via
+        ``POST {core}/offchain-orders``. The operator executes it on-chain
+        when the trigger price hits. Returns the stored order — keep its
+        ``documentId`` to update or cancel later.
+        """
+        submission = await self._partial_tp_sl_submission(
+            pair,
+            trade_index,
+            side=side,
+            kind=kind,
+            coin_exposure=coin_exposure,
+            trigger=trigger,
+            price=price,
+            percentage=percentage,
+            open_timestamp=open_timestamp,
+        )
+        assert self._t is not None
+        stored = await self._t.json(
+            "POST", f"{self._cfg.core_api_url}/offchain-orders", json=submission
+        )
+        # The response is the persisted order (carries documentId); merge it
+        # over the submission so callers keep the signed fields too.
+        return {**submission, **(stored if isinstance(stored, dict) else {})}
+
+    async def update_partial_tp_sl(
+        self,
+        document_id: str,
+        pair: PairRef,
+        trade_index: int,
+        *,
+        side: Side | str,
+        kind: str,
+        coin_exposure: Num,
+        trigger: TriggerType | str = TriggerType.FIXED,
+        price: Num | None = None,
+        percentage: Num | None = None,
+        open_timestamp: int | None = None,
+    ) -> dict[str, Any]:
+        """Replace a stored partial TP/SL order in place (atomic edit).
+
+        ``document_id`` comes from the create response / a position's
+        ``offchainOrders``. The replacement is a freshly signed TpSlReq —
+        pass the FULL new order, not a diff. Ownership is enforced from the
+        signature; per-position caps are not re-checked (1:1 replace).
+        """
+        submission = await self._partial_tp_sl_submission(
+            pair,
+            trade_index,
+            side=side,
+            kind=kind,
+            coin_exposure=coin_exposure,
+            trigger=trigger,
+            price=price,
+            percentage=percentage,
+            open_timestamp=open_timestamp,
+        )
+        assert self._t is not None
+        stored = await self._t.json(
+            "PUT",
+            f"{self._cfg.core_api_url}/offchain-orders/{document_id}",
+            json=submission,
+        )
+        return {**submission, **(stored if isinstance(stored, dict) else {})}
+
+    async def cancel_partial_tp_sl(self, order: dict[str, Any] | str) -> None:
         """Cancel a stored partial TP/SL trigger order.
 
-        ``order`` is the dict returned by partial_tp_sl() or an entry from a
-        position's ``offchain_orders``. The cancel re-signs the exact order
-        fields as proof of ownership.
+        ``order`` is the dict returned by :meth:`partial_tp_sl` / an entry
+        from a position's ``offchainOrders`` (must carry ``documentId``), or
+        the ``documentId`` string itself. Ownership proof is an EIP-712
+        ``CancelOffchainOrder`` signature over the documentId; the trader or
+        an active delegate may sign.
         """
-        from ..intents_schema import INTENT_TYPES, trading_domain
-
+        document_id = order if isinstance(order, str) else order.get("documentId")
+        if not document_id:
+            raise ConfigError(
+                "cancel_partial_tp_sl needs the order's documentId (returned by "
+                "partial_tp_sl and on /user-data offchainOrders entries)."
+            )
         signer = self._engine.signer
         if signer is None:
             raise ConfigError("cancel_partial_tp_sl requires a signing key")
-
-        meta = await self._txb.meta()
-        types = INTENT_TYPES["TpSlReq"]
-        message = {
-            "trader": order["trader"],
-            "pairIndex": str(order["pairIndex"]),
-            "index": str(order["index"]),
-            "triggerType": str(order["triggerType"]),
-            "coinSize": str(order["coinSize"]),
-            "buy": order["buy"],
-            "price": str(order["price"]),
-            "percentage": str(order["percentage"]),
-            "timestamp": str(order["timestamp"]),
-            "signTimestamp": str(order["signTimestamp"]),
-            "orderType": str(order["orderType"]),
-            "nonce": str(order.get("nonce", 0)),
-        }
-        full_message = {
-            "types": {
-                "EIP712Domain": [
-                    {"name": "name", "type": "string"},
-                    {"name": "version", "type": "string"},
-                    {"name": "chainId", "type": "uint256"},
-                    {"name": "verifyingContract", "type": "address"},
-                ],
-                **types,
-            },
-            "primaryType": "TpSlReq",
-            "domain": trading_domain(
-                int(meta["chainId"]), meta["addresses"]["tradingRouter"]
-            ),
-            "message": to_int_message(types, "TpSlReq", message),
-        }
-        signature, _ = signer.sign_typed_data(full_message)
+        builder = await self._local_intents()
+        intent = builder.cancel_offchain_order(document_id=str(document_id))
+        signed = sign_intent(intent, signer)
         assert self._t is not None
         await self._t.json(
             "DELETE",
             f"{self._cfg.core_api_url}/offchain-orders",
-            params={
-                "trader": order["trader"],
-                "pairIndex": order["pairIndex"],
-                "index": order["index"],
-                "signedMessage": "0x" + signature.hex(),
-            },
+            json={"documentId": str(document_id), "signedMessage": signed.signature},
         )
 
     # ------------------------------------------------------------------ TWAP / RFQ
+
+    async def _submit_twap(self, path: str, intent: IntentPayload) -> ExecutionReceipt:
+        """Sign a TWAP intent and submit it to the twap-app API.
+
+        The twap-app verifies the signature, sends executeTwapBatched itself
+        (operator wallet) and responds synchronously with
+        {twapId, transactionHash, blockNumber} — no relayer involved. Body
+        shape follows the twap-app DTOs: pairIndex/index as numbers, other
+        numerics as decimal strings, ``__reserved1`` renamed ``reserved1``.
+        """
+        signer = self._engine.signer
+        if signer is None:
+            raise ConfigError("TWAP orders require a signing key")
+        signed = sign_intent(intent, signer)
+        body: dict[str, Any] = {}
+        for key, value in intent.message.items():
+            if key == "__reserved1":
+                body["reserved1"] = str(value)
+            elif key in ("pairIndex", "index"):
+                body[key] = int(value)
+            elif isinstance(value, bool):
+                body[key] = value
+            else:
+                body[key] = str(value)
+        body["signature"] = signed.signature
+        assert self._t is not None
+        data = await self._t.json(
+            "POST", f"{self._cfg.twap_api_url}{path}", json=body
+        )
+        data = data if isinstance(data, dict) else {}
+        return ExecutionReceipt(
+            route="twap-api",
+            tx_hash=data.get("transactionHash"),
+            order_id=int(data["twapId"]) if data.get("twapId") is not None else None,
+            description=intent.intent,
+            raw=data,
+        )
 
     async def twap_open(
         self,
@@ -514,12 +651,12 @@ class TradeApi(ExecutingApi):
         leverage: Num,
         max_leverage: Num,
         coin_exposure: Num | None = None,
-        wait: bool = True,
     ) -> ExecutionReceipt:
         """Open a TWAP order (collateral spread over run_time_seconds slices).
 
         ``coin_exposure`` switches to fixed exposure targeting. Leverage
-        bounds are required by the contract struct.
+        bounds are required by the contract struct. The receipt's
+        ``order_id`` is the on-chain twapId (use it to cancel).
         """
         params: dict[str, Any] = {
             **_pair_params(pair),
@@ -531,7 +668,8 @@ class TradeApi(ExecutingApi):
             "maxLeverage": max_leverage,
             "runTimeSeconds": run_time_seconds,
         }
-        return await self._passthrough_or_direct("/v2/twap/open", params, wait)
+        intent = await self._txb.intent("/v2/intents/twap-open", **params)
+        return await self._submit_twap("/twaps/open", intent)
 
     async def twap_close(
         self,
@@ -539,9 +677,8 @@ class TradeApi(ExecutingApi):
         trade_index: int,
         coin_exposure_to_close: Num,
         run_time_seconds: int,
-        *,
-        wait: bool = True,
     ) -> ExecutionReceipt:
+        """Close exposure via TWAP slices spread over ``run_time_seconds``."""
         params: dict[str, Any] = {
             **_pair_params(pair),
             "trader": self.trader,
@@ -549,11 +686,16 @@ class TradeApi(ExecutingApi):
             "coinExposureToClose": coin_exposure_to_close,
             "runTimeSeconds": run_time_seconds,
         }
-        return await self._passthrough_or_direct("/v2/twap/close", params, wait)
+        intent = await self._txb.intent("/v2/intents/twap-close", **params)
+        return await self._submit_twap("/twaps/close", intent)
 
-    async def twap_cancel(self, twap_id: int, *, wait: bool = True) -> ExecutionReceipt:
-        params: dict[str, Any] = {"trader": self.trader, "twapId": twap_id}
-        return await self._passthrough_or_direct("/v2/twap/cancel", params, wait)
+    async def twap_cancel(self, twap_id: int) -> ExecutionReceipt:
+        """Cancel a TWAP by its on-chain ``twapId`` (receipt.order_id from
+        twap_open, or ``account.twaps()``). Signs a TwapCancelReq locally —
+        the tx-builder has no route for it."""
+        builder = await self._local_intents()
+        intent = builder.twap_cancel(trader=self.trader, twap_id=twap_id)
+        return await self._submit_twap("/twaps/cancel", intent)
 
     async def rfq_open(
         self,

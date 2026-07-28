@@ -1,9 +1,15 @@
 """Execution engine: routes signed actions to the chain.
 
 Routes:
-- ``relayer-batch``        signed EIP-712 intent -> executeMarketOrderBatched /
-                           executePositionUpdateBatched calldata encoded locally
-                           (price update from feed-v3) -> blitz POST /relays (type 2)
+- ``batched-market``       market opens/closes/increases: signed EIP-712 intent
+                           + a pre-signed EIP-7702 type-4 tx (both required —
+                           server-side strategy switch) -> POST
+                           {batched-market}/market/execute-batched, lifecycle
+                           streamed back as SSE
+- ``relayer-batch``        UPDATE_SL (excluded from the batched-market
+                           allow-list): executePositionUpdateBatched calldata
+                           encoded locally (price update from feed-v3)
+                           -> blitz POST /relays (type 2)
 - ``relayer-passthrough``  calldata wrapped in a type4 smart-account tx
                            -> blitz POST /relays (type 4)
 - ``rpc``                  normal signed transaction via the user's RPC
@@ -26,6 +32,7 @@ from ..signing import BaseSigner, sign_intent
 from ..transport import HttpTransport
 from ..txbuilder import TxBuilderClient
 from ..types import (
+    BATCHED_MARKET_ORDER_TYPES,
     INTENT_BATCH_ACTION,
     AggregatorOrderType,
     CallData,
@@ -34,6 +41,7 @@ from ..types import (
     IntentPayload,
     RelayAction,
 )
+from .batched_market import BatchedMarketClient
 from .relayer import RelayerClient
 from .rpc import JsonRpcClient
 
@@ -71,6 +79,12 @@ class ExecutionEngine:
             config.relayer_url,
             poll_interval_s=config.relay_poll_interval_s,
             poll_timeout_s=config.relay_poll_timeout_s,
+        )
+        self.batched_market = BatchedMarketClient(
+            transport,
+            config.batched_market_url,
+            poll_interval_s=config.relay_poll_interval_s,
+            timeout_s=config.relay_poll_timeout_s,
         )
         self.rpc: JsonRpcClient | None = (
             JsonRpcClient(config.rpc_url, config.timeout_s) if config.rpc_url else None
@@ -174,26 +188,59 @@ class ExecutionEngine:
         payload: IntentPayload,
         order_type: AggregatorOrderType,
         *,
+        calldata: CallData | None = None,
         wait: bool = True,
     ) -> ExecutionReceipt:
-        """Sign an intent and broadcast the batched execution via blitz.
+        """Sign an intent and execute it through the right relay.
 
-        The blitz relayer is a pure broadcaster, so the SDK encodes the
-        operator entry-point call itself: executeMarketOrderBatched /
-        executePositionUpdateBatched(orderType, signature, intent,
-        [priceUpdate], sourcing, zeroSpreadParams), with a fresh price update
-        from feed-v3 and the Pyth fee as tx value (mirrors the retired
-        relayer-app's `relayBatched`). Blitz wallets are protocol operators.
+        Market opens/closes/increases (the batched-market allow-list) go to
+        ``POST {batched-market}/market/execute-batched``, which injects a
+        fresh price/spread per attempt server-side and streams the lifecycle
+        back. The endpoint requires BOTH an EIP-712 intent and a pre-signed
+        EIP-7702 transaction for the same order (server-side mechanism
+        switch), so callers must pass the direct-route ``calldata``.
+
+        ``UPDATE_SL`` is excluded from that allow-list; for it the SDK still
+        encodes the operator entry point itself (executePositionUpdateBatched
+        with a feed-v3 price update) and broadcasts via the blitz type-2
+        relay. Blitz wallets are protocol operators.
         """
         signer = self._require_signer()
         action = INTENT_BATCH_ACTION.get(payload.primary_type)
         if action is None:
             raise ConfigError(
-                f"{payload.primary_type} is not a relayer-batch intent. TWAP/RFQ go "
-                "through the trade API (type-4 passthrough); partial TP/SL through "
+                f"{payload.primary_type} is not a relayer-batch intent. TWAP goes "
+                "through trade.twap_* (twap-app intents); partial TP/SL through "
                 "trade.partial_tp_sl (off-chain storage)."
             )
         signed = sign_intent(payload, signer)
+
+        if order_type in BATCHED_MARKET_ORDER_TYPES:
+            if calldata is None:
+                raise ConfigError(
+                    "batched-market execution requires the direct-route calldata "
+                    "for the eip7702 payload (both payloads are mandatory)."
+                )
+            calls = [Call.from_hex(calldata.to, calldata.data, calldata.value_wei)]
+            tx_params = await self._build_type4(calls)
+            outcome = await self.batched_market.execute(
+                int(order_type),
+                {
+                    "userIntent": payload.encoded_intent,
+                    "userSignature": signed.signature,
+                },
+                _relay_request_params(tx_params),
+                wait=wait,
+            )
+            return ExecutionReceipt(
+                route="batched-market",
+                tracking_id=outcome.tracking_id or None,
+                tx_hash=outcome.tx_hash,
+                order_id=outcome.order_id,
+                description=payload.intent,
+                raw=outcome.terminal.data if outcome.terminal else None,
+            )
+
         price_update, sourcing, value = await self._fresh_price_update(payload.pair_index)
 
         data = _BATCH_SELECTORS[action] + abi_encode(
@@ -316,3 +363,30 @@ class ExecutionEngine:
     async def aclose(self) -> None:
         if self.rpc is not None:
             await self.rpc.aclose()
+
+
+def _relay_request_params(tx_params: dict[str, Any]) -> dict[str, Any]:
+    """Blitz ``txParams`` -> batched-market ``RelayRequestParamsDto``.
+
+    The DTO wants chainId/gas/nonce as strings, ``gas`` instead of
+    ``gasLimit``, and has no ``value``/``transactionType`` fields (type-4 is
+    implied; smart-account relays carry no ETH).
+    """
+    return {
+        "chainId": str(tx_params["chainId"]),
+        "to": tx_params["to"],
+        "data": tx_params["data"],
+        "gas": str(tx_params["gasLimit"]),
+        "authorizationList": [
+            {
+                "address": auth["address"],
+                "chainId": str(auth["chainId"]),
+                "nonce": str(auth["nonce"]),
+                "r": auth["r"],
+                "s": auth["s"],
+                "yParity": auth["yParity"],
+                "v": str(auth["v"]),
+            }
+            for auth in tx_params.get("authorizationList", [])
+        ],
+    }

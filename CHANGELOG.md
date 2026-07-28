@@ -38,6 +38,66 @@ Ground-up rewrite for Avantis v2. **Breaking: the 1.x API is removed.**
   USDC notional is returned as-is). `account.positions()` tags each position
   with `base_symbol` from the markets pair catalog to support this.
 
+### Unreleased additions (2026-07-28) — backend alignment
+
+Aligns the SDK with the new Avantis backend topology (central routing,
+batched-market execution, twap-app, off-chain order CRUD).
+
+- **Central routing**: service URLs now derive from a single
+  `api_base_url` (`https://prod-api.avantisfi.com` mainnet /
+  `https://staging-api.avantisfi.com` testnet): `{base}/core`,
+  `{base}/twap`, `{base}/batched-market`, `{base}/blitz`. New config fields
+  `api_base_url`, `twap_api_url`, `batched_market_url` with
+  `AVANTIS_API_BASE_URL` / `AVANTIS_TWAP_API_URL` /
+  `AVANTIS_BATCHED_MARKET_URL` env overrides; individual URL overrides still
+  win over derivation.
+- **Batched-market execution** (new `execution/batched_market.py`): market
+  opens/closes/increases (10 order types) now go to
+  `POST {batched-market}/market/execute-batched`, which requires BOTH a
+  signed EIP-712 intent and a pre-signed EIP-7702 type-4 transaction per
+  order (server-side mechanism switch, no client release needed). The order
+  lifecycle streams back as SSE (`MarketOrderAccepted` -> initiation ->
+  terminal); a dropped stream is recovered via
+  `GET /tracking-id/{id}/status?afterSeq=`. `ExecutionReceipt` gains
+  `tracking_id` (lifecycle replay id) and `order_id` (on-chain id), and a new
+  `batched-market` route label. `MarketOrderCanceled` (tx landed, fill
+  declined — e.g. slippage) raises `RelayError`.
+- **Blitz relayer scope narrowed**: `UPDATE_SL` (excluded from the
+  batched-market allow-list) keeps the locally-encoded
+  `executePositionUpdateBatched` + blitz type-2 relay; limit orders, margin,
+  claims etc. keep the type-4 passthrough.
+- **TWAP rework** (twap-app API): `twap_open` / `twap_close` sign the
+  tx-builder intent and POST it to `{twap}/twaps/open|close`; the twap-app
+  sends the tx itself and responds synchronously with
+  `{twapId, transactionHash, blockNumber}` (receipt: `order_id` = twapId).
+  `twap_cancel(twap_id)` signs the new `TwapCancelReq` intent locally (no
+  tx-builder route) and POSTs `{twap}/twaps/cancel`. `account.twaps()` moved
+  from the core API to `{twap}/twaps` (0-based `pageNum`). The `wait` kwarg
+  is gone from all three (no relayer involved).
+- **Partial TP/SL CRUD**: create is now `POST {core}/offchain-orders`
+  (was PUT) and returns the stored order incl. `documentId`; new
+  `update_partial_tp_sl(document_id, ...)` does an atomic in-place
+  replacement via `PUT {core}/offchain-orders/{documentId}`;
+  `cancel_partial_tp_sl` signs the new `CancelOffchainOrder` intent (EIP-712
+  over the `documentId`) and sends `DELETE` with a JSON body — it also
+  accepts a bare documentId string.
+- **New intent kinds**: `TwapCancelReq` and `CancelOffchainOrder` added to
+  `intents_schema` and `LocalIntentBuilder` (`twap_cancel`,
+  `cancel_offchain_order`), with golden vectors (ethers `TypedDataEncoder` —
+  the twap-app/core-backend verify these off-chain with ethers).
+
+### Unreleased additions (2026-07-28)
+
+- `market_open` / `market_open_coin` accept an optional `open_price` — the
+  reference price the fill is validated against (± `slippage_percent`);
+  resolved from the live feed when omitted (matching `increase_position`).
+- LocalIntentBuilder now covers the full non-RFQ intent surface with typed
+  helpers: `open_trade_coin`, `close_trade_coin`, `increase_position`,
+  `increase_position_coin`, `partial_tp_sl` (TpSlReq: no deadline,
+  `signTimestamp` freshness), `twap_open`, `twap_close`, `register_code`,
+  `set_referral_code` (referral domain; requires the Referral address).
+  RFQ intents remain reachable via the raw `build(kind, message)`.
+
 ### Fixes from live testnet E2E (2026-07-16)
 
 - `market_open_coin` / `increase_position_coin` now take the contract-required
@@ -62,7 +122,8 @@ Ground-up rewrite for Avantis v2. **Breaking: the 1.x API is removed.**
 
 ### Testing
 
-- Golden-vector suite covering all 15 intent types (digests computed by the
-  real on-chain SignatureHelpers library).
+- Golden-vector suite covering all 17 intent types (digests computed by the
+  real on-chain SignatureHelpers library; the two off-chain-verified kinds,
+  TwapCancelReq and CancelOffchainOrder, by ethers TypedDataEncoder).
 - Byte-for-byte EIP-7702/Gelato encoding parity with the Avantis web app.
 - Markets models validated against a real 112-pair testnet snapshot.

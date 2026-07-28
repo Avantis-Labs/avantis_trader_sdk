@@ -8,9 +8,13 @@ Environment variables (HyperLiquid-style semantics):
 - ``AVANTIS_RPC_URL``        write RPC; required broadcast path only when
                              execution=direct and you want self-broadcast
 - ``AVANTIS_NETWORK``        "testnet" (default) | "mainnet"
+- ``AVANTIS_API_BASE_URL``   central-routing host (prod-api / staging-api);
+                             /core, /twap, /batched-market and /blitz are
+                             derived from it unless individually overridden
 - ``AVANTIS_TX_BUILDER_URL`` / ``AVANTIS_RELAYER_URL`` / ``AVANTIS_DATA_API_URL``
-  / ``AVANTIS_CORE_API_URL`` / ``AVANTIS_HISTORY_API_URL`` / ``AVANTIS_RISK_API_URL``
-  / ``AVANTIS_FEED_URL``     per-service overrides
+  / ``AVANTIS_CORE_API_URL`` / ``AVANTIS_TWAP_API_URL``
+  / ``AVANTIS_BATCHED_MARKET_URL`` / ``AVANTIS_HISTORY_API_URL``
+  / ``AVANTIS_RISK_API_URL`` / ``AVANTIS_FEED_URL``   per-service overrides
 """
 
 from __future__ import annotations
@@ -29,24 +33,38 @@ DEFAULT_DELEGATION_ADDRESS = "0x5aF42746a8Af42d8a4708dF238C53F1F71abF0E0"
 @dataclass(frozen=True)
 class NetworkProfile:
     name: str
+    api_base_url: str
     tx_builder_url: str
-    relayer_url: str
     data_api_url: str
-    core_api_url: str
     history_api_url: str
     risk_api_url: str
     feed_url: str
+    # Centrally-routed services (avantis-cd services/infra-http-routes):
+    # derived from api_base_url when left empty.
+    relayer_url: str = ""  # blitz relayer      -> {api_base_url}/blitz
+    core_api_url: str = ""  # core backend      -> {api_base_url}/core
+    twap_api_url: str = ""  # twap-app          -> {api_base_url}/twap
+    batched_market_url: str = ""  # batched-market-api -> {api_base_url}/batched-market
     hermes_ws_url: str = "wss://hermes.pyth.network/ws"
     pusher_key: str | None = None
     pusher_cluster: str = "us2"
 
 
+# Central-routing path prefixes (HTTPRoute rules rewrite the prefix to "/").
+_CENTRAL_ROUTES = {
+    "core_api_url": "/core",
+    "twap_api_url": "/twap",
+    "batched_market_url": "/batched-market",
+    "relayer_url": "/blitz",
+}
+
 TESTNET = NetworkProfile(
     name="testnet",
+    # tenderly-testnet namespace (the v2 stack); testnet-public uses
+    # staging-public-api.avantisfi.com instead.
+    api_base_url="https://staging-api.avantisfi.com",
     tx_builder_url="https://tx-builder-testnet.avantisfi.com",
-    relayer_url="https://blitz-relayer-testnet.avantisfi.com",
     data_api_url="https://testnet-data.avantisfi.com",
-    core_api_url="https://core-testnet.avantisfi.com",
     history_api_url="https://testnet-api.avantisfi.com",
     # risk-api-testnet.avantisfi.com is cluster-internal; -public is the
     # reachable ingress (avantis-cd/services/risk-engine/testnet-public).
@@ -58,11 +76,9 @@ TESTNET = NetworkProfile(
 
 MAINNET = NetworkProfile(
     name="mainnet",
+    api_base_url="https://prod-api.avantisfi.com",
     tx_builder_url="https://tx-builder.avantisfi.com",
-    # NOTE: unverified guess — confirm the mainnet blitz host before release.
-    relayer_url="https://blitz-relayer.avantisfi.com",
     data_api_url="https://data.avantisfi.com",
-    core_api_url="https://core.avantisfi.com",
     history_api_url="https://api.avantisfi.com",
     risk_api_url="https://risk-api.avantisfi.com",
     feed_url="https://feed-v3.avantisfi.com",
@@ -71,10 +87,13 @@ MAINNET = NetworkProfile(
 PROFILES = {"testnet": TESTNET, "mainnet": MAINNET}
 
 _ENV_URL_OVERRIDES = {
+    "api_base_url": "AVANTIS_API_BASE_URL",
     "tx_builder_url": "AVANTIS_TX_BUILDER_URL",
     "relayer_url": "AVANTIS_RELAYER_URL",
     "data_api_url": "AVANTIS_DATA_API_URL",
     "core_api_url": "AVANTIS_CORE_API_URL",
+    "twap_api_url": "AVANTIS_TWAP_API_URL",
+    "batched_market_url": "AVANTIS_BATCHED_MARKET_URL",
     "history_api_url": "AVANTIS_HISTORY_API_URL",
     "risk_api_url": "AVANTIS_RISK_API_URL",
     "feed_url": "AVANTIS_FEED_URL",
@@ -93,10 +112,13 @@ class AvantisConfig:
 
     # service endpoints
     network: str = "testnet"
+    api_base_url: str = ""
     tx_builder_url: str = ""
     relayer_url: str = ""
     data_api_url: str = ""
     core_api_url: str = ""
+    twap_api_url: str = ""
+    batched_market_url: str = ""
     history_api_url: str = ""
     risk_api_url: str = ""
     feed_url: str = ""
@@ -152,6 +174,13 @@ class AvantisConfig:
             if key == "execution" and not isinstance(value, ExecutionMode):
                 value = ExecutionMode(str(value).lower())
             setattr(cfg, key, value)
+
+        # Central-routing derivation: any routed service left unset resolves
+        # to {api_base_url}{prefix}. Explicit env/constructor values win.
+        base = cfg.api_base_url.rstrip("/")
+        for attr, prefix in _CENTRAL_ROUTES.items():
+            if not getattr(cfg, attr) and base:
+                setattr(cfg, attr, f"{base}{prefix}")
         return cfg
 
     def validate_for_signing(self) -> None:

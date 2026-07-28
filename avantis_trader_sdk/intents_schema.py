@@ -177,6 +177,26 @@ INTENT_TYPES: dict[str, dict[str, list[Field]]] = {
             {"name": "__reserved1", "type": "uint256"},
         ],
     },
+    # Cancels a TWAP by on-chain id. NO __reserved1 (unlike open/close);
+    # verified off-chain by twap-app (ethers) and on-chain via
+    # executeTwapBatched(TWAP_CANCEL).
+    "TwapCancelReq": {
+        "TwapCancelReq": [
+            {"name": "trader", "type": "address"},
+            {"name": "twapId", "type": "uint256"},
+            {"name": "nonce", "type": "uint256"},
+            {"name": "deadline", "type": "uint256"},
+        ],
+    },
+    # Deletes a stored off-chain partial TP/SL order. OFF-CHAIN ONLY: the core
+    # backend recovers the signer over the Mongo documentId (handed out by
+    # /user-data and the /offchain-orders create response); never submitted to
+    # a contract, so there is no abi.encode form.
+    "CancelOffchainOrder": {
+        "CancelOffchainOrder": [
+            {"name": "documentId", "type": "string"},
+        ],
+    },
     "RfqOpenOrder": {
         "RfqOpenOrder": [
             {"name": "trader", "type": "address"},

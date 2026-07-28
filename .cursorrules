@@ -27,18 +27,26 @@ Sync facade: `Avantis()` (same surface, blocking).
 - client.referral / client.lp - actions (caller-scoped; trader key only)
 - avantis_trader_sdk.compute  - pure UI-parity math (PnL, liq, validation)
 
-### Execution routing (execution/engine.py) — blitz relayer (POST /relays)
-- relayer mode + intent-capable action -> SDK encodes executeMarketOrderBatched/
-  executePositionUpdateBatched locally (price update from feed-v3, zeroed
-  spread params, 2.5M gas) -> blitz type-2 relay to the TradingRouter
-- relayer mode + everything else      -> type-4 passthrough (SDK-built
+### Execution routing (execution/engine.py) — central routing base URL
+Service URLs derive from api_base_url (prod-api/staging-api.avantisfi.com):
+/core, /twap, /batched-market, /blitz.
+- relayer mode + market open/close/increase (10 types) -> batched-market
+  POST /market/execute-batched with BOTH payloads (signed EIP-712 intent +
+  pre-signed EIP-7702 type-4 tx); lifecycle streamed back as SSE, replayable
+  via GET /tracking-id/{id}/status (execution/batched_market.py)
+- relayer mode + UPDATE_SL -> SDK encodes executePositionUpdateBatched
+  locally (price update from feed-v3, zeroed spread params, 2.5M gas)
+  -> blitz type-2 relay to the TradingRouter
+- relayer mode + everything else -> type-4 passthrough via blitz (SDK-built
   EIP-7702 smart-account tx via eip7702/account.py)
-- direct mode                          -> EIP-1559 tx via rpc_url
+- TWAP open/close/cancel -> signed intents POSTed to the twap-app API
+  (no relayer; responds {twapId, transactionHash} synchronously)
+- direct mode -> EIP-1559 tx via rpc_url
 
 ## Critical Invariants (do not break)
 
 1. Every signed intent MUST pass the digest assert (signing/intents.py).
-   Golden vectors in tests/vectors/vectors.json prove all 15 intent kinds -
+   Golden vectors in tests/vectors/vectors.json prove all 17 intent kinds -
    tests/test_golden_vectors.py and test_local_intents.py must stay green.
 2. EIP-7702 encoding (eip7702/account.py) is byte-for-byte compatible with
    @gelatocloud/gasless - tests/test_eip7702.py guards this.

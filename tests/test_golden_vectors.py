@@ -62,7 +62,7 @@ def test_digest_mismatch_is_fatal():
         sign_intent(payload, LocalSigner(TEST_KEY))
 
 
-def test_all_15_intent_kinds_covered():
+def test_all_17_intent_kinds_covered():
     kinds = {v["kind"] for v in VECTORS["vectors"]}
     assert kinds == set(INTENT_TYPES.keys())
-    assert len(kinds) == 15
+    assert len(kinds) == 17

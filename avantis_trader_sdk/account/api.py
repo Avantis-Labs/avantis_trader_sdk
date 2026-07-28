@@ -70,13 +70,15 @@ class AccountApi(ExecutingApi):
         trader: str | None = None,
         *,
         include_canceled: bool = False,
-        page: int = 1,
+        page: int = 0,
         page_size: int = 20,
     ) -> Any:
+        """TWAP orders with their per-slice trades (twap-app API; ``page`` is
+        0-based)."""
         assert self._t is not None
         return await self._t.json(
             "GET",
-            f"{self._cfg.core_api_url}/twaps",
+            f"{self._cfg.twap_api_url}/twaps",
             params={
                 "trader": trader or self.trader,
                 "includeCanceled": str(include_canceled).lower(),

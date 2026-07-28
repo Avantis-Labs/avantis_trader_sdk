@@ -22,6 +22,7 @@ receipt = await client.trade.market_open(
 | `collateral` | — | USDC |
 | `leverage` | — | Multiplier (`10` = 10x) |
 | `take_profit` / `stop_loss` | `None` | Trigger prices |
+| `open_price` | `None` | Reference price the fill is validated against (± `slippage_percent`); resolved from the live feed when omitted |
 | `slippage_percent` | `1` | Max slippage (`1` = 1%) |
 | `zero_fee` | `False` | Open a zero-fee (ZFP) position — no open/close fee, tiered profit share instead |
 | `skip_validation` | `False` | Skip the API's pre-trade validation |
@@ -44,6 +45,8 @@ await client.trade.market_open_coin(
 <Warning>
 `leverage` is required on coin-sized opens even though the fill leverage floats — the contract struct demands it. `min`/`max` default to the pair's envelope when omitted.
 </Warning>
+
+`market_open_coin` also accepts `open_price`, with the same semantics as `market_open`.
 
 ## Close
 

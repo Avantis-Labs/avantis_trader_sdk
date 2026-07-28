@@ -9,6 +9,13 @@ With ``wait=False`` the SDK returns as soon as the relayer accepts the
 request — but a queued relay can still fail (on-chain revert, relayer
 timeout), so YOU own the settlement check. Reconcile off the hot path with
 ``engine.relayer.wait(request_id)`` (or ``.status()`` for a single poll).
+
+Beyond ``open_trade``/``close_trade`` the builder covers the whole intent
+surface: ``open_trade_coin``/``close_trade_coin`` (coin-sized, pair with
+AggregatorOrderType.*_WITH_COIN_EXPOSURE), ``increase_position[_coin]``,
+``update_tp_sl``, ``partial_tp_sl`` (stored off-chain, not relayed),
+``twap_open``/``twap_close``, ``delegate_req``, and the referral intents.
+Prices are always caller-supplied — there is no feed lookup locally.
 """
 
 import asyncio

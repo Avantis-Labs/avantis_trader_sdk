@@ -38,12 +38,21 @@ async with AsyncAvantis() as client:
 | Method | Intent |
 | --- | --- |
 | `builder.open_trade(...)` | Market open |
+| `builder.open_trade_coin(...)` | Market open sized in coin units |
 | `builder.close_trade(...)` | Market close |
+| `builder.close_trade_coin(...)` | Market close sized in coin units |
+| `builder.increase_position(...)` | Increase position size |
+| `builder.increase_position_coin(...)` | Increase sized in coin units |
 | `builder.update_tp_sl(...)` | TP/SL update |
+| `builder.partial_tp_sl(...)` | Partial TP/SL trigger (stored off-chain — see below) |
+| `builder.twap_open(...)` / `builder.twap_close(...)` | TWAP open / close |
 | `builder.delegate_req(...)` | Delegate registration |
-| `builder.build(kind, message)` | Any of the 15 intent kinds, raw |
+| `builder.register_code(...)` / `builder.set_referral_code(...)` | Referral (referral domain; trader key only) |
+| `builder.build(kind, message)` | Any of the 15 intent kinds, raw (incl. RFQ, which has no helper yet) |
 
 Payloads are `IntentPayload` objects identical to what the tx-builder would return, and go through the same digest-verified signer.
+
+Since the builder never touches the network, prices are always caller-supplied: coin/increase helpers take an explicit `open_price`/`wanted_price` (the tx-builder route would resolve these from the feed). Note `partial_tp_sl` only *builds* the TpSlReq — the signed order still has to be stored via the core API `/offchain-orders` (what `client.trade.partial_tp_sl` does), not submitted to the relayer.
 
 ## Settling relays
 

@@ -21,6 +21,7 @@ from eth_abi import encode as abi_encode
 from eth_account.messages import _hash_eip191_message, encode_typed_data
 from eth_utils import to_bytes, to_checksum_address
 
+from ..errors import ConfigError
 from ..intents_schema import (
     INTENT_TYPES,
     REFERRAL_INTENTS,
@@ -41,6 +42,24 @@ _ABI_ORDERS: dict[str, list[str]] = {
 }
 
 _ABI_TYPE_MAP = {"Trade": "tuple", "UpdatePositionSize": "tuple"}
+
+# ITradingStorage.TriggerType (partial TP/SL).
+_TRIGGER_TYPE_CODES = {"fixed": 0, "percentage": 1}
+# ITradingStorage.LimitOrder — partial TP/SL live at codes 4/5.
+_PARTIAL_KIND_CODES = {"take_profit": 4, "tp": 4, "stop_loss": 5, "sl": 5}
+
+
+def _code_bytes32(code: str) -> str:
+    """Referral code as bytes32 hex: pass 0x… through, right-pad short strings."""
+    if code.startswith("0x"):
+        raw = to_bytes(hexstr=code)
+        if len(raw) != 32:
+            raise ValueError("hex referral code must be exactly 32 bytes")
+        return code
+    raw = code.encode()
+    if len(raw) > 32:
+        raise ValueError("referral code must be at most 32 bytes")
+    return "0x" + raw.ljust(32, b"\x00").hex()
 
 
 class NoncePool:
@@ -171,6 +190,35 @@ class LocalIntentBuilder:
     def _deadline(self, deadline_ms: int | None) -> int:
         return deadline_ms if deadline_ms is not None else int(time.time() * 1000) + self.default_deadline_ms
 
+    def _nonce(self, nonce: int | None) -> int:
+        return nonce if nonce is not None else self.nonces.next()
+
+    @staticmethod
+    def _trade_struct(
+        *,
+        trader: str,
+        pair_index: int,
+        is_long: bool,
+        collateral_usdc: float,
+        leverage: float,
+        open_price: float,
+        tp: float,
+        sl: float,
+    ) -> dict[str, Any]:
+        return {
+            "trader": to_checksum_address(trader),
+            "pairIndex": pair_index,
+            "index": 0,
+            "initialPosToken": 0,
+            "positionSizeUSDC": int(collateral_usdc * USDC),
+            "openPrice": int(open_price * P10),
+            "buy": is_long,
+            "leverage": int(leverage * P10),
+            "tp": int(tp * P10),
+            "sl": int(sl * P10),
+            "timestamp": 0,
+        }
+
     def open_trade(
         self,
         *,
@@ -188,25 +236,64 @@ class LocalIntentBuilder:
         deadline_ms: int | None = None,
     ) -> IntentPayload:
         message = {
-            "_t": {
-                "trader": to_checksum_address(trader),
-                "pairIndex": pair_index,
-                "index": 0,
-                "initialPosToken": 0,
-                "positionSizeUSDC": int(collateral_usdc * USDC),
-                "openPrice": int(open_price * P10),
-                "buy": is_long,
-                "leverage": int(leverage * P10),
-                "tp": int(tp * P10),
-                "sl": int(sl * P10),
-                "timestamp": 0,
-            },
+            "_t": self._trade_struct(
+                trader=trader,
+                pair_index=pair_index,
+                is_long=is_long,
+                collateral_usdc=collateral_usdc,
+                leverage=leverage,
+                open_price=open_price,
+                tp=tp,
+                sl=sl,
+            ),
             "_type": order_type,
             "_slippageP": int(slippage_percent * P10),
             "_deadline": self._deadline(deadline_ms),
-            "_nonce": nonce if nonce is not None else self.nonces.next(),
+            "_nonce": self._nonce(nonce),
         }
         return self.build("OpenTradeReq", message)
+
+    def open_trade_coin(
+        self,
+        *,
+        trader: str,
+        pair_index: int,
+        is_long: bool,
+        collateral_usdc: float,
+        coin_exposure: float,
+        leverage: float,
+        min_leverage: float,
+        max_leverage: float,
+        open_price: float,
+        order_type: int = 0,  # 0 market, 3 market_pnl
+        tp: float = 0,
+        sl: float = 0,
+        slippage_percent: float = 1,
+        nonce: int | None = None,
+        deadline_ms: int | None = None,
+    ) -> IntentPayload:
+        """Open targeting a fixed base-asset exposure (fill leverage floats
+        within [min_leverage, max_leverage]; ``leverage`` is the reference)."""
+        message = {
+            "_t": self._trade_struct(
+                trader=trader,
+                pair_index=pair_index,
+                is_long=is_long,
+                collateral_usdc=collateral_usdc,
+                leverage=leverage,
+                open_price=open_price,
+                tp=tp,
+                sl=sl,
+            ),
+            "_type": order_type,
+            "_coinExposure": int(coin_exposure * P10),
+            "_minLeverage": int(min_leverage * P10),
+            "_maxLeverage": int(max_leverage * P10),
+            "_slippageP": int(slippage_percent * P10),
+            "_deadline": self._deadline(deadline_ms),
+            "_nonce": self._nonce(nonce),
+        }
+        return self.build("OpenTradeCoinExposureReq", message)
 
     def close_trade(
         self,
@@ -228,9 +315,119 @@ class LocalIntentBuilder:
             "_amount": int(amount_usdc * USDC),
             "_wantedPrice": int(wanted_price * P10),
             "_deadline": self._deadline(deadline_ms),
-            "_nonce": nonce if nonce is not None else self.nonces.next(),
+            "_nonce": self._nonce(nonce),
         }
         return self.build("CloseTradeReq", message)
+
+    def close_trade_coin(
+        self,
+        *,
+        trader: str,
+        pair_index: int,
+        index: int,
+        open_timestamp: int,
+        coin_exposure: float,
+        wanted_price: float,
+        nonce: int | None = None,
+        deadline_ms: int | None = None,
+    ) -> IntentPayload:
+        """Close a fixed base-asset exposure instead of a USDC amount."""
+        message = {
+            "_trader": to_checksum_address(trader),
+            "_pairIndex": pair_index,
+            "_index": index,
+            "_openTimestamp": open_timestamp,
+            "_coinExposure": int(coin_exposure * P10),
+            "_wantedPrice": int(wanted_price * P10),
+            "_deadline": self._deadline(deadline_ms),
+            "_nonce": self._nonce(nonce),
+        }
+        return self.build("CloseTradeCoinExposureReq", message)
+
+    def _update_position_size_struct(
+        self,
+        *,
+        trader: str,
+        pair_index: int,
+        index: int,
+        open_price: float,
+        additional_collateral_usdc: float,
+        leverage: float,
+    ) -> dict[str, Any]:
+        return {
+            "trader": to_checksum_address(trader),
+            "pairIndex": pair_index,
+            "index": index,
+            "openPrice": int(open_price * P10),
+            "initialPosToken": int(additional_collateral_usdc * USDC),
+            "leverage": int(leverage * P10),
+        }
+
+    def increase_position(
+        self,
+        *,
+        trader: str,
+        pair_index: int,
+        index: int,
+        additional_collateral_usdc: float,
+        leverage: float,
+        open_price: float,
+        slippage_percent: float = 1,
+        nonce: int | None = None,
+        deadline_ms: int | None = None,
+    ) -> IntentPayload:
+        """Increase position size (``open_price`` is the reference price for
+        the added size; no feed locally, so the caller must supply it)."""
+        message = {
+            "_updateInfo": self._update_position_size_struct(
+                trader=trader,
+                pair_index=pair_index,
+                index=index,
+                open_price=open_price,
+                additional_collateral_usdc=additional_collateral_usdc,
+                leverage=leverage,
+            ),
+            "_slippageP": int(slippage_percent * P10),
+            "_deadline": self._deadline(deadline_ms),
+            "_nonce": self._nonce(nonce),
+        }
+        return self.build("IncreasePositionSizeReq", message)
+
+    def increase_position_coin(
+        self,
+        *,
+        trader: str,
+        pair_index: int,
+        index: int,
+        additional_collateral_usdc: float,
+        coin_exposure: float,
+        leverage: float,
+        min_leverage: float,
+        max_leverage: float,
+        open_price: float,
+        slippage_percent: float = 1,
+        nonce: int | None = None,
+        deadline_ms: int | None = None,
+    ) -> IntentPayload:
+        """Increase targeting a fixed base-asset exposure (fill leverage floats
+        within [min_leverage, max_leverage])."""
+        message = {
+            "_updateInfo": self._update_position_size_struct(
+                trader=trader,
+                pair_index=pair_index,
+                index=index,
+                open_price=open_price,
+                additional_collateral_usdc=additional_collateral_usdc,
+                leverage=leverage,
+            ),
+            "_coinExposure": int(coin_exposure * P10),
+            "_minLeverage": int(min_leverage * P10),
+            "_maxLeverage": int(max_leverage * P10),
+            "_slippageP": int(slippage_percent * P10),
+            "_deadline": self._deadline(deadline_ms),
+            "_nonce": self._nonce(nonce),
+        }
+        return self.build("IncreasePositionSizeWithCoinExposureReq", message)
 
     def update_tp_sl(
         self,
@@ -250,9 +447,135 @@ class LocalIntentBuilder:
             "_newTp": int(tp * P10),
             "_newSl": int(sl * P10),
             "_deadline": self._deadline(deadline_ms),
-            "_nonce": nonce if nonce is not None else self.nonces.next(),
+            "_nonce": self._nonce(nonce),
         }
         return self.build("UpdateTpSlReq", message)
+
+    def partial_tp_sl(
+        self,
+        *,
+        trader: str,
+        pair_index: int,
+        index: int,
+        kind: str,  # "tp"/"take_profit" | "sl"/"stop_loss"
+        is_long: bool,  # side of the POSITION being trimmed
+        coin_exposure: float,
+        open_timestamp: int,  # the position's Trade.timestamp
+        trigger: str = "fixed",  # "fixed" | "percentage"
+        price: float | None = None,  # required with trigger="fixed"
+        percentage: float | None = None,  # signed, 1 = 1%; required with "percentage"
+        sign_timestamp_ms: int | None = None,
+        nonce: int | None = None,
+    ) -> IntentPayload:
+        """Partial TP/SL trigger order (TpSlReq).
+
+        NO deadline by design — freshness comes from ``signTimestamp`` (ms,
+        must not be in the future). The signed order is stored OFF-CHAIN via
+        the core API /offchain-orders; building/signing alone does nothing.
+        """
+        if trigger not in _TRIGGER_TYPE_CODES:
+            raise ValueError(f"trigger must be one of {sorted(_TRIGGER_TYPE_CODES)}")
+        if kind not in _PARTIAL_KIND_CODES:
+            raise ValueError(f"kind must be one of {sorted(_PARTIAL_KIND_CODES)}")
+        if trigger == "fixed" and price is None:
+            raise ValueError("price is required with trigger='fixed'")
+        if trigger == "percentage" and percentage is None:
+            raise ValueError("percentage is required with trigger='percentage'")
+        message = {
+            "trader": to_checksum_address(trader),
+            "pairIndex": pair_index,
+            "index": index,
+            "triggerType": _TRIGGER_TYPE_CODES[trigger],
+            "coinSize": int(coin_exposure * P10),
+            "buy": is_long,
+            "price": int(price * P10) if price is not None else 0,
+            "percentage": int(percentage * P10) if percentage is not None else 0,
+            "timestamp": open_timestamp,
+            "signTimestamp": (
+                sign_timestamp_ms if sign_timestamp_ms is not None else int(time.time() * 1000)
+            ),
+            "orderType": _PARTIAL_KIND_CODES[kind],
+            "nonce": self._nonce(nonce),
+        }
+        return self.build("TpSlReq", message)
+
+    def twap_open(
+        self,
+        *,
+        trader: str,
+        pair_index: int,
+        is_long: bool,
+        collateral_usdc: float,
+        run_time_seconds: int,
+        leverage: float,
+        max_leverage: float,
+        coin_exposure: float | None = None,
+        nonce: int | None = None,
+        deadline_ms: int | None = None,
+    ) -> IntentPayload:
+        """TWAP open (collateral spread over run_time_seconds slices);
+        ``coin_exposure`` switches to fixed base-asset exposure targeting."""
+        message = {
+            "trader": to_checksum_address(trader),
+            "pairIndex": pair_index,
+            "collateral": int(collateral_usdc * USDC),
+            "buy": is_long,
+            "isCoin": coin_exposure is not None,
+            "coinSize": int(coin_exposure * P10) if coin_exposure is not None else 0,
+            "defaultLeverage": int(leverage * P10),
+            "maxLeverage": int(max_leverage * P10),
+            "runTime": run_time_seconds,
+            "nonce": self._nonce(nonce),
+            "deadline": self._deadline(deadline_ms),
+            "__reserved1": 0,
+        }
+        return self.build("TwapOpenOrder", message)
+
+    def twap_close(
+        self,
+        *,
+        trader: str,
+        pair_index: int,
+        index: int,
+        coin_exposure_to_close: float,
+        run_time_seconds: int,
+        nonce: int | None = None,
+        deadline_ms: int | None = None,
+    ) -> IntentPayload:
+        message = {
+            "trader": to_checksum_address(trader),
+            "pairIndex": pair_index,
+            "index": index,
+            "coinSizeToClose": int(coin_exposure_to_close * P10),
+            "runTime": run_time_seconds,
+            "nonce": self._nonce(nonce),
+            "deadline": self._deadline(deadline_ms),
+            "__reserved1": 0,
+        }
+        return self.build("TwapCloseOrder", message)
+
+    def twap_cancel(
+        self,
+        *,
+        trader: str,
+        twap_id: int,
+        nonce: int | None = None,
+        deadline_ms: int | None = None,
+    ) -> IntentPayload:
+        """Cancel a TWAP by its on-chain ``twapId`` (no __reserved1 field)."""
+        message = {
+            "trader": to_checksum_address(trader),
+            "twapId": twap_id,
+            "nonce": self._nonce(nonce),
+            "deadline": self._deadline(deadline_ms),
+        }
+        return self.build("TwapCancelReq", message)
+
+    def cancel_offchain_order(self, *, document_id: str) -> IntentPayload:
+        """Delete proof for a stored partial TP/SL: signs the order's Mongo
+        ``documentId`` (from the create response / a position's
+        ``offchainOrders``). Off-chain only — never submitted to a contract."""
+        return self.build("CancelOffchainOrder", {"documentId": document_id})
 
     def delegate_req(
         self,
@@ -269,6 +592,51 @@ class LocalIntentBuilder:
             "expiry": expiry_seconds,
             "deadline": self._deadline(deadline_ms),
             "tnc": TNC_STRING,
-            "nonce": nonce if nonce is not None else self.nonces.next(),
+            "nonce": self._nonce(nonce),
         }
         return self.build("DelegateReq", message)
+
+    # ------------------------------------------------------------------ referral
+    # Separate EIP-712 domain (verifyingContract = Referral) and a
+    # Referral-local nonce bitmap. msg.sender-scoped on-chain: trader key only.
+
+    def _require_referral(self) -> None:
+        if self.referral is None:
+            raise ConfigError(
+                "referral intents need the Referral contract address; "
+                "pass referral= to LocalIntentBuilder (from_meta sets it automatically)"
+            )
+
+    def register_code(
+        self,
+        *,
+        code: str,  # bytes32 hex or short string (right-padded)
+        referrer: str,
+        nonce: int | None = None,
+        deadline_ms: int | None = None,
+    ) -> IntentPayload:
+        self._require_referral()
+        message = {
+            "_code": _code_bytes32(code),
+            "_referrer": to_checksum_address(referrer),
+            "_deadline": self._deadline(deadline_ms),
+            "_nonce": self._nonce(nonce),
+        }
+        return self.build("RegisterCodeReq", message)
+
+    def set_referral_code(
+        self,
+        *,
+        code: str,  # bytes32 hex or short string (right-padded)
+        referee: str,
+        nonce: int | None = None,
+        deadline_ms: int | None = None,
+    ) -> IntentPayload:
+        self._require_referral()
+        message = {
+            "_code": _code_bytes32(code),
+            "_referee": to_checksum_address(referee),
+            "_deadline": self._deadline(deadline_ms),
+            "_nonce": self._nonce(nonce),
+        }
+        return self.build("SetTraderReferralCodeByUserReq", message)

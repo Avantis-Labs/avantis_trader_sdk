@@ -15,6 +15,7 @@ from tests.conftest import META, TEST_ADDRESS, TEST_KEY, TRADER, VECTORS
 TXB = "https://txb.test"
 RELAYER = "https://relayer.test"
 CORE = "https://core.test"
+TWAP = "https://twap.test"
 RPC = "https://rpc.test"
 
 
@@ -30,6 +31,7 @@ def _client(**kw) -> AsyncAvantis:
         tx_builder_url=TXB,
         relayer_url=RELAYER,
         core_api_url=CORE,
+        twap_api_url=TWAP,
         relay_poll_interval_s=0.01,
     )
     defaults.update(kw)
@@ -51,6 +53,11 @@ def _vector_payload(kind: str, **extra) -> dict:
     }
 
 
+# documentId from the CancelOffchainOrder golden vector (conftest META uses
+# the golden-vector domain: chainId 31337 + same router).
+DOCUMENT_ID = "665f1c2ab7a1b2c3d4e5f601"
+
+
 @pytest.mark.asyncio
 @respx.mock
 async def test_offchain_partial_tpsl_submit():
@@ -58,8 +65,8 @@ async def test_offchain_partial_tpsl_submit():
     respx.post(f"{TXB}/v2/intents/tpsl-partial").mock(
         return_value=_ok(_vector_payload("TpSlReq"))
     )
-    put_route = respx.put(f"{CORE}/offchain-orders").mock(
-        return_value=httpx.Response(200, json={})
+    post_route = respx.post(f"{CORE}/offchain-orders").mock(
+        return_value=httpx.Response(200, json={"documentId": DOCUMENT_ID})
     )
 
     async with _client() as client:
@@ -67,23 +74,54 @@ async def test_offchain_partial_tpsl_submit():
             "ETH/USD", 0, side="long", kind="tp", coin_exposure="0.5", price=4000
         )
 
-    assert put_route.called
-    body = json.loads(put_route.calls[0].request.content)
+    assert post_route.called
+    body = json.loads(post_route.calls[0].request.content)
     vec_msg = next(v for v in VECTORS["vectors"] if v["kind"] == "TpSlReq")["message"]
     assert body["trader"] == vec_msg["trader"]
     assert body["signTimestamp"] == int(vec_msg["signTimestamp"])
     assert body["signedMessage"].startswith("0x") and len(body["signedMessage"]) == 132
     assert submission["orderType"] == int(vec_msg["orderType"])
+    # the stored order's documentId (needed for update/cancel) is surfaced
+    assert submission["documentId"] == DOCUMENT_ID
 
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_offchain_partial_tpsl_cancel_signs_same_digest():
+async def test_offchain_partial_tpsl_update_puts_to_document():
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
     respx.post(f"{TXB}/v2/intents/tpsl-partial").mock(
         return_value=_ok(_vector_payload("TpSlReq"))
     )
-    respx.put(f"{CORE}/offchain-orders").mock(return_value=httpx.Response(200, json={}))
+    put_route = respx.put(f"{CORE}/offchain-orders/{DOCUMENT_ID}").mock(
+        return_value=httpx.Response(200, json={"documentId": DOCUMENT_ID})
+    )
+
+    async with _client() as client:
+        updated = await client.trade.update_partial_tp_sl(
+            DOCUMENT_ID, "ETH/USD", 0,
+            side="long", kind="tp", coin_exposure="0.5", price=4200,
+        )
+
+    assert put_route.called
+    body = json.loads(put_route.calls[0].request.content)
+    assert body["signedMessage"].startswith("0x") and len(body["signedMessage"]) == 132
+    assert updated["documentId"] == DOCUMENT_ID
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_offchain_partial_tpsl_cancel_signs_document_id():
+    """Cancel signs an EIP-712 CancelOffchainOrder over the documentId and
+    DELETEs with a JSON body — proven against the ethers golden vector."""
+    from eth_account import Account
+
+    respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
+    respx.post(f"{TXB}/v2/intents/tpsl-partial").mock(
+        return_value=_ok(_vector_payload("TpSlReq"))
+    )
+    respx.post(f"{CORE}/offchain-orders").mock(
+        return_value=httpx.Response(200, json={"documentId": DOCUMENT_ID})
+    )
     delete_route = respx.delete(f"{CORE}/offchain-orders").mock(
         return_value=httpx.Response(200, json={})
     )
@@ -95,10 +133,125 @@ async def test_offchain_partial_tpsl_cancel_signs_same_digest():
         await client.trade.cancel_partial_tp_sl(submission)
 
     assert delete_route.called
-    params = dict(delete_route.calls[0].request.url.params)
-    # cancel re-signs the same TpSlReq -> byte-identical signature.
-    # (conftest META uses the golden-vector domain: chainId 31337 + same router)
-    assert params["signedMessage"] == submission["signedMessage"]
+    body = json.loads(delete_route.calls[0].request.content)
+    assert body["documentId"] == DOCUMENT_ID
+    # the signature recovers to the signer over the golden-vector digest
+    golden = next(
+        v for v in VECTORS["vectors"] if v["kind"] == "CancelOffchainOrder"
+    )
+    recovered = Account._recover_hash(
+        golden["digest"], signature=bytes.fromhex(body["signedMessage"][2:])
+    )
+    from avantis_trader_sdk.signing import LocalSigner
+
+    assert recovered.lower() == LocalSigner(TEST_KEY).address.lower()
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_twap_open_posts_signed_intent_to_twap_app():
+    """twap_open: tx-builder intent -> local sign -> POST {twap}/twaps/open
+    with DTO conventions (pairIndex number, __reserved1 -> reserved1)."""
+    respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
+    respx.post(f"{TXB}/v2/intents/twap-open").mock(
+        return_value=_ok(_vector_payload("TwapOpenOrder"))
+    )
+    open_route = respx.post(f"{TWAP}/twaps/open").mock(
+        return_value=httpx.Response(
+            201, json={"twapId": 12, "transactionHash": "0xtwap", "blockNumber": 99}
+        )
+    )
+
+    async with _client() as client:
+        receipt = await client.trade.twap_open(
+            "ETH/USD", "long", collateral=100, run_time_seconds=3600,
+            leverage=10, max_leverage=75,
+        )
+
+    assert receipt.route == "twap-api"
+    assert receipt.tx_hash == "0xtwap"
+    assert receipt.order_id == 12  # on-chain twapId
+
+    vec_msg = next(
+        v for v in VECTORS["vectors"] if v["kind"] == "TwapOpenOrder"
+    )["message"]
+    body = json.loads(open_route.calls[0].request.content)
+    assert body["trader"] == vec_msg["trader"]
+    assert body["pairIndex"] == int(vec_msg["pairIndex"])  # number, not string
+    assert body["collateral"] == vec_msg["collateral"]
+    assert body["buy"] is True and body["isCoin"] is False
+    assert body["runTime"] == vec_msg["runTime"]
+    assert "__reserved1" not in body and body["reserved1"] == "0"
+    assert body["signature"].startswith("0x") and len(body["signature"]) == 132
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_twap_close_posts_signed_intent():
+    respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
+    respx.post(f"{TXB}/v2/intents/twap-close").mock(
+        return_value=_ok(_vector_payload("TwapCloseOrder"))
+    )
+    close_route = respx.post(f"{TWAP}/twaps/close").mock(
+        return_value=httpx.Response(
+            201, json={"twapId": 13, "transactionHash": "0xc", "blockNumber": 100}
+        )
+    )
+
+    async with _client() as client:
+        receipt = await client.trade.twap_close(
+            "ETH/USD", 0, coin_exposure_to_close="0.25", run_time_seconds=1800
+        )
+
+    assert receipt.order_id == 13
+    body = json.loads(close_route.calls[0].request.content)
+    assert body["index"] == 0  # number, per the DTO
+    vec_msg = next(
+        v for v in VECTORS["vectors"] if v["kind"] == "TwapCloseOrder"
+    )["message"]
+    assert body["coinSizeToClose"] == vec_msg["coinSizeToClose"]
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_twap_cancel_builds_intent_locally():
+    """No tx-builder route for TwapCancelReq: built + signed locally, POSTed
+    to the twap-app."""
+    respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
+    cancel_route = respx.post(f"{TWAP}/twaps/cancel").mock(
+        return_value=httpx.Response(
+            201, json={"twapId": 7, "transactionHash": "0xdead", "blockNumber": 101}
+        )
+    )
+
+    async with _client() as client:
+        receipt = await client.trade.twap_cancel(7)
+
+    assert receipt.route == "twap-api"
+    assert receipt.tx_hash == "0xdead"
+    body = json.loads(cancel_route.calls[0].request.content)
+    assert body["trader"] == TRADER
+    assert body["twapId"] == "7"  # IsNumberString in the DTO
+    assert body["nonce"].isdigit() and body["deadline"].isdigit()
+    assert "reserved1" not in body  # cancel struct has no reserved slot
+    assert body["signature"].startswith("0x") and len(body["signature"]) == 132
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_account_twaps_reads_from_twap_app():
+    respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
+    twaps_route = respx.get(f"{TWAP}/twaps").mock(
+        return_value=httpx.Response(200, json=[{"twapId": 12}])
+    )
+
+    async with _client() as client:
+        data = await client.account.twaps()
+
+    assert data == [{"twapId": 12}]
+    params = dict(twaps_route.calls[0].request.url.params)
+    assert params["trader"] == TRADER
+    assert params["pageNum"] == "0"  # twap-app pagination is 0-based
 
 
 @pytest.mark.asyncio
