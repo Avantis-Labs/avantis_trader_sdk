@@ -7,6 +7,12 @@ Normal SDK calls fetch the order's EIP-712 intent from the tx-builder API. For m
 
 One round-trip is architectural and stays: the batched-market service demands BOTH a signed intent and a pre-signed EIP-7702 transaction per market order (it picks the execution mechanism server-side), and the EIP-7702 leg's calldata comes from the tx-builder. The hot path is therefore **local build + sign → one calldata fetch → batched-market POST**.
 
+The example below sizes the order in coin units (exactly 0.5 ETH), the usual
+shape for market-making flow; the fill leverage floats within
+`[min_leverage, max_leverage]`. For a USDC-sized open, use
+`builder.open_trade(...)` with `/v2/trade/open` and
+`AggregatorOrderType.MARKET_OPEN` instead.
+
 ```python
 from avantis_trader_sdk import AsyncAvantis
 from avantis_trader_sdk.types import AggregatorOrderType
@@ -15,30 +21,40 @@ async with AsyncAvantis() as client:
     builder = await client.local_intents()      # one-time meta bootstrap
     engine = client.engine
     eth = await client.markets.pair("ETH/USD")
+    lev = eth.leverages                          # the pair's leverage envelope
 
     async def on_price(update) -> None:
-        payload = builder.open_trade(           # microseconds, no I/O
+        payload = builder.open_trade_coin(      # microseconds, no I/O
             trader=client.trade.trader,
             pair_index=eth.index,
             is_long=True,
             collateral_usdc=100,
-            leverage=10,
+            coin_exposure=0.5,                  # target exactly 0.5 ETH
+            leverage=10,                        # reference leverage, contract-required
+            min_leverage=lev.min_leverage,      # fill leverage floats in this range
+            max_leverage=lev.max_leverage,
             open_price=update.price,
             slippage_percent=0.3,
         )
         calldata = await client.txb.calldata(   # the EIP-7702 leg (required)
-            "/v2/trade/open",
+            "/v2/trade/open-coin",
             trader=client.trade.trader,
             pairIndex=eth.index,
             side="long",
             orderType="market",
             collateralUsdc=100,
+            coinExposure=0.5,
             leverage=10,
+            minLeverage=lev.min_leverage,
+            maxLeverage=lev.max_leverage,
             openPrice=update.price,
             slippagePercent=0.3,
         )
         receipt = await engine.submit_intent_batch(
-            payload, AggregatorOrderType.MARKET_OPEN, calldata=calldata, wait=False
+            payload,
+            AggregatorOrderType.MARKET_OPEN_WITH_COIN_EXPOSURE,
+            calldata=calldata,
+            wait=False,
         )
         print("accepted:", receipt.tracking_id)
 
