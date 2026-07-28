@@ -11,28 +11,28 @@ An API key (delegate) signs orders; it does not hold or control funds.
 | --- | --- |
 | Open, close, and modify positions | Allowed |
 | Set TP/SL, place limit and TWAP orders | Allowed |
-| Withdraw or transfer USDC | **Impossible** — funds live in your wallet |
-| Approve USDC spending | **Blocked** — trader key only |
-| Add or remove other delegates | **Blocked** — trader key only |
-| Referral, claims, LP vault, builder codes | **Blocked** — caller-scoped, SDK raises before submission |
+| Withdraw or transfer USDC | **Impossible** (funds live in your wallet) |
+| Approve USDC spending | **Blocked** (trader key only) |
+| Add or remove other delegates | **Blocked** (trader key only) |
+| Referral, claims, LP vault, builder codes | **Blocked** (caller-scoped, SDK raises before submission) |
 
-Delegations expire (`expiry_seconds`) and can be revoked at any time from the UI or via `revoke_delegate` — revocation also kills in-flight intents. The worst a leaked API key can do is trade on your account until you revoke it.
+Delegations expire (`expiry_seconds`) and can be revoked at any time from the UI or via `revoke_delegate`. Revocation also kills in-flight intents. The worst a leaked API key can do is trade on your account until you revoke it.
 
 ## Signing safety
 
-- **Digest verification** — for every intent, the SDK computes the EIP-712 digest locally and asserts it equals the API-provided digest before signing. A mismatch raises `DigestMismatchError` and nothing is submitted. This means a compromised or buggy API cannot trick the SDK into signing something other than what you asked for.
-- **Golden vectors** — all 17 intent kinds are tested against signature vectors produced by the on-chain hashing library itself (the two off-chain-verified kinds, `TwapCancelReq` and `CancelOffchainOrder`, are pinned to ethers `TypedDataEncoder` digests), so local encoding provably matches the verifiers.
-- **EIP-7702 parity** — the relayer passthrough's smart-account encoding is tested byte-for-byte against the Gelato reference implementation.
+- **Digest verification.** For every intent, the SDK computes the EIP-712 digest locally and asserts it equals the API-provided digest before signing. A mismatch raises `DigestMismatchError` and nothing is submitted. This means a compromised or buggy API cannot trick the SDK into signing something other than what you asked for.
+- **Golden vectors.** All 17 intent kinds are tested against signature vectors produced by the on-chain hashing library itself (the two off-chain-verified kinds, `TwapCancelReq` and `CancelOffchainOrder`, are pinned to ethers `TypedDataEncoder` digests), so local encoding provably matches the verifiers.
+- **EIP-7702 parity.** The relayer passthrough's smart-account encoding is tested byte-for-byte against the Gelato reference implementation.
 
 ## Key handling
 
 - The SDK never transmits private keys; only signatures leave the process.
-- `register_delegate` uses the trader key for a single transient signature — it is not stored on the client.
-- For production custody, plug in a `KmsSigner` (or any `BaseSigner`) so raw key material never touches the host — see [Configuration](/configuration#custom-signers).
+- `register_delegate` uses the trader key for a single transient signature; it is not stored on the client.
+- For production custody, plug in a `KmsSigner` (or any `BaseSigner`) so raw key material never touches the host. See [Configuration](/configuration#custom-signers).
 
 ## Recommended setup
 
-1. Generate an API key in the Avantis UI; never put your wallet key on a server.
+1. Generate an API key with the [Avantis API Key Generator](https://avantis-delegate-ui.preview.avantisfi.link/); never put your wallet key on a server.
 2. Set a finite `expiry_seconds` and rotate keys periodically.
 3. Call `verify_delegation()` at startup to fail fast on revoked/expired keys.
 4. Keep only trading USDC in the wallet the bot operates on.

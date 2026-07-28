@@ -31,8 +31,8 @@ await client.trade.increase_position(
 
 | Parameter | Default | Notes |
 | --- | --- | --- |
-| `collateral` | — | Additional USDC |
-| `leverage` | — | For the added collateral (not the whole position) |
+| `collateral` | required | Additional USDC |
+| `leverage` | required | For the added collateral (not the whole position) |
 | `open_price` | `None` | Resolved from the live feed when omitted |
 | `slippage_percent` | `1` | Max slippage on the increase fill |
 
@@ -45,12 +45,12 @@ await client.trade.increase_position_coin(
     pos.pair_index, pos.index,
     collateral=100,
     coin_exposure=0.25,      # ETH to add
-    leverage=10,             # reference leverage — contract-required
+    leverage=10,             # reference leverage, contract-required
     min_leverage=5,
     max_leverage=20,
 )
 ```
 
 <Note>
-To **reduce** size, use a partial [market close](/trading/market-orders#close) — there is no separate decrease method.
+To **reduce** size, use a partial [market close](/trading/market-orders#close). There is no separate decrease method.
 </Note>

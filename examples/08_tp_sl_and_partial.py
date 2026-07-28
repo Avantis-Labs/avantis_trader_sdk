@@ -1,6 +1,6 @@
 """Update TP/SL and create partial take-profit triggers.
 
-- Full TP/SL update is intent-only in v2 (no public contract entry point) —
+- Full TP/SL update is intent-only in v2 (no public contract entry point);
   the SDK routes it through the relayer even in direct mode.
 - Partial TP/SL are trigger orders stored with the operator (off-chain) and
   executed on-chain when the price hits.
@@ -23,7 +23,7 @@ async def main() -> None:
 
         # partial TP: close 25% of the coin exposure at a fixed price.
         # The signed order is stored off-chain; the response carries its
-        # documentId — keep it to update or cancel later.
+        # documentId; keep it to update or cancel later.
         price = await client.markets.price(pos.pair_index)
         coin_exposure = float(pos.position_size) / price * 0.25
         order = await client.trade.partial_tp_sl(

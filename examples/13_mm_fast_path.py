@@ -7,7 +7,7 @@ service requires BOTH the signed intent and a pre-signed EIP-7702
 transaction per market order, and that second leg's calldata comes from the
 tx-builder. Hot path: local build+sign -> one calldata fetch -> POST.
 
-With ``wait=False`` the SDK returns at ``MarketOrderAccepted`` — but an
+With ``wait=False`` the SDK returns at ``MarketOrderAccepted``, but an
 accepted order can still fail (declined fill, revert), so YOU own the
 settlement check. Reconcile off the hot path with
 ``engine.batched_market.wait(tracking_id)`` (or ``.status()`` for a single,
@@ -20,7 +20,7 @@ AggregatorOrderType.*_WITH_COIN_EXPOSURE), ``increase_position[_coin]``,
 ``engine.relayer.wait(request_id)``), ``partial_tp_sl`` (stored off-chain,
 not relayed), ``twap_open``/``twap_close``/``twap_cancel``,
 ``cancel_offchain_order``, ``delegate_req``, and the referral intents.
-Prices are always caller-supplied — there is no feed lookup locally.
+Prices are always caller-supplied; there is no feed lookup locally.
 """
 
 import asyncio
@@ -48,7 +48,7 @@ async def main() -> None:
                 open_price=update.price,
                 slippage_percent=0.3,
             )
-            # the EIP-7702 leg — batched-market requires both payloads
+            # the EIP-7702 leg; batched-market requires both payloads
             calldata = await client.txb.calldata(
                 "/v2/trade/open",
                 trader=client.trade.trader,
@@ -79,7 +79,7 @@ async def main() -> None:
                     print(f"    seq={ev.seq} {ev.type}")
             except RelayError as exc:
                 # MarketOrderCanceled: the protocol declined the fill
-                # (e.g. price moved beyond slippage) — nothing landed on-chain
+                # (e.g. price moved beyond slippage); nothing landed on-chain
                 print("order", tracking_id, "declined:", exc)
 
 

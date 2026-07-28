@@ -5,7 +5,7 @@ description: "Execute large orders in time-weighted slices."
 
 TWAP orders split a large open or close into slices executed over `run_time_seconds`. Useful when a single fill would eat too much spread or exceed available liquidity.
 
-The SDK signs a TWAP intent (EIP-712) and submits it to the Avantis TWAP API, which registers the order on-chain itself and responds synchronously — the receipt carries the transaction hash and the on-chain `twapId` in `receipt.order_id`.
+The SDK signs a TWAP intent (EIP-712) and submits it to the Avantis TWAP API, which registers the order on-chain itself and responds synchronously. The receipt carries the transaction hash and the on-chain `twapId` in `receipt.order_id`.
 
 ## Open
 
@@ -22,9 +22,9 @@ print(receipt.tx_hash, receipt.order_id)   # order_id = on-chain twapId
 
 | Parameter | Default | Notes |
 | --- | --- | --- |
-| `collateral` | — | Total USDC across all slices |
-| `run_time_seconds` | — | Must be within the pair's `twap_params` min/max run time |
-| `leverage` / `max_leverage` | — | Both required |
+| `collateral` | required | Total USDC across all slices |
+| `run_time_seconds` | required | Must be within the pair's `twap_params` min/max run time |
+| `leverage` / `max_leverage` | required | Both required |
 | `coin_exposure` | `None` | Switches to fixed coin-exposure targeting |
 
 <Warning>
@@ -48,8 +48,8 @@ twaps = await client.account.twaps()             # paginated (0-based); include_
 await client.trade.twap_cancel(twap_id=123)      # twapId from receipt.order_id / account.twaps()
 ```
 
-Cancelling signs a `TwapCancelReq` intent over the `twapId` — the trader key or an active delegate key both work.
+Cancelling signs a `TwapCancelReq` intent over the `twapId`. The trader key or an active delegate key both work.
 
 ## RFQ
 
-`client.trade.rfq_open` and `rfq_close` exist in the SDK, but **RFQ is not live on Avantis yet** — they are kept for when it ships.
+`client.trade.rfq_open` and `rfq_close` exist in the SDK, but **RFQ is not live on Avantis yet**. They are kept for when it ships.

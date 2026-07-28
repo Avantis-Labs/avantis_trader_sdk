@@ -1,7 +1,7 @@
 """Referral: register a code, join a code, view stats, claim rebates.
 
 Referral actions execute as your own address (they cannot be routed through a
-delegate key) — run with the trader key.
+delegate key); run with the trader key.
 """
 
 import asyncio

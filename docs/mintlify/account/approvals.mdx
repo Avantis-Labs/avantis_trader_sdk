@@ -17,7 +17,7 @@ info = await client.account.allowance()      # {"balance": ..., "allowance": ...
 ```
 
 <Warning>
-Approvals must come from the **trader's own key** — they cannot be routed through a delegate/API key. If you onboarded via the Avantis UI, USDC was approved in the same flow and you can skip this.
+Approvals must come from the **trader's own key**; they cannot be routed through a delegate/API key. If you onboarded via the [Avantis API Key Generator](https://avantis-delegate-ui.preview.avantisfi.link/), USDC was approved in the same flow and you can skip this.
 </Warning>
 
 ### LP vault approval is separate
@@ -34,7 +34,7 @@ See [LP vault](/more/lp-vault).
 
 ## Claims
 
-Both are caller-scoped — the signing key must be the account that earned them (no delegate):
+Both are caller-scoped: the signing key must be the account that earned them (no delegate):
 
 ```python
 await client.account.claim_rebate()           # referral rebates (you are the referrer)

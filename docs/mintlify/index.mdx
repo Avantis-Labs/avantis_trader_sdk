@@ -1,11 +1,13 @@
 ---
 title: Introduction
-description: "Trade Avantis v2 perpetuals from Python — gasless by default, no ABIs, no RPC."
+description: "Trade Avantis v2 perpetuals from Python. Gasless by default, no ABIs, no RPC."
 ---
 
 The Avantis Python SDK is an API-first client for Avantis v2 on Base. It
 follows the HyperLiquid model: you hold an **API key** (a delegate key
-registered to your wallet with one signature), the SDK signs orders locally,
+registered to your wallet with one signature; generate one with the
+[Avantis API Key Generator](https://avantis-delegate-ui.preview.avantisfi.link/)),
+the SDK signs orders locally,
 and the Avantis relayer puts them on-chain. No gas, no node, no wallet popups.
 
 ```python
@@ -24,30 +26,30 @@ asyncio.run(main())
     From zero to a filled trade in five minutes.
   </Card>
   <Card title="Trading" icon="chart-line" href="/trading/market-orders">
-    Market, limit, TP/SL, margin, TWAP — the full order surface.
+    The full order surface: market, limit, TP/SL, margin, TWAP.
   </Card>
   <Card title="Positions & portfolio" icon="wallet" href="/account/positions">
     Open positions, PnL, history, and analytics.
   </Card>
   <Card title="Core concepts" icon="lightbulb" href="/concepts">
-    Units, keys, execution routes, receipts — read this once.
+    Units, keys, execution routes, receipts. Read this once.
   </Card>
   <Card title="Market-maker fast path" icon="bolt" href="/advanced/mm-fast-path">
-    Build and sign orders locally — the fewest possible round-trips.
+    Build and sign orders locally, with the fewest possible round-trips.
   </Card>
   <Card title="Runnable examples" icon="code" href="https://github.com/Avantis-Labs/avantis_trader_sdk/tree/main/examples">
-    18 scripts, one per flow — from reading prices to the MM fast path.
+    18 scripts, one per flow, from reading prices to the MM fast path.
   </Card>
 </CardGroup>
 
 ## Why v2
 
-- **All information the Avantis app has** — pairs, funding, spreads, OI caps,
-  positions with liquidation prices, PnL breakdowns, portfolio analytics,
-  referral stats, vault APY — through one client.
-- **Correct by construction** — every signed intent is digest-verified against
-  the API; the signer is tested against vectors computed by the on-chain
+- **All information the Avantis app has**, through one client: pairs, funding,
+  spreads, OI caps, positions with liquidation prices, PnL breakdowns,
+  portfolio analytics, referral stats, vault APY.
+- **Correct by construction.** Every signed intent is digest-verified against
+  the API, and the signer is tested against vectors computed by the on-chain
   hashing library itself.
-- **Every user type** — one-liner market orders for agents and scripts;
-  TWAP, coin-sized orders, direct broadcasting, and local signing for
-  institutions.
+- **Built for every user type.** One-liner market orders for agents and
+  scripts; TWAP, coin-sized orders, direct broadcasting, and local signing
+  for institutions.

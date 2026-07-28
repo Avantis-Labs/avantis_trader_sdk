@@ -1,6 +1,6 @@
 # Avantis Trader SDK v2
 
-Python SDK for [Avantis](https://www.avantisfi.com) v2 — leveraged perpetuals
+Python SDK for [Avantis](https://www.avantisfi.com) v2, leveraged perpetuals
 on Base. API-first (HyperLiquid-style): no ABIs, no web3, no RPC required. The
 SDK signs locally and everything else comes from Avantis services.
 
@@ -29,7 +29,9 @@ Python 3.10+.
 
 ## Setup (default: gasless API key)
 
-1. Create an **API key** on the Avantis UI — one wallet signature registers it
+1. Create an **API key** with the
+   [Avantis API Key Generator](https://avantis-delegate-ui.preview.avantisfi.link/).
+   One wallet signature registers it
    as a trading delegate for your account (it can trade, but can never move
    funds to itself; payouts always go to your wallet).
 2. Approve USDC once (prompted on the UI).
@@ -40,15 +42,15 @@ export AVANTIS_PRIVATE_KEY=0x...      # the API key
 export AVANTIS_TRADER_ADDRESS=0x...   # your wallet
 ```
 
-(Or copy [`.env.example`](.env.example) to `.env` — it documents every
+(Or copy [`.env.example`](.env.example) to `.env`; it documents every
 supported variable, including the optional ones.)
 
-That's it — every action is now a signed message relayed by Avantis. No gas,
+That's it. Every action is now a signed message relayed by Avantis. No gas,
 no RPC, no ETH.
 
 ## Execution modes
 
-Two independent axes — any combination works:
+Two independent axes; any combination works:
 
 | | signer = API key (delegate) | signer = trader key |
 |---|---|---|
@@ -62,7 +64,7 @@ export AVANTIS_RPC_URL=https://...    # your Base RPC
 
 Market makers can additionally use the **local intent builder**
 (`client.local_intents()`) to build and sign orders with zero HTTP
-round-trips on the hot path — see `examples/13_mm_fast_path.py`.
+round-trips on the hot path; see `examples/13_mm_fast_path.py`.
 
 ## What's covered
 
@@ -88,7 +90,7 @@ round-trips on the hot path — see `examples/13_mm_fast_path.py`.
 ## Correctness guarantees
 
 - Every EIP-712 intent is **digest-verified locally** against the API before
-  submission — encoding drift fails loudly instead of reverting on-chain.
+  submission, so encoding drift fails loudly instead of reverting on-chain.
 - The signing implementation is tested against **golden vectors computed by
   the actual on-chain hashing library** (all 15 intent types).
 - The EIP-7702 relayer envelope is byte-for-byte compatible with the Avantis
@@ -96,7 +98,7 @@ round-trips on the hot path — see `examples/13_mm_fast_path.py`.
 
 ## Examples
 
-See [`examples/`](examples/) — one runnable script per flow, from
+See [`examples/`](examples/): one runnable script per flow, from
 `01_configure_and_meta.py` to `18_sync_and_kms.py`.
 
 ## Errors

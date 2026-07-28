@@ -1,6 +1,6 @@
 ---
 title: Errors
-description: "Typed exception taxonomy — catch precisely, retry safely."
+description: "Typed exception taxonomy: catch precisely, retry safely."
 ---
 
 Every failure raises a typed exception from `avantis_trader_sdk.errors`, all descending from `AvantisError`.
@@ -20,23 +20,23 @@ except RelayTimeoutError:
 
 | Exception | Raised when | Retry? |
 | --- | --- | --- |
-| `ConfigError` | Missing/invalid configuration (no key, unknown option) | No — fix config |
+| `ConfigError` | Missing/invalid configuration (no key, unknown option) | No, fix config |
 | `ApiError` | An Avantis API returned an error envelope (`.code`, `.status`, `.details`, `.url`) | Depends on subclass |
-| &nbsp;&nbsp;`ValidationError` | 400 — pre-trade validation or bad request shape | No — fix the order |
-| &nbsp;&nbsp;`SimulationFailedError` | Relay simulation reverted (`.details` may carry the decoded revert) | Usually stale state — re-fetch positions first |
+| &nbsp;&nbsp;`ValidationError` | 400: pre-trade validation or bad request shape | No, fix the order |
+| &nbsp;&nbsp;`SimulationFailedError` | Relay simulation reverted (`.details` may carry the decoded revert) | Usually stale state; re-fetch positions first |
 | &nbsp;&nbsp;`RateLimitedError` | 429 | Yes, with backoff |
 | &nbsp;&nbsp;`GeoRestrictedError` | 451 | No |
-| &nbsp;&nbsp;`UpstreamError` | 502 — upstream RPC/API failure on the server side | Yes, with backoff |
+| &nbsp;&nbsp;`UpstreamError` | 502: upstream RPC/API failure on the server side | Yes, with backoff |
 | `SigningError` | Local signing failure | No |
-| &nbsp;&nbsp;`DigestMismatchError` | Local EIP-712 digest ≠ API digest | **Never** — see below |
+| &nbsp;&nbsp;`DigestMismatchError` | Local EIP-712 digest ≠ API digest | **Never** (see below) |
 | `RelayError` | Relayer rejected/failed the request (`.request_id`), or the batched-market service declined the fill (`MarketOrderCanceled`, e.g. slippage) | Inspect message |
-| &nbsp;&nbsp;`RelayTimeoutError` | Not settled within `relay_poll_timeout_s` | Check positions first — it may still land |
+| &nbsp;&nbsp;`RelayTimeoutError` | Not settled within `relay_poll_timeout_s` | Check positions first; it may still land |
 | `RpcError` | JSON-RPC failure in direct mode (`.code`, `.data`) | Depends on code |
 | `TransactionRevertedError` | Transaction mined but reverted (`.tx_hash`) | Inspect on-chain |
 | `DelegationError` | Delegate missing, disabled, or expired | Re-register the delegate |
 
 <Warning>
-`DigestMismatchError` means the SDK's local encoding disagrees with the API — encoding drift or a tampered response. Nothing was signed or submitted. Do not work around it; upgrade the SDK or report the issue.
+`DigestMismatchError` means the SDK's local encoding disagrees with the API, either encoding drift or a tampered response. Nothing was signed or submitted. Do not work around it; upgrade the SDK or report the issue.
 </Warning>
 
 <Note>

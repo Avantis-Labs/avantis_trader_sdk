@@ -14,13 +14,13 @@ export AVANTIS_TRADER_ADDRESS=0x...   # wallet address (only when using an API k
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `AVANTIS_PRIVATE_KEY` | — | Signing key. An API/agent key from the Avantis UI, or your wallet key. |
-| `AVANTIS_TRADER_ADDRESS` | — | Your wallet (holds USDC and positions). Set only when the key above is a delegate/API key. |
+| `AVANTIS_PRIVATE_KEY` | (none) | Signing key. An API/agent key from the [Avantis API Key Generator](https://avantis-delegate-ui.preview.avantisfi.link/), or your wallet key. |
+| `AVANTIS_TRADER_ADDRESS` | (none) | Your wallet (holds USDC and positions). Set only when the key above is a delegate/API key. |
 | `AVANTIS_NETWORK` | `testnet` | `testnet` or `mainnet`. |
 | `AVANTIS_EXECUTION` | `relayer` | `relayer` (gasless, default) or `direct` (self-broadcast). |
-| `AVANTIS_RPC_URL` | — | Base RPC. Required for `direct` execution, and for relayer mode **only when signing with your wallet key directly** (reads the EIP-7702 authorization nonce). Not needed with a delegate/API key. |
+| `AVANTIS_RPC_URL` | (none) | Base RPC. Required for `direct` execution, and for relayer mode **only when signing with your wallet key directly** (reads the EIP-7702 authorization nonce). Not needed with a delegate/API key. |
 
-Centrally-routed services (core, TWAP, batched-market, relayer) derive from a single base URL — `https://prod-api.avantisfi.com` on mainnet, `https://staging-api.avantisfi.com` on testnet — overridable with `AVANTIS_API_BASE_URL`. Per-service endpoint overrides (rarely needed) win over the derivation: `AVANTIS_TX_BUILDER_URL`, `AVANTIS_RELAYER_URL`, `AVANTIS_CORE_API_URL`, `AVANTIS_TWAP_API_URL`, `AVANTIS_BATCHED_MARKET_URL`, `AVANTIS_DATA_API_URL`, `AVANTIS_HISTORY_API_URL`, `AVANTIS_RISK_API_URL`, `AVANTIS_FEED_URL`.
+Centrally-routed services (core, TWAP, batched-market, relayer) derive from a single base URL: `https://prod-api.avantisfi.com` on mainnet, `https://staging-api.avantisfi.com` on testnet. Override it with `AVANTIS_API_BASE_URL`. Per-service endpoint overrides (rarely needed) win over the derivation: `AVANTIS_TX_BUILDER_URL`, `AVANTIS_RELAYER_URL`, `AVANTIS_CORE_API_URL`, `AVANTIS_TWAP_API_URL`, `AVANTIS_BATCHED_MARKET_URL`, `AVANTIS_DATA_API_URL`, `AVANTIS_HISTORY_API_URL`, `AVANTIS_RISK_API_URL`, `AVANTIS_FEED_URL`.
 
 ## Constructor overrides
 
@@ -42,7 +42,7 @@ Other useful options: `timeout_s` (default 30), `relay_poll_timeout_s` (default 
 
 ## Sync client
 
-`Avantis` mirrors the async surface with blocking calls — same namespaces, same methods:
+`Avantis` mirrors the async surface with blocking calls. Same namespaces, same methods:
 
 ```python
 from avantis_trader_sdk import Avantis
@@ -54,7 +54,7 @@ client.close()
 
 ## Custom signers
 
-By default the SDK builds a `LocalSigner` from `private_key`. Pass any `BaseSigner` instead — e.g. AWS KMS (install with `pip install 'avantis-trader-sdk[kms]'`):
+By default the SDK builds a `LocalSigner` from `private_key`. Pass any `BaseSigner` instead, e.g. AWS KMS (install with `pip install 'avantis-trader-sdk[kms]'`):
 
 ```python
 from avantis_trader_sdk.signing import KmsSigner

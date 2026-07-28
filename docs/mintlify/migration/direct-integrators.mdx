@@ -1,6 +1,6 @@
 ---
 title: "Direct Integrators"
-description: "v1 to v2 for teams that call the contracts or decode their events directly — MMs, indexers, keepers, risk engines."
+description: "v1 to v2 for teams that call the contracts or decode their events directly: MMs, indexers, keepers, risk engines."
 ---
 
 This guide is for integrations that bypass the SDK: custom market-making
@@ -9,8 +9,8 @@ It inventories what breaks at the contract and API level, and what the
 recommended v2 integration looks like.
 
 <Note>
-This page is a distillation. A field-accurate delta reference — every event
-signature, struct, formula, and ABI change between v1 and v2 — is available
+This page is a distillation. A field-accurate delta reference (every event
+signature, struct, formula, and ABI change between v1 and v2) is available
 from the Avantis team on request.
 </Note>
 
@@ -22,8 +22,8 @@ from the Avantis team on request.
   tranche). Anything keyed on contract address keeps working.
 - **Log emitter addresses.** v2 splits the monoliths into
   facade-plus-delegatecall modules, but `delegatecall` preserves
-  `address(this)` — logs still surface on the proxy addresses you already
-  subscribe to.
+  `address(this)`, so logs still surface on the proxy addresses you
+  already subscribe to.
 - **Chain.** Base (8453), USDC collateral, same core position model
   (pair index + per-pair trade index).
 
@@ -50,7 +50,7 @@ services, which handle price attachment, spread parameters, and execution:
 2. **Fetch or build the intent.** `POST {tx-builder}/v2/intents/*` returns
    the exact typed-data payload plus its digest; verify your
    locally-computed digest matches before signing. (High-frequency systems
-   can mirror the schemas locally and skip the round-trip — this is what
+   can mirror the schemas locally and skip the round-trip; this is what
    the SDK's [local intent builder](/advanced/mm-fast-path) does.)
 3. **Sign** with the trader key or a registered delegate key (65-byte
    `r||s||v`, `v` ∈ {27, 28}).
@@ -71,7 +71,7 @@ Key intent conventions (these bite people):
   on-chain). Delegate **expiry is seconds**. Don't mix them up.
 - **Close intents bind the position's open timestamp.** `CloseTradeReq`
   carries `_openTimestamp`, which must equal the on-chain trade's
-  timestamp — re-read the position right before signing, because margin
+  timestamp. Re-read the position right before signing, because margin
   updates and partial closes refresh it (mismatch reverts
   `PositionMismatch()`).
 - **Two EIP-712 domains**, both `("AvantisTrading", "1", chainId)`: trading
@@ -82,7 +82,7 @@ Key intent conventions (these bite people):
 
 Direct self-broadcast calldata (via your own node) remains available for
 most actions through the tx-builder `/v2/trade/*`, `/v2/limit/*`,
-`/v2/margin/*`, `/v2/position/*` routes — but TP/SL update has **no**
+`/v2/margin/*`, `/v2/position/*` routes. But TP/SL update has **no**
 calldata path in v2 (intent-only), and user-initiated TWAP/RFQ contract
 entry points revert `OnlyBatchedFlowAllowed()`.
 
@@ -103,7 +103,7 @@ The `OrderType` enum grew from 9 values to 22. New values in v2:
 
 ## Indexers: event migration
 
-**Most changed events have a new topic0** — Solidity derives it from the
+**Most changed events have a new topic0.** Solidity derives it from the
 full parameter type list, and nearly every trading event gained fields.
 Rebuild your filter sets and decoders from the v2 ABIs; don't try to reuse
 v1 signatures. Headline changes:
@@ -129,7 +129,7 @@ increases (`IncreasePositionRequested`, `PositionSizeIncreased`,
 `TpSlExecuted`), TWAP and RFQ lifecycles (`Open/CloseTwapInitiated`,
 `…SliceRequested`, `…SliceFilled`, `TwapCanceled`, and the RFQ mirrors),
 whitelists (`WhitelistModified`), and builder codes
-(`RegisteredBuilderCode` etc., plus `BuilderFeesCharged` — note the latter
+(`RegisteredBuilderCode` etc., plus `BuilderFeesCharged`; note the latter
 emits from the **trader's own EOA address** via the EIP-7702 smart-account
 template, not from a protocol proxy).
 
@@ -142,7 +142,7 @@ Semantic traps that survive an ABI update:
   hard-coded `0`; on closes they carry real profit and payout. Branch on
   `orderType`.
 - `isCoinExposureFixed` distinguishes coin-sized orders (`true`) from
-  USDC-sized orders (`false`) — don't assume it's always set.
+  USDC-sized orders (`false`). Don't assume it's always set.
 - Metric definitions shift: v1 "borrow fee" = rollover only; v2 = rollover
   + funding. v1 wallet OI is one number per trader; v2 is per-pair. Close
   fees are direction/skew-dependent. Schema-version any series spanning
@@ -152,7 +152,7 @@ Semantic traps that survive an ABI update:
 
 - **`PriceAggregator.fulfill`** now takes
   `offChainSpreadParams { spreadP, bookDepth, impactParam, byPass, maxSpreadP, … }`
-  instead of `int spreadP` — a hard ABI break.
+  instead of `int spreadP`. This is a hard ABI break.
 - **`executeMarketOrders` → `executeMarketOrder`** (singular) on the router.
 - **New preflight checks** to avoid surprise reverts: `isCloseOnly(pair)`
   (blocks opens, limit placements, margin deposits, increases),
@@ -163,9 +163,9 @@ Semantic traps that survive an ABI update:
   few residual `Error(string)` cases. Decode both.
 - **View mutability changed.** Some conceptual reads are non-`view` in v2
   because they delegatecall into extensions (`pairCloseFeeP`, `correctTp`,
-  `withinExposureLimits`, …) — fine over `eth_call`, breaks strict
-  `staticcall` assumptions. Conversely `Multicall.getPositions` is now
-  `view` and returns **compact arrays** (active entries only — key on
+  `withinExposureLimits`, …). That is fine over `eth_call` but breaks
+  strict `staticcall` assumptions. Conversely `Multicall.getPositions` is
+  now `view` and returns **compact arrays** (active entries only; key on
   `trade.pairIndex`/`trade.index`, not array offset).
 - **Removed views**: `pairLongOI` / `pairShortOI` (use
   `openInterestUSDC(pair, side)`), `getTradePriceImpact` (superseded by
@@ -201,10 +201,10 @@ Semantic traps that survive an ABI update:
 | --- | --- |
 | Junior/Senior tranches + VeTranche locking | single ERC-4626 `AvantisTranche`; no lock, utilization-gated withdrawals |
 | Exp-based spread functions | `applySpread` (flow-based) |
-| `EARLY_CLOSE` time-delay on market close and TP triggers | removed — closes and TP triggers proceed immediately |
+| `EARLY_CLOSE` time-delay on market close and TP triggers | removed; closes and TP triggers proceed immediately |
 | Public `updateTpAndSl` / `updateSl` entry points | signed-intent only (`UpdateTpSlReq` via operator batch) |
 | Single-delegate `delegations` mapping | multiple delegates with expiry (see above) |
-| MM-only `openTradeMarketMaker` | generalized to `openTradeWithCoinExposure` — no whitelist required |
+| MM-only `openTradeMarketMaker` | generalized to `openTradeWithCoinExposure`, no whitelist required |
 
 ## Reads: prefer the APIs
 
@@ -240,6 +240,6 @@ slippage percentages, and coin exposure 1e10.
    unpause.
 
 The Python SDK implements all of the above and is itself a reference
-implementation — even if you don't adopt it wholesale, its
+implementation. Even if you don't adopt it wholesale, its
 [signing internals](https://github.com/Avantis-Labs/avantis_trader_sdk)
 (digest verification, golden-vector tests, nonce pool) are worth mining.

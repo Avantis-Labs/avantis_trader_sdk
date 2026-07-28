@@ -17,14 +17,14 @@ receipt = await client.trade.market_open(
 
 | Parameter | Default | Notes |
 | --- | --- | --- |
-| `pair` | — | Symbol (`"ETH/USD"`) or pair index |
-| `side` | — | `"long"` or `"short"` |
-| `collateral` | — | USDC |
-| `leverage` | — | Multiplier (`10` = 10x) |
+| `pair` | required | Symbol (`"ETH/USD"`) or pair index |
+| `side` | required | `"long"` or `"short"` |
+| `collateral` | required | USDC |
+| `leverage` | required | Multiplier (`10` = 10x) |
 | `take_profit` / `stop_loss` | `None` | Trigger prices |
 | `open_price` | `None` | Reference price the fill is validated against (± `slippage_percent`); resolved from the live feed when omitted |
 | `slippage_percent` | `1` | Max slippage (`1` = 1%) |
-| `zero_fee` | `False` | Open a zero-fee (ZFP) position — no open/close fee, tiered profit share instead |
+| `zero_fee` | `False` | Open a zero-fee (ZFP) position: no open/close fee, tiered profit share instead |
 | `skip_validation` | `False` | Skip the API's pre-trade validation |
 | `wait` | `True` | Poll the relayer until settled |
 
@@ -37,13 +37,13 @@ await client.trade.market_open_coin(
     "ETH/USD", "long",
     collateral=100,
     coin_exposure=0.5,       # ETH
-    leverage=10,             # reference leverage — required by the contract
+    leverage=10,             # reference leverage, required by the contract
     min_leverage=5, max_leverage=20,
 )
 ```
 
 <Warning>
-`leverage` is required on coin-sized opens even though the fill leverage floats — the contract struct demands it. `min`/`max` default to the pair's envelope when omitted.
+`leverage` is required on coin-sized opens even though the fill leverage floats; the contract struct demands it. `min`/`max` default to the pair's envelope when omitted.
 </Warning>
 
 `market_open_coin` also accepts `open_price`, with the same semantics as `market_open`.
@@ -68,10 +68,10 @@ await client.trade.market_close_coin(pos.pair_index, pos.index, coin_exposure=0.
 
 | Parameter | Default | Notes |
 | --- | --- | --- |
-| `trade_index` | — | `Position.index` from [positions](/account/positions) |
-| `collateral_to_close` / `coin_exposure` | — | Partial amounts allowed |
+| `trade_index` | required | `Position.index` from [positions](/account/positions) |
+| `collateral_to_close` / `coin_exposure` | required | Partial amounts allowed |
 | `expected_price` | `None` | Resolved from the live feed when omitted |
-| `is_pnl` | `False` | Set from `Position.is_pnl` — routes ZFP closes correctly |
+| `is_pnl` | `False` | Set from `Position.is_pnl` so ZFP closes route correctly |
 | `open_timestamp` | `None` | Binds the close to a specific open (see below) |
 
 <Warning>
@@ -96,8 +96,8 @@ print(receipt.tracking_id)   # lifecycle replay handle
 A fill the protocol declines (e.g. price moved beyond `slippage_percent`)
 raises `RelayError` instead of returning a receipt.
 
-With `wait=False` the call returns at `MarketOrderAccepted` — `tx_hash` is
-still `None` and you settle later from the `tracking_id`:
+With `wait=False` the call returns at `MarketOrderAccepted`. At that point
+`tx_hash` is still `None` and you settle later from the `tracking_id`:
 
 ```python
 accepted = await client.trade.market_close(pos.pair_index, pos.index,
@@ -110,8 +110,8 @@ for ev in outcome.events:                     # full persisted lifecycle
 ```
 
 `client.engine.batched_market.status(tracking_id, after_seq=n)` is the
-non-blocking single poll — every event carries a `seq`, so you can resume
+non-blocking single poll. Every event carries a `seq`, so you can resume
 replay after a crash without missing or double-processing events.
 
 For position-level confirmation, `client.account.positions()` reflects the
-fill after execution — see [Core concepts](/concepts#receipts-and-fills).
+fill after execution; see [Core concepts](/concepts#receipts-and-fills).

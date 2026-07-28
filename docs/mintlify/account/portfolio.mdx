@@ -47,4 +47,4 @@ pnl = await client.info.portfolio_pnl(trader)
 Endpoints degrade gracefully: one that is missing on a given deployment raises `ApiError` with status 404 rather than crashing the client.
 </Note>
 
-For **open** positions and live unrealized PnL, use [`client.account.positions()`](/account/positions) — `client.info` covers settled history and aggregates.
+For **open** positions and live unrealized PnL, use [`client.account.positions()`](/account/positions). `client.info` covers settled history and aggregates.

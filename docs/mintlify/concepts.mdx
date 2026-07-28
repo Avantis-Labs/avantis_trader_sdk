@@ -1,6 +1,6 @@
 ---
 title: Core Concepts
-description: "Units, keys, execution routes, and receipts — the five things every page assumes."
+description: "Units, keys, execution routes, and receipts: the five things every page assumes."
 ---
 
 ## Human units everywhere
@@ -16,14 +16,14 @@ Every SDK method takes and returns human units. `100` means 100 USDC, `10` means
 
 ## Keys: trader vs API key (delegate)
 
-- **Trader key** — your wallet's own key. Can do everything.
-- **API key (delegate)** — a separate key registered to your wallet with one signature. Can trade, but can **never** withdraw funds, approve USDC, add delegates, or act on caller-scoped surfaces (referral, claims, LP vault).
+- **Trader key**: your wallet's own key. Can do everything.
+- **API key (delegate)**: a separate key registered to your wallet with one signature (generate one with the [Avantis API Key Generator](https://avantis-delegate-ui.preview.avantisfi.link/)). Can trade, but can **never** withdraw funds, approve USDC, add delegates, or act on caller-scoped surfaces (referral, claims, LP vault).
 
 Set `AVANTIS_TRADER_ADDRESS` when using an API key; leave it unset when using the trader key directly. See [Delegates](/account/delegates).
 
 ## Execution routes
 
-The default is the **relayer** (gasless — no ETH, no RPC). `execution="direct"` signs and broadcasts EIP-1559 transactions through your own `rpc_url` instead. Full details in [Execution modes](/advanced/execution-modes).
+The default is the **relayer**, which is gasless: no ETH, no RPC. `execution="direct"` signs and broadcasts EIP-1559 transactions through your own `rpc_url` instead. Full details in [Execution modes](/advanced/execution-modes).
 
 One exception: `update_tp_sl` is intent-only in v2 and always goes through the relayer, even in direct mode.
 
@@ -57,4 +57,4 @@ positions = await client.account.positions()   # the fill shows up here
 
 ## Errors
 
-Every failure raises a typed exception from `avantis_trader_sdk.errors` — see [Errors](/advanced/errors).
+Every failure raises a typed exception from `avantis_trader_sdk.errors`. See [Errors](/advanced/errors).

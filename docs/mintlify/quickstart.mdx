@@ -11,9 +11,10 @@ pip install avantis-trader-sdk
 
 ## 2. Create an API key
 
-On the Avantis web app, open **API Keys** and generate a key. One wallet
-signature registers it as a trading delegate; approve USDC in the same flow
-if prompted. Copy the key — it is shown once.
+Open the [Avantis API Key Generator](https://avantis-delegate-ui.preview.avantisfi.link/)
+and generate a key. One wallet signature registers it as a trading delegate;
+approve USDC in the same flow if prompted. Copy the key right away, since it
+is only shown once.
 
 ```bash
 export AVANTIS_PRIVATE_KEY=0x...      # the API key
@@ -63,6 +64,6 @@ await client.trade.market_close(
 
 ## Next
 
-- [Core concepts](/concepts) — units, keys, receipts (2-minute read).
-- [Market orders](/trading/market-orders) — the full trading surface.
-- [Runnable examples](https://github.com/Avantis-Labs/avantis_trader_sdk/tree/main/examples) — one script per flow.
+- [Core concepts](/concepts): units, keys, receipts (2-minute read).
+- [Market orders](/trading/market-orders): the full trading surface.
+- [Runnable examples](https://github.com/Avantis-Labs/avantis_trader_sdk/tree/main/examples): one script per flow.

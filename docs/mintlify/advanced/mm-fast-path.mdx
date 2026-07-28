@@ -48,8 +48,8 @@ async with AsyncAvantis() as client:
 
 <Note>
 TP/SL updates (`UPDATE_SL`) are the fully local case: the SDK encodes the
-operator entry point itself and relays it directly — no tx-builder call at
-all on the hot path.
+operator entry point itself and relays it directly, with no tx-builder call
+at all on the hot path.
 </Note>
 
 ## Builder surface
@@ -63,7 +63,7 @@ all on the hot path.
 | `builder.increase_position(...)` | Increase position size |
 | `builder.increase_position_coin(...)` | Increase sized in coin units |
 | `builder.update_tp_sl(...)` | TP/SL update |
-| `builder.partial_tp_sl(...)` | Partial TP/SL trigger (stored off-chain — see below) |
+| `builder.partial_tp_sl(...)` | Partial TP/SL trigger (stored off-chain, see below) |
 | `builder.twap_open(...)` / `builder.twap_close(...)` / `builder.twap_cancel(...)` | TWAP open / close / cancel |
 | `builder.cancel_offchain_order(...)` | Cancel a stored partial TP/SL |
 | `builder.delegate_req(...)` | Delegate registration |
@@ -72,11 +72,11 @@ all on the hot path.
 
 Payloads are `IntentPayload` objects identical to what the tx-builder would return, and go through the same digest-verified signer.
 
-Since the builder never touches the network, prices are always caller-supplied: coin/increase helpers take an explicit `open_price`/`wanted_price` (the tx-builder route would resolve these from the feed). Note `partial_tp_sl` only *builds* the TpSlReq — the signed order still has to be stored via the core API `/offchain-orders` (what `client.trade.partial_tp_sl` does), not submitted to the relayer. Likewise `twap_*` intents go to the TWAP API (what `client.trade.twap_*` does).
+Since the builder never touches the network, prices are always caller-supplied: coin/increase helpers take an explicit `open_price`/`wanted_price` (the tx-builder route would resolve these from the feed). Note `partial_tp_sl` only *builds* the TpSlReq; the signed order still has to be stored via the core API `/offchain-orders` (what `client.trade.partial_tp_sl` does), not submitted to the relayer. Likewise `twap_*` intents go to the TWAP API (what `client.trade.twap_*` does).
 
 ## Settling
 
-`wait=False` returns as soon as the order is accepted — but an accepted order can still **fail** (declined fill, on-chain revert). You own the settlement check, off the hot path.
+`wait=False` returns as soon as the order is accepted, but an accepted order can still **fail** (declined fill, on-chain revert). You own the settlement check, off the hot path.
 
 **Market orders (batched-market route)** settle by `tracking_id`:
 
@@ -87,7 +87,7 @@ try:
     outcome = await engine.batched_market.wait(receipt.tracking_id)
     print("executed:", outcome.tx_hash)
 except RelayError as exc:
-    # MarketOrderCanceled — the protocol declined the fill (e.g. slippage)
+    # MarketOrderCanceled: the protocol declined the fill (e.g. slippage)
     ...
 ```
 
@@ -102,12 +102,12 @@ try:
     status = await engine.relayer.wait(receipt.request_id)  # polls until settled
     print("mined:", status.tx_hash)
 except RelayTimeoutError:
-    ...  # may still land — check positions before assuming failure
+    ...  # may still land; check positions before assuming failure
 except RelayError:
     ...  # rejected by the relayer or reverted on-chain
 ```
 
-`engine.relayer.status(request_id)` is the single non-blocking poll returning a `RelayStatus` (`settled`, `success`, `tx_hash`, `error_message`) — exactly what the default `wait=True` path runs internally.
+`engine.relayer.status(request_id)` is the single non-blocking poll returning a `RelayStatus` (`settled`, `success`, `tx_hash`, `error_message`). This is exactly what the default `wait=True` path runs internally.
 
 ## Pair with
 

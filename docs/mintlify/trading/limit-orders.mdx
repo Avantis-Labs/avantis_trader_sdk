@@ -18,7 +18,7 @@ await client.trade.limit_open(
 
 | Parameter | Default | Notes |
 | --- | --- | --- |
-| `price` | — | Execution price for the resting order |
+| `price` | required | Execution price for the resting order |
 | `stop` | `False` | `True` places a stop-limit instead of a limit |
 | `slippage_percent` | `1` | Max slippage at execution |
 | `take_profit` / `stop_loss` | `None` | Attached to the eventual position |

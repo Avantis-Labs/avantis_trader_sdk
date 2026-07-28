@@ -14,9 +14,9 @@ A delegate (API key) is a separate key registered to your wallet. It signs order
 
 The SDK enters delegate mode automatically when `AVANTIS_PRIVATE_KEY`'s address differs from `AVANTIS_TRADER_ADDRESS`.
 
-## Easiest path: the Avantis UI
+## Easiest path: the API Key Generator
 
-Generate an API key under **API Keys** in the web app — one wallet signature registers it. Then set the two env vars and trade. See [Quickstart](/quickstart).
+Generate an API key on the [Avantis API Key Generator](https://avantis-delegate-ui.preview.avantisfi.link/); one wallet signature registers it. Then set the two env vars and trade. See [Quickstart](/quickstart).
 
 ## DIY registration
 
@@ -36,14 +36,14 @@ async with AsyncAvantis(private_key=DELEGATE_KEY, trader_address=WALLET) as clie
 
 <Warning>
 `expiry_seconds` is an **absolute** unix timestamp in seconds (not a
-duration, not milliseconds) — the API rejects anything that isn't a future
+duration, not milliseconds). The API rejects anything that isn't a future
 timestamp.
 </Warning>
 
 Registration is gasless and needs no RPC: it rides the fresh delegate key's
-EIP-7702 smart account. (Only if you run the SDK with your **wallet key**
-as the signer does relayer mode need an `rpc_url` — see
-[Execution modes](/advanced/execution-modes).)
+EIP-7702 smart account. Relayer mode only needs an `rpc_url` when you run
+the SDK with your **wallet key** as the signer; see
+[Execution modes](/advanced/execution-modes).
 
 ## Check and verify
 

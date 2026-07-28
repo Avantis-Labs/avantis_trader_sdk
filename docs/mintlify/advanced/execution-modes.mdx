@@ -16,7 +16,7 @@ Set once via `AVANTIS_EXECUTION` or `AsyncAvantis(execution=...)`. Method calls 
 Relayer-mode actions that ride your EIP-7702 smart account (limit orders,
 margin, approvals, delegate registration, …) sign an authorization over your
 EOA's account nonce. A delegate/API key is a fresh EOA, so the SDK needs no
-RPC at all — the normal setup. Signing with **your wallet key directly**
+RPC at all; that is the normal setup. Signing with **your wallet key directly**
 requires `rpc_url` / `AVANTIS_RPC_URL` (any Base endpoint, e.g.
 `https://mainnet.base.org`) to read that nonce; the SDK raises a clear
 `ConfigError` if it's missing.
@@ -26,12 +26,12 @@ requires `rpc_url` / `AVANTIS_RPC_URL` (any Base endpoint, e.g.
 
 Sub-routes, chosen automatically per action:
 
-- **Batched market** — market opens/closes and increases submit BOTH a signed EIP-712 intent and a pre-signed EIP-7702 transaction to the batched-market service, which executes with a fresh price per attempt and streams the order lifecycle back (accepted → initiated → executed/canceled). Receipt `route` is `batched-market`, with `tracking_id` (lifecycle replay handle) and `order_id` (on-chain id) filled in. A protocol-declined fill (`MarketOrderCanceled`, e.g. slippage) raises `RelayError`.
-- **Intent batch** — full-position TP/SL updates are signed as EIP-712 intents, encoded into the operator batch entry point locally, and broadcast via the relayer. Receipt `route` is `relayer-batch`.
-- **Passthrough** — limit orders, margin, approvals, claims, LP, and referral are built as transactions and relayed through your EIP-7702 smart account. Receipt `route` is `relayer-passthrough`.
-- **TWAP API** — TWAP open/close/cancel are signed intents submitted to the TWAP service, which sends the registration transaction itself. Receipt `route` is `twap-api`.
+- **Batched market**: market opens/closes and increases submit BOTH a signed EIP-712 intent and a pre-signed EIP-7702 transaction to the batched-market service, which executes with a fresh price per attempt and streams the order lifecycle back (accepted → initiated → executed/canceled). Receipt `route` is `batched-market`, with `tracking_id` (lifecycle replay handle) and `order_id` (on-chain id) filled in. A protocol-declined fill (`MarketOrderCanceled`, e.g. slippage) raises `RelayError`.
+- **Intent batch**: full-position TP/SL updates are signed as EIP-712 intents, encoded into the operator batch entry point locally, and broadcast via the relayer. Receipt `route` is `relayer-batch`.
+- **Passthrough**: limit orders, margin, approvals, claims, LP, and referral are built as transactions and relayed through your EIP-7702 smart account. Receipt `route` is `relayer-passthrough`.
+- **TWAP API**: TWAP open/close/cancel are signed intents submitted to the TWAP service, which sends the registration transaction itself. Receipt `route` is `twap-api`.
 
-Every signed intent is digest-verified locally before submission — see [Security](/advanced/security).
+Every signed intent is digest-verified locally before submission; see [Security](/advanced/security).
 
 ## Direct mode
 
@@ -41,7 +41,7 @@ The SDK fetches calldata from the tx-builder API, signs an EIP-1559 transaction,
 client = AsyncAvantis(execution="direct", rpc_url="https://mainnet.base.org")
 ```
 
-When trading with an API key in direct mode, calls are wrapped as delegated actions on-chain — the delegate needs ETH for gas.
+When trading with an API key in direct mode, calls are wrapped as delegated actions on-chain, and the delegate needs ETH for gas.
 
 <Note>
 `update_tp_sl` is the one exception: v2 has no public contract entry point for it, so it always routes through the relayer even in direct mode.
@@ -50,6 +50,6 @@ When trading with an API key in direct mode, calls are wrapped as delegated acti
 ## Choosing
 
 - **Relayer** for almost everyone: no ETH, no nonce management, and no RPC when using a delegate/API key.
-- **Direct** if you must control broadcasting — your own RPC/builder, custom gas strategy, or no dependency on Avantis infrastructure for submission.
+- **Direct** if you must control broadcasting: your own RPC/builder, custom gas strategy, or no dependency on Avantis infrastructure for submission.
 
 Latency-sensitive? Stay on relayer and use the [market-maker fast path](/advanced/mm-fast-path) to remove HTTP round-trips from order building.

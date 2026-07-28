@@ -32,7 +32,7 @@ async def main() -> None:
         # await pairdata.run(lambda payload: print("pairs updated:", list(payload)[:3]))
 
         # --- order execution events (Pusher; fires when the operator fills
-        #     / cancels one of YOUR orders — idle otherwise) ---
+        #     / cancels one of YOUR orders, idle otherwise) ---
         # orders = client.order_event_stream()
         # await orders.run(lambda ev: print(ev.event, ev.data))
 

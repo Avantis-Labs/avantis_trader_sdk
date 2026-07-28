@@ -16,19 +16,19 @@ for order in data.limit_orders:
     print(order.side, float(order.collateral), "@", float(order.price))
 ```
 
-`positions()` hits the core API and returns enriched data — liquidation price, accrued rollover, and unrealized funding are already computed. Pass `trader=` to read any address.
+`positions()` hits the core API and returns enriched data: liquidation price, accrued rollover, and unrealized funding are already computed. Pass `trader=` to read any address.
 
 ### `Position` fields (human units)
 
 | Property | Meaning |
 | --- | --- |
-| `pair_index`, `index` | Identify the position — pass both to close/update methods |
+| `pair_index`, `index` | Identify the position; pass both to close/update methods |
 | `side` / `buy` | `"long"`/`"short"` |
 | `collateral`, `leverage`, `position_size` | USDC, multiplier, notional (collateral × leverage) |
 | `open_price`, `tp`, `sl`, `liquidation_price` | Prices (`0` = unset) |
 | `rollover_fee`, `unrealised_funding_fee` | Accrued fees in USDC |
-| `is_pnl` | `True` for zero-fee (ZFP) positions — pass to `market_close(is_pnl=...)` |
-| `opened_at` | Open timestamp — pass to `market_close(open_timestamp=...)` if closing right after opening |
+| `is_pnl` | `True` for zero-fee (ZFP) positions; pass to `market_close(is_pnl=...)` |
+| `opened_at` | Open timestamp; pass to `market_close(open_timestamp=...)` if closing right after opening |
 | `offchain_orders` | Stored [partial TP/SL](/trading/tp-sl#partial-tpsl-trigger-orders) trigger orders |
 
 `data.position(pair_index, index)` looks up a single position.

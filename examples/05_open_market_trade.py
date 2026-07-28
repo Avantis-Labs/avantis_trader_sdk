@@ -1,4 +1,4 @@
-"""Open a market position — the default gasless relayer route.
+"""Open a market position: the default gasless relayer route.
 
 The SDK fetches the intent from the tx-builder API, signs it locally (with a
 digest correctness check), and queues it with the Avantis relayer. No RPC, no

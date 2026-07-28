@@ -1,12 +1,12 @@
 ---
 title: "Migrating from v1"
-description: "Avantis v2 goes live on August 12, 2026 — what changes, what carries over, and how to prepare your integration."
+description: "Avantis v2 goes live on August 12, 2026. What changes, what carries over, and how to prepare your integration."
 ---
 
 Avantis is upgrading the live Base deployment from v1 to v2 on
 **August 12, 2026** (exact time to be announced). This section is for
 market makers, trading bots, indexers, and every other third-party
-integrator that currently builds against v1 — it tells you what happens on
+integrator that currently builds against v1. It tells you what happens on
 migration day, what breaks, and exactly how to move.
 
 ## What happens on migration day
@@ -16,15 +16,15 @@ The migration is an **in-place proxy upgrade**, not a new deployment:
 | | |
 | --- | --- |
 | Contract addresses | **Unchanged.** All state lives at the existing proxy addresses; only the implementations behind them are upgraded. |
-| Open positions | **Carry over automatically.** No action needed — collateral, TP/SL, and open limit orders are preserved. |
+| Open positions | **Carry over automatically.** No action needed; collateral, TP/SL, and open limit orders are preserved. |
 | Funds and USDC approvals | **Carry over automatically.** Existing allowances against the trading contracts remain valid. |
 | Trading | **Paused briefly** during the upgrade window while state is verified, then unpaused. |
-| Event ABIs and write paths | **Change.** This is where integrations break — see the guides below. |
+| Event ABIs and write paths | **Change.** This is where integrations break; see the guides below. |
 
 <Note>
 Traders using the Avantis web app don't need to do anything. This section
-exists because *programmatic* integrations — SDK scripts, market-making
-systems, indexers, keepers — interact with surfaces that change shape in v2.
+exists because *programmatic* integrations (SDK scripts, market-making
+systems, indexers, keepers) interact with surfaces that change shape in v2.
 </Note>
 
 ## What v2 changes for integrators
@@ -38,17 +38,17 @@ intent-based**, in the style of HyperLiquid:
   gas, no ETH, no node. (Self-broadcasting via your own RPC remains fully
   supported for those who want it.)
 - **API keys (delegates).** A separate signing key registered to your
-  wallet with one signature. It can trade but can never withdraw funds —
-  the right shape for bots and MM systems.
+  wallet with one signature. It can trade but can never withdraw funds,
+  which is the right shape for bots and MM systems.
 - **Read APIs instead of multicall fan-outs.** Positions with liquidation
   prices, the full pair catalog, funding/spread state, history with fee
-  breakdowns — all served over HTTP.
+  breakdowns, all served over HTTP.
 - **New order surface.** Coin-sized orders, zero-fee (PnL) orders, position
   size increases, partial TP/SL triggers, TWAP, and builder codes are new
   in v2.
 - **Reshaped on-chain surface.** Funding fees, spread on close, maker/taker
   close fees, new and re-shaped events. If you decode logs or call the
-  contracts directly, you must update — see the
+  contracts directly, you must update; see the
   [direct integrators guide](/migration/direct-integrators).
 
 ## Pick your guide
@@ -59,7 +59,7 @@ intent-based**, in the style of HyperLiquid:
     mapping to the 2.x client, with before/after code.
   </Card>
   <Card title="Direct integrators" icon="file-signature" href="/migration/direct-integrators">
-    You call the contracts or decode their events yourself — MMs with
+    You call the contracts or decode their events yourself: MMs with
     custom stacks, indexers, keepers, risk engines. Full breaking-change
     inventory.
   </Card>
@@ -74,8 +74,10 @@ Before August 12:
 2. **Build against v2 on testnet now.** The SDK defaults to the v2 testnet
    (`AVANTIS_NETWORK=testnet`); direct integrators can exercise the full v2
    surface there today.
-3. **Create an API key** on the Avantis UI if you plan to use the gasless
-   relayer path (recommended for most trading systems).
+3. **Create an API key** with the
+   [Avantis API Key Generator](https://avantis-delegate-ui.preview.avantisfi.link/)
+   if you plan to use the gasless relayer path (recommended for most
+   trading systems).
 4. **If you index events**: prepare v2 ABIs and topic filters side-by-side
    with v1, and schema-version any time series that will span the upgrade.
 5. **Plan for the pause window.** Cancel-or-hold logic in trading systems
@@ -88,12 +90,12 @@ On migration day:
 2. Switch to your v2 code path (SDK 2.x, or your updated direct
    integration) once trading is unpaused.
 3. Verify your positions via `client.account.positions()` or the positions
-   API — everything you had open before the pause should be there.
+   API. Everything you had open before the pause should be there.
 
 ## Getting help
 
 If anything in your integration doesn't map cleanly, reach out to the
 Avantis team through your existing integration channel or the community
-[Discord](https://discord.gg/avantisfi) — for deep contract-level questions
+[Discord](https://discord.gg/avantisfi). For deep contract-level questions
 (exact event field layouts, struct changes), a field-accurate v1→v2 delta
 reference is available on request.
