@@ -42,8 +42,11 @@ class TradeApi(ExecutingApi):
     _local: LocalIntentBuilder | None = None  # lazy; for locally-built intents
 
     async def _local_intents(self) -> LocalIntentBuilder:
-        """Local builder for intents the tx-builder has no route for
-        (TwapCancelReq, CancelOffchainOrder)."""
+        """Local builder for the off-chain-verified intents (TwapCancelReq,
+        CancelOffchainOrder). The tx-builder also serves these
+        (/v2/intents/twap-cancel, /v2/intents/offchain-cancel — digest-equal
+        by golden vectors); building locally just skips the round-trip since
+        neither needs any chain state."""
         if self._local is None:
             self._local = LocalIntentBuilder(
                 await self._engine.chain_id(), await self._engine.trading_router()
@@ -691,8 +694,9 @@ class TradeApi(ExecutingApi):
 
     async def twap_cancel(self, twap_id: int) -> ExecutionReceipt:
         """Cancel a TWAP by its on-chain ``twapId`` (receipt.order_id from
-        twap_open, or ``account.twaps()``). Signs a TwapCancelReq locally —
-        the tx-builder has no route for it."""
+        twap_open, or ``account.twaps()``). Signs a TwapCancelReq built
+        locally (needs no chain state; digest-equal to the tx-builder's
+        /v2/intents/twap-cancel)."""
         builder = await self._local_intents()
         intent = builder.twap_cancel(trader=self.trader, twap_id=twap_id)
         return await self._submit_twap("/twaps/cancel", intent)

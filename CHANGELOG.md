@@ -85,6 +85,17 @@ batched-market execution, twap-app, off-chain order CRUD).
   `intents_schema` and `LocalIntentBuilder` (`twap_cancel`,
   `cancel_offchain_order`), with golden vectors (ethers `TypedDataEncoder` —
   the twap-app/core-backend verify these off-chain with ethers).
+- **EIP-7702 authorization nonce**: relayer-mode type-4 transactions now sign
+  the authorization over the correct EOA protocol nonce. Delegate/API keys
+  (register in the UI, export the key — the normal setup) are fresh EOAs, so
+  nonce 0 is correct and no RPC is needed. Signing with the trader EOA
+  directly now requires `rpc_url` / `AVANTIS_RPC_URL` (any Base endpoint) and
+  fails fast with a `ConfigError` otherwise. Found in the 2026-07-28 live
+  E2E: a stale-nonce authorization is silently skipped by the protocol,
+  which bricks every smart-account call for EOAs that carry a foreign
+  delegation (e.g. MetaMask-upgraded wallets).
+- `account.register_delegate` docstring now spells out that the expiry is an
+  ABSOLUTE unix timestamp in seconds (the tx-builder rejects durations).
 
 ### Unreleased additions (2026-07-28)
 

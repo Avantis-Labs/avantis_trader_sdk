@@ -300,6 +300,93 @@ async def test_limit_open_uses_type4_passthrough():
 
 @pytest.mark.asyncio
 @respx.mock
+async def test_delegate_key_signs_authorization_with_nonce_zero_no_rpc():
+    """Delegate/API keys (register in the UI, export the key) are fresh EOAs:
+    the EIP-7702 authorization is correctly signed over nonce 0 and the SDK
+    needs no RPC at all — the normal setup."""
+    respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
+    respx.post(f"{TXB}/v2/trade/open").mock(return_value=_ok(_calldata_payload()))
+    create_route = respx.post(f"{RELAYER}/relays").mock(
+        return_value=httpx.Response(200, json={"requestId": "req-n"})
+    )
+
+    async with _client() as client:  # TEST_KEY signs for TRADER: delegate mode
+        await client.trade.limit_open(
+            "ETH/USD", "short", collateral=50, leverage=5, price=3000, wait=False
+        )
+
+    body = json.loads(create_route.calls[0].request.content)
+    (auth,) = body["txParams"]["authorizationList"]
+    assert auth["nonce"] == 0
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_trader_eoa_without_rpc_fails_fast_in_relayer_mode():
+    """Signing with the trader EOA directly needs an RPC for the authorization
+    nonce (its nonce is almost never 0; a stale nonce is silently skipped
+    on-chain and the tx reverts — found live 2026-07-28). Without one, the SDK
+    must raise a clear ConfigError instead of an opaque on-chain revert."""
+    from avantis_trader_sdk.errors import ConfigError
+
+    respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
+    respx.post(f"{TXB}/v2/trade/open").mock(return_value=_ok(_calldata_payload()))
+
+    async with AsyncAvantis(
+        network="testnet",
+        private_key=TEST_KEY,  # signer IS the trader: no trader_address
+        tx_builder_url=TXB,
+        relayer_url=RELAYER,
+        feed_url=FEED,
+        data_api_url=DATA,
+    ) as client:
+        with pytest.raises(ConfigError, match="AVANTIS_RPC_URL"):
+            await client.trade.limit_open(
+                "ETH/USD", "short", collateral=50, leverage=5, price=3000, wait=False
+            )
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_trader_eoa_with_rpc_reads_real_authorization_nonce():
+    """With rpc_url set (any Base endpoint), the authorization is signed over
+    the EOA's real protocol nonce from eth_getTransactionCount."""
+    RPC = "https://rpc.test"
+
+    def rpc_responder(request):
+        body = json.loads(request.content)
+        result = {"eth_getTransactionCount": hex(1287), "eth_estimateGas": hex(300_000)}.get(
+            body["method"], "0x0"
+        )
+        return httpx.Response(200, json={"jsonrpc": "2.0", "id": body["id"], "result": result})
+
+    respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
+    respx.post(f"{TXB}/v2/trade/open").mock(return_value=_ok(_calldata_payload()))
+    respx.post(RPC).mock(side_effect=rpc_responder)
+    create_route = respx.post(f"{RELAYER}/relays").mock(
+        return_value=httpx.Response(200, json={"requestId": "req-n"})
+    )
+
+    async with AsyncAvantis(
+        network="testnet",
+        private_key=TEST_KEY,
+        rpc_url=RPC,
+        tx_builder_url=TXB,
+        relayer_url=RELAYER,
+        feed_url=FEED,
+        data_api_url=DATA,
+    ) as client:
+        await client.trade.limit_open(
+            "ETH/USD", "short", collateral=50, leverage=5, price=3000, wait=False
+        )
+
+    body = json.loads(create_route.calls[0].request.content)
+    (auth,) = body["txParams"]["authorizationList"]
+    assert auth["nonce"] == 1287
+
+
+@pytest.mark.asyncio
+@respx.mock
 async def test_positions_read():
     respx.get(f"{CORE}/user-data").mock(
         return_value=httpx.Response(

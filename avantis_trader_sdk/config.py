@@ -5,8 +5,11 @@ Environment variables (HyperLiquid-style semantics):
 - ``AVANTIS_PRIVATE_KEY``    the signing key (delegate/agent key or trader key)
 - ``AVANTIS_TRADER_ADDRESS`` if set and != key's address -> delegate mode
 - ``AVANTIS_EXECUTION``      "relayer" (default) | "direct"
-- ``AVANTIS_RPC_URL``        write RPC; required broadcast path only when
-                             execution=direct and you want self-broadcast
+- ``AVANTIS_RPC_URL``        Base RPC. Required for execution=direct
+                             (broadcast) and for relayer mode when signing
+                             with the trader EOA directly (reads the EIP-7702
+                             authorization nonce). Not needed with a
+                             delegate/API key — the normal setup.
 - ``AVANTIS_NETWORK``        "testnet" (default) | "mainnet"
 - ``AVANTIS_API_BASE_URL``   central-routing host (prod-api / staging-api);
                              /core, /twap, /batched-market and /blitz are
@@ -108,6 +111,10 @@ class AvantisConfig:
     private_key: str | None = None
     trader_address: str | None = None
     execution: ExecutionMode = ExecutionMode.RELAYER
+    # Base RPC. Broadcast path in direct mode; in relayer mode used only to
+    # read the EIP-7702 authorization nonce, which is required when signing
+    # with the trader EOA directly (delegate/API keys are fresh EOAs and
+    # need no RPC at all).
     rpc_url: str | None = None
 
     # service endpoints

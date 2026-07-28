@@ -161,6 +161,9 @@ class AccountApi(ExecutingApi):
     ) -> ExecutionReceipt:
         """Register a delegate gaslessly (trader signs a DelegateReq intent).
 
+        ``expiry_seconds`` is an ABSOLUTE unix timestamp in seconds (e.g.
+        ``int(time.time()) + 3600`` for one hour), not a duration.
+
         The trader key is used transiently for one signature and not stored.
         submission of setDelegateWithSig is permissionless, so the SDK's own
         key relays it (TX_RELAY passthrough in relayer mode).

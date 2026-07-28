@@ -142,18 +142,32 @@ class ExecutionEngine:
             )
         return self._encoder
 
-    async def _account_nonce(self, address: str) -> int:
-        """EOA protocol nonce for the EIP-7702 authorization (0 if unknown).
+    async def _authorization_nonce(self, signer_address: str) -> int:
+        """EOA protocol nonce the EIP-7702 authorization is signed over.
 
-        A stale nonce only matters for the very first delegation application;
-        once the code is set, the authorization is redundant and ignored.
+        A wrong nonce makes the authorization invalid, so the protocol skips
+        it silently: fine once the Gelato delegation code is already set (the
+        authorization is redundant), but the first application — or replacing
+        a foreign delegation, e.g. a MetaMask-upgraded EOA — never happens and
+        every smart-account call reverts.
+
+        Delegate/API keys (the normal setup: register the delegate in the UI,
+        export its key for the SDK) are fresh EOAs, so nonce 0 is correct and
+        no RPC is needed. Signing with the trader EOA directly is the power
+        path: its nonce is almost never 0, so an RPC (any Base endpoint) is
+        required to read it.
         """
-        if self.rpc is None:
-            return 0
-        try:
-            return await self.rpc.get_transaction_count(address)
-        except Exception:
-            return 0
+        if self.rpc is not None:
+            return await self.rpc.get_transaction_count(signer_address)
+        trader = self.config.trader_address
+        if trader and trader.lower() != signer_address.lower():
+            return 0  # delegate/API key: fresh EOA, nothing to read
+        raise ConfigError(
+            "Relayer mode with the trader EOA needs an RPC to read the EIP-7702 "
+            "authorization nonce (a stale nonce is skipped on-chain and the "
+            "transaction reverts). Set rpc_url / AVANTIS_RPC_URL to any Base RPC "
+            "(e.g. https://mainnet.base.org), or sign with a delegate/API key."
+        )
 
     async def _estimate_gas_or_default(self, to: str, data: str, value: int = 0) -> int:
         if self.rpc is not None:
@@ -169,7 +183,7 @@ class ExecutionEngine:
     async def _build_type4(self, calls: list[Call]) -> dict[str, Any]:
         signer = self._require_signer()
         encoder = await self.encoder()
-        account_nonce = await self._account_nonce(signer.address)
+        account_nonce = await self._authorization_nonce(signer.address)
         # Encode once with a pinned exec nonce, estimate gas on those exact
         # bytes, and reuse the same nonce in the final payload.
         exec_nonce = fresh_nonce()

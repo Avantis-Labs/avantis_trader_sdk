@@ -38,6 +38,20 @@ def _client(**kw) -> AsyncAvantis:
     return AsyncAvantis(**defaults)
 
 
+def _mock_read_rpc():
+    """Trader-EOA relayer mode needs an RPC for the EIP-7702 authorization
+    nonce (delegate/API keys are fresh EOAs and need none)."""
+
+    def handler(request):
+        body = json.loads(request.content)
+        result = {"eth_getTransactionCount": "0x7", "eth_estimateGas": "0x30d40"}.get(
+            body["method"], "0x0"
+        )
+        return httpx.Response(200, json={"jsonrpc": "2.0", "id": body["id"], "result": result})
+
+    respx.post(RPC).mock(side_effect=handler)
+
+
 def _vector_payload(kind: str, **extra) -> dict:
     vector = next(v for v in VECTORS["vectors"] if v["kind"] == kind)
     return {
@@ -272,8 +286,10 @@ async def test_referral_register_gasless_wraps_with_sig():
         )
     )
 
-    # trader-key mode (signer == trader) so referral actions are allowed
-    async with _client(trader_address=TEST_ADDRESS) as client:
+    _mock_read_rpc()
+    # trader-key mode (signer == trader) so referral actions are allowed;
+    # trader-EOA type-4 builds read the authorization nonce over RPC
+    async with _client(trader_address=TEST_ADDRESS, rpc_url=RPC) as client:
         receipt = await client.referral.register_code_gasless("MYCODE")
 
     assert receipt.tx_hash == "0xr"
@@ -398,7 +414,8 @@ async def test_lp_deposit_trader_mode():
         )
     )
 
-    async with _client(trader_address=TEST_ADDRESS) as client:
+    _mock_read_rpc()
+    async with _client(trader_address=TEST_ADDRESS, rpc_url=RPC) as client:
         receipt = await client.lp.deposit(100)
 
     assert receipt.tx_hash == "0xlp"

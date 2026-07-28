@@ -56,3 +56,14 @@ def test_env_overrides_respected(monkeypatch):
     assert cfg.twap_api_url == "https://env-twap.test"
     assert cfg.core_api_url == "https://env-base.test/core"
     assert cfg.batched_market_url == "https://env-base.test/batched-market"
+
+
+def test_no_rpc_by_default(monkeypatch):
+    """No RPC in the default mix: delegate/API keys are fresh EOAs (nonce-0
+    authorizations), so relayer mode is fully API-driven. rpc_url is an
+    explicit opt-in for direct mode or trader-EOA signing."""
+    monkeypatch.delenv("AVANTIS_RPC_URL", raising=False)
+    assert AvantisConfig.load(network="testnet").rpc_url is None
+    assert AvantisConfig.load(network="mainnet").rpc_url is None
+    monkeypatch.setenv("AVANTIS_RPC_URL", "https://my-node.test")
+    assert AvantisConfig.load(network="testnet").rpc_url == "https://my-node.test"
