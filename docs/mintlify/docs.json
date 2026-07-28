@@ -12,6 +12,10 @@
     "light": "/logo/light.svg",
     "dark": "/logo/dark.svg"
   },
+  "banner": {
+    "content": "Avantis v2 goes live on **August 12, 2026**. Integrating against v1? Read the [migration guide](/migration/overview).",
+    "dismissible": true
+  },
   "navigation": {
     "tabs": [
       {
@@ -20,6 +24,14 @@
           {
             "group": "Getting Started",
             "pages": ["index", "quickstart", "configuration", "concepts"]
+          },
+          {
+            "group": "Migrating from v1",
+            "pages": [
+              "migration/overview",
+              "migration/sdk-migration",
+              "migration/direct-integrators"
+            ]
           },
           {
             "group": "Trading",

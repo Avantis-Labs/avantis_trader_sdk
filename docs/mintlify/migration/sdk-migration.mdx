@@ -1,0 +1,227 @@
+---
+title: "Python SDK: 0.x to 2.x"
+description: "Method-by-method mapping from the v1 TraderClient to the v2 AsyncAvantis client."
+---
+
+SDK 2.0 is a ground-up rewrite for Avantis v2 and **the 0.x/1.x API is
+removed** — there is no compatibility layer. The good news: almost every
+0.x flow collapses into a single call, and the things 0.x made you manage
+(RPC node, ABIs, gas, transaction receipts, USDC allowances before every
+session, trade indexes) are handled for you.
+
+The package name is unchanged (`avantis-trader-sdk` on PyPI). To stay on
+the v1 SDK until migration day, pin it:
+
+```bash
+pip install "avantis-trader-sdk<2"   # v1 (until August 12)
+pip install "avantis-trader-sdk>=2"  # v2
+```
+
+## The shape of the change
+
+| | 0.x (v1) | 2.x (v2) |
+| --- | --- | --- |
+| Transport | web3 + vendored ABIs against your RPC node | HTTPS APIs; the SDK signs locally. No web3, no ABIs, no RPC required |
+| Client | `TraderClient(provider_url)` | `AsyncAvantis()` — configured from `AVANTIS_*` env vars (sync facade: `Avantis()`) |
+| Executing an order | `build_*_tx(...)` → `sign_and_get_receipt(...)` | one method call returns an `ExecutionReceipt` |
+| Gas | You hold ETH and pay gas | Gasless by default (relayer). `AVANTIS_EXECUTION=direct` restores self-broadcasting |
+| Delegated trading | duplicate `*_delegate` methods | gone — the signer identity (API key vs trader key) decides; same methods |
+| Reads | contract reads + multicall fan-outs | typed API clients (`markets`, `account`, `info`) + pure `compute` functions |
+| Errors | printed / raw contract reverts | typed exceptions from `avantis_trader_sdk.errors` |
+
+## Client setup
+
+**Before (0.x):**
+
+```python
+from avantis_trader_sdk import TraderClient
+
+trader_client = TraderClient("https://mainnet.base.org")
+trader_client.set_local_signer(private_key)
+trader = trader_client.get_signer().get_ethereum_address()
+```
+
+**After (2.x):**
+
+```bash
+export AVANTIS_PRIVATE_KEY=0x...      # API key (recommended) or trader key
+export AVANTIS_TRADER_ADDRESS=0x...   # your wallet — only when using an API key
+export AVANTIS_NETWORK=mainnet        # default is testnet
+```
+
+```python
+from avantis_trader_sdk import AsyncAvantis
+
+async with AsyncAvantis() as client:
+    ...
+```
+
+Two decisions to make once:
+
+1. **Key type.** The closest thing to 0.x is using your trader key directly
+   (set `AVANTIS_PRIVATE_KEY` to it, leave `AVANTIS_TRADER_ADDRESS` unset).
+   The recommended setup is an **API key** — a delegate key created on the
+   Avantis UI that can trade but never withdraw. See
+   [Delegates](/account/delegates).
+2. **Execution route.** The default **relayer** route is gasless — signed
+   intents, no ETH, no node. `AVANTIS_EXECUTION=direct` with
+   `AVANTIS_RPC_URL` reproduces 0.x behavior: the SDK signs EIP-1559
+   transactions and broadcasts them through your RPC. See
+   [Execution modes](/advanced/execution-modes).
+
+Signers: `set_local_signer(key)` is now just the env var;
+`set_aws_kms_signer(...)` became the `KmsSigner` class
+(`pip install "avantis-trader-sdk[kms]"`), passed to the client instead of
+a private key.
+
+## Trading methods
+
+Every 0.x write was a `build_*_tx` + `sign_and_get_receipt` pair (plus a
+`*_delegate` twin). Each maps to one 2.x call on `client.trade` /
+`client.account`:
+
+| 0.x | 2.x |
+| --- | --- |
+| `trade.build_trade_open_tx(TradeInput, MARKET, slippage)` | `trade.market_open(pair, side, collateral=, leverage=, ...)` |
+| `trade.build_trade_open_tx(TradeInput, MARKET_ZERO_FEE, ...)` | `trade.market_open(..., zero_fee=True)` |
+| `trade.build_trade_open_tx(TradeInput, LIMIT / STOP_LIMIT, ...)` | `trade.limit_open(...)` |
+| `trade.build_trade_close_tx(pair_index, trade_index, collateral_to_close, trader)` | `trade.market_close(pair, index, collateral_to_close=)` |
+| `trade.build_order_cancel_tx(...)` | `trade.cancel_limit_order(pair, index)` |
+| `trade.build_trade_margin_update_tx(...)` (deposit / withdraw) | `trade.update_margin(pair, index, action, amount)` |
+| `trade.build_trade_tp_sl_update_tx(...)` | `trade.update_tp_sl(pair, index, take_profit=, stop_loss=)` |
+| `trade.get_trades(trader)` | `account.positions()` — includes liquidation price, rollover, funding, and open limit orders |
+| `trade.get_trade_execution_fee()` | handled automatically (relayer covers it; direct mode reads it from meta) |
+| `trade.build_set_delegate_tx(...)` / `build_remove_delegate_tx(...)` / `get_delegate()` | `account.register_delegate(...)` / `account.revoke_delegate(...)` / `account.delegation_status()` |
+| every `*_delegate` twin | gone — same method, the configured signer decides |
+| `client.get_usdc_balance(...)` | `account.usdc_balance()` |
+| `client.get_usdc_allowance_for_trading(...)` | `account.allowance()` |
+| `client.approve_usdc_for_trading(amount)` | `account.approve_usdc(amount)` (trader key only — an API key can't approve) |
+
+Semantics that changed along the way:
+
+- **No `TradeInput` struct.** Orders are keyword arguments; pairs are
+  symbols or indexes interchangeably (`"ETH/USD"` or `1`) — no
+  `get_pair_index` round-trip needed.
+- **No manual trade `index`.** 0.x made you pick the per-pair slot
+  (`index=0`); 2.x assigns it. You only pass an index to target an
+  *existing* position (close, margin, TP/SL), and it comes from
+  `account.positions()`.
+- **Receipts are fill-aware on market orders.** 0.x returned a transaction
+  receipt and you slept 30 seconds hoping the keeper filled it. The 2.x
+  batched-market route streams the order lifecycle: when
+  `trade.market_open(...)` returns with `wait=True` (default), the order
+  **executed** — a declined fill (slippage etc.) raises `RelayError`
+  instead. See [Core concepts](/concepts).
+- **Typed errors.** Pre-trade validation failures raise `ValidationError`
+  with a human-readable reason instead of reverting on-chain.
+- Units are unchanged: human units in, human units out (`100` = 100 USDC).
+
+## Before / after: open and close
+
+**0.x** (abridged from the old `10_example_open_and_close_market_trade.py`):
+
+```python
+trader_client = TraderClient(provider_url)
+trader_client.set_local_signer(private_key)
+trader = trader_client.get_signer().get_ethereum_address()
+
+pair_index = await trader_client.pairs_cache.get_pair_index("ETH/USD")
+trade_input = TradeInput(
+    trader=trader, pair_index=pair_index, collateral_in_trade=10,
+    is_long=True, leverage=25, index=0, tp=4000, sl=0, timestamp=0,
+)
+tx = await trader_client.trade.build_trade_open_tx(
+    trade_input, TradeInputOrderType.MARKET, slippage_percentage=1
+)
+await trader_client.sign_and_get_receipt(tx)
+
+time.sleep(30)  # hope the keeper executed it
+
+trades, _ = await trader_client.trade.get_trades(trader)
+t = trades[0].trade
+tx = await trader_client.trade.build_trade_close_tx(
+    pair_index=t.pair_index, trade_index=t.trade_index,
+    collateral_to_close=t.open_collateral, trader=trader,
+)
+await trader_client.sign_and_get_receipt(tx)
+```
+
+**2.x:**
+
+```python
+async with AsyncAvantis() as client:
+    receipt = await client.trade.market_open(
+        "ETH/USD", "long", collateral=10, leverage=25,
+        take_profit=4000, slippage_percent=1,
+    )
+    # returned = executed (fill-aware receipt, no sleep-and-pray)
+
+    positions = await client.account.positions()
+    pos = positions.positions[0]
+    await client.trade.market_close(
+        pos.pair_index, pos.index,
+        collateral_to_close=float(pos.collateral), is_pnl=pos.is_pnl,
+    )
+```
+
+## Market data and parameter reads
+
+The 0.x read namespaces (`pairs_cache`, `snapshot`, `asset_parameters`,
+`category_parameters`, `fee_parameters`, `trading_parameters`, `blended`)
+were RPC multicall fan-outs. In 2.x, one snapshot call carries the full
+100+ pair catalog, and the UI-parity math lives in pure functions under
+`avantis_trader_sdk.compute`:
+
+| 0.x | 2.x |
+| --- | --- |
+| `pairs_cache.get_pairs_info()` / `get_pair_index(...)` | `markets.pairs()` / `markets.pair_index(...)` (or just pass the symbol) |
+| `snapshot.get_snapshot()` | `markets.snapshot()` — OI, caps, fees, funding, spreads, leverage envelopes, market hours per pair |
+| `asset_parameters.get_oi()` / `get_oi_limits()` / `get_utilization()` / `get_asset_skew()` | fields on `markets.snapshot()` pairs |
+| `asset_parameters.get_price_impact_spread()` / `get_skew_impact_spread()` / `get_opening_price_impact_spread()` | `markets.dynamic_spread(...)` — v2's spread model is flow-based and served by the risk API |
+| `category_parameters.*` / `blended.*` | group fields on `markets.snapshot()` |
+| `fee_parameters.get_new_trade_opening_fee(...)` | `compute.skew_adjusted_open_fee(...)` (plus `compute.maker_or_taker_fee_p(...)` — maker/taker is new in v2) |
+| `fee_parameters.get_margin_fee()` | margin-fee / funding fields on `markets.snapshot()` pairs |
+| `trading_parameters.get_loss_protection_*` | `compute.net_pnl(...)` / `compute.position_net_pnl(...)` include loss protection |
+| `trading_parameters.get_trade_referral_rebate_percentage()` | `info.referral_stats(...)` |
+
+New in 2.x with no 0.x equivalent: `compute.estimate_liquidation_price`,
+`compute.validate_order` (full pre-trade validation, UI parity),
+`compute.available_liquidity` / `max_position_size`, TP/SL bounds helpers,
+`markets.candles(...)`, and the whole `client.info` namespace (trade/order
+history with fee breakdowns, portfolio analytics, vault APY).
+
+## Price feeds
+
+| 0.x | 2.x |
+| --- | --- |
+| `FeedClient()` + `register_price_feed_callback(...)` + `listen_for_price_updates()` | `client.lazer_price_stream([...])` / `client.hermes_price_stream([...])` — see [Prices & streams](/data/prices-and-streams) |
+| `feed_client.get_latest_price_updates(...)` | `markets.price(pair)` |
+| `feed_client.get_price_update_data(...)` | `markets.price_update_data(pair)` (rarely needed — market orders no longer require you to attach price updates) |
+| — | `client.pair_data_stream()` (live pair-catalog updates), `client.order_event_stream()` (your order lifecycle events) |
+
+## New v2 surface worth adopting
+
+These have no 0.x equivalent and are the reason to migrate beyond
+compatibility:
+
+- **Position increases** — `trade.increase_position(...)` adds size to an
+  open position instead of opening a parallel trade.
+- **Partial TP/SL triggers** — `trade.partial_tp_sl(...)` closes a *slice*
+  at a trigger price (stored off-chain, executed by keepers). See
+  [TP/SL](/trading/tp-sl).
+- **Coin-sized orders** — `trade.market_open_coin(...)` /
+  `market_close_coin(...)` size in base-asset units instead of USDC.
+- **TWAP** — `trade.twap_open(...)` / `twap_close(...)` / `twap_cancel(...)`.
+  See [TWAP](/trading/twap).
+- **Builder codes** — `account.register_builder_code(...)` for order-flow
+  attribution and fees.
+
+## Market makers
+
+If your 0.x integration bypassed `build_*_tx` for speed (raw transactions,
+custom signing), the 2.x equivalent is the **local intent builder**:
+`client.local_intents()` builds and signs EIP-712 order intents in
+microseconds with no I/O on the hot path, byte-for-byte verified against
+the on-chain hashing library. Combined with a nonce pool and
+`wait=False` submission, this is the intended MM hot path — see
+[Market-maker fast path](/advanced/mm-fast-path).

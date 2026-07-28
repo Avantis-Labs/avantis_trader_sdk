@@ -96,6 +96,15 @@ batched-market execution, twap-app, off-chain order CRUD).
   delegation (e.g. MetaMask-upgraded wallets).
 - `account.register_delegate` docstring now spells out that the expiry is an
   ABSOLUTE unix timestamp in seconds (the tx-builder rejects durations).
+- **Docs — v1 → v2 migration section** (`docs/mintlify/migration/`, mirrored
+  to the published avantis-python-sdk repo): `overview` (Aug 12 in-place
+  upgrade mechanics — same proxy addresses, positions/funds carry over,
+  pause window), `sdk-migration` (TraderClient 0.x → AsyncAvantis 2.x
+  method-by-method mapping with before/after code), and
+  `direct-integrators` (contract/API-level breaking changes distilled from
+  the contracts v1→v2 delta: event topic0 breaks, signed-intent write path,
+  nonce bitmap, formula changes, removed features). docs.json gains the nav
+  group and a dismissible site banner announcing the migration date.
 
 ### Unreleased additions (2026-07-28)
 
