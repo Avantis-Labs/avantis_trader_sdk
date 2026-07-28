@@ -3,9 +3,9 @@
   "theme": "mint",
   "name": "Avantis Python SDK",
   "colors": {
-    "primary": "#6C5CE7",
-    "light": "#A29BFE",
-    "dark": "#4834D4"
+    "primary": "#7D17FF",
+    "light": "#B84FF3",
+    "dark": "#6412CC"
   },
   "favicon": "/favicon.svg",
   "logo": {
