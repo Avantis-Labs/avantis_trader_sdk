@@ -49,7 +49,3 @@ await client.trade.twap_cancel(twap_id=123)      # twapId from receipt.order_id 
 ```
 
 Cancelling signs a `TwapCancelReq` intent over the `twapId`. The trader key or an active delegate key both work.
-
-## RFQ
-
-`client.trade.rfq_open` and `rfq_close` exist in the SDK, but **RFQ is not live on Avantis yet**. They are kept for when it ships.

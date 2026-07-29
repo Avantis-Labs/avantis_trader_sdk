@@ -32,7 +32,7 @@ from the Avantis team on request.
 | Area | Break |
 | --- | --- |
 | Event ABIs | Most trading events gained fields → **different topic0**. Filters and decoders must be rebuilt (see below). |
-| Write entry points | TP/SL updates, TWAP, and RFQ are **signed-intent only**; several function signatures changed; `updateTpAndSl` / `updateSl` public entries removed. |
+| Write entry points | TP/SL updates and TWAP are **signed-intent only**; several function signatures changed; `updateTpAndSl` / `updateSl` public entries removed. |
 | Keeper interfaces | `PriceAggregator.fulfill` takes an `offChainSpreadParams` struct instead of `int spreadP`; `executeMarketOrders` → `executeMarketOrder`. |
 | Reverts | String reverts replaced by **custom errors** (4-byte selectors) protocol-wide, with a few residual strings. |
 | Reads | Several views removed or reshaped (`pairLongOI`/`pairShortOI` gone, `walletOI` is per-pair, some views became non-`view`). |
@@ -83,7 +83,7 @@ Key intent conventions (these bite people):
 Direct self-broadcast calldata (via your own node) remains available for
 most actions through the tx-builder `/v2/trade/*`, `/v2/limit/*`,
 `/v2/margin/*`, `/v2/position/*` routes. But TP/SL update has **no**
-calldata path in v2 (intent-only), and user-initiated TWAP/RFQ contract
+calldata path in v2 (intent-only), and user-initiated TWAP contract
 entry points revert `OnlyBatchedFlowAllowed()`.
 
 ### Order-type enum (v2)
@@ -97,7 +97,7 @@ The `OrderType` enum grew from 9 values to 22. New values in v2:
 11    LIMIT_PARTIAL_CLOSE                    (partial TP/SL)
 12-16 …_WITH_COIN_EXPOSURE family            (coin-sized open/close/increase)
 17-18 TWAP_OPEN / TWAP_CLOSE
-19-20 RFQ_OPEN / RFQ_CLOSE
+19-20 (reserved, not wired)
 21    TWAP_CANCEL
 ```
 
@@ -126,8 +126,8 @@ Entirely new event families to decode: funding
 `FundingParamsUpdated`), spread attribution (`SpreadCharged`), position
 increases (`IncreasePositionRequested`, `PositionSizeIncreased`,
 `PositionIncreaseRegistered`), partial TP/SL (`PartialTpSlInitiated`,
-`TpSlExecuted`), TWAP and RFQ lifecycles (`Open/CloseTwapInitiated`,
-`…SliceRequested`, `…SliceFilled`, `TwapCanceled`, and the RFQ mirrors),
+`TpSlExecuted`), TWAP lifecycles (`Open/CloseTwapInitiated`,
+`…SliceRequested`, `…SliceFilled`, `TwapCanceled`),
 whitelists (`WhitelistModified`), and builder codes
 (`RegisteredBuilderCode` etc., plus `BuilderFeesCharged`; note the latter
 emits from the **trader's own EOA address** via the EIP-7702 smart-account

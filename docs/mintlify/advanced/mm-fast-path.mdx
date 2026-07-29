@@ -70,7 +70,7 @@ relayer, so they settle by `request_id` instead of `tracking_id` (see
 | `builder.cancel_offchain_order(...)` | Cancel a stored partial TP/SL |
 | `builder.delegate_req(...)` | Delegate registration |
 | `builder.register_code(...)` / `builder.set_referral_code(...)` | Referral (referral domain; trader key only) |
-| `builder.build(kind, message)` | Any of the 17 intent kinds, raw (incl. RFQ, which has no helper yet) |
+| `builder.build(kind, message)` | Any intent kind, raw |
 
 Payloads are `IntentPayload` objects identical to what the tx-builder would return, and go through the same digest-verified signer.
 
