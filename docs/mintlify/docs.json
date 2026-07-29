@@ -23,7 +23,12 @@
         "groups": [
           {
             "group": "Getting Started",
-            "pages": ["index", "quickstart", "configuration", "concepts"]
+            "pages": [
+              "index",
+              "quickstart",
+              "configuration",
+              "concepts"
+            ]
           },
           {
             "group": "Migrating from v1",
@@ -83,11 +88,190 @@
         "groups": [
           {
             "group": "Getting Started",
-            "pages": ["api-reference/overview"]
+            "pages": [
+              "api-reference/overview"
+            ]
           },
           {
-            "group": "Endpoints",
-            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json"
+            "group": "Meta",
+            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
+            "pages": [
+              "GET /v2/meta",
+              "POST /v2/meta",
+              "GET /v2/pairs",
+              "POST /v2/pairs",
+              "GET /health",
+              "GET /ready",
+              "GET /metrics",
+              "GET /addresses",
+              "GET /v2/pairs/{index}"
+            ]
+          },
+          {
+            "group": "Trading",
+            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
+            "pages": [
+              "GET /v2/trade/open",
+              "POST /v2/trade/open",
+              "GET /v2/trade/open-coin",
+              "POST /v2/trade/open-coin",
+              "GET /v2/trade/close",
+              "POST /v2/trade/close",
+              "GET /v2/trade/close-coin",
+              "POST /v2/trade/close-coin",
+              "GET /v2/limit/update",
+              "POST /v2/limit/update",
+              "GET /v2/limit/cancel",
+              "POST /v2/limit/cancel",
+              "GET /v2/margin/update",
+              "POST /v2/margin/update",
+              "GET /v2/position/increase",
+              "POST /v2/position/increase",
+              "GET /v2/position/increase-coin",
+              "POST /v2/position/increase-coin"
+            ]
+          },
+          {
+            "group": "Delegate",
+            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
+            "pages": [
+              "GET /v2/delegate/set",
+              "POST /v2/delegate/set",
+              "GET /v2/delegate/remove",
+              "POST /v2/delegate/remove"
+            ]
+          },
+          {
+            "group": "Token",
+            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
+            "pages": [
+              "GET /v2/token/approve",
+              "POST /v2/token/approve"
+            ]
+          },
+          {
+            "group": "Intents",
+            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
+            "pages": [
+              "GET /v2/intents/open",
+              "POST /v2/intents/open",
+              "GET /v2/intents/open-coin",
+              "POST /v2/intents/open-coin",
+              "GET /v2/intents/close",
+              "POST /v2/intents/close",
+              "GET /v2/intents/close-coin",
+              "POST /v2/intents/close-coin",
+              "GET /v2/intents/increase",
+              "POST /v2/intents/increase",
+              "GET /v2/intents/increase-coin",
+              "POST /v2/intents/increase-coin",
+              "GET /v2/intents/tpsl-update",
+              "POST /v2/intents/tpsl-update",
+              "GET /v2/intents/tpsl-partial",
+              "POST /v2/intents/tpsl-partial",
+              "GET /v2/intents/offchain-cancel",
+              "POST /v2/intents/offchain-cancel",
+              "GET /v2/intents/twap-open",
+              "POST /v2/intents/twap-open",
+              "GET /v2/intents/twap-close",
+              "POST /v2/intents/twap-close",
+              "GET /v2/intents/twap-cancel",
+              "POST /v2/intents/twap-cancel",
+              "GET /v2/intents/referral-register-code",
+              "POST /v2/intents/referral-register-code",
+              "GET /v2/intents/referral-set-code",
+              "POST /v2/intents/referral-set-code",
+              "GET /v2/intents/delegate-set",
+              "POST /v2/intents/delegate-set"
+            ]
+          },
+          {
+            "group": "Relay",
+            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
+            "pages": [
+              "POST /v2/relay",
+              "GET /v2/relay/{hash}"
+            ]
+          },
+          {
+            "group": "TWAP",
+            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
+            "pages": [
+              "GET /v2/twap/open",
+              "POST /v2/twap/open",
+              "GET /v2/twap/close",
+              "POST /v2/twap/close",
+              "GET /v2/twap/cancel",
+              "POST /v2/twap/cancel"
+            ]
+          },
+          {
+            "group": "Referral",
+            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
+            "pages": [
+              "GET /v2/referral/register-code",
+              "POST /v2/referral/register-code",
+              "GET /v2/referral/set-code",
+              "POST /v2/referral/set-code",
+              "GET /v2/referral/request-special-code",
+              "POST /v2/referral/request-special-code",
+              "GET /v2/referral/cancel-request",
+              "POST /v2/referral/cancel-request",
+              "GET /v2/referral/relinquish-code",
+              "POST /v2/referral/relinquish-code",
+              "GET /v2/referral/set-code-by-owner",
+              "POST /v2/referral/set-code-by-owner",
+              "GET /v2/referral/transfer-ownership",
+              "POST /v2/referral/transfer-ownership",
+              "GET /v2/referral/accept-ownership",
+              "POST /v2/referral/accept-ownership",
+              "GET /v2/referral/claim-rebate",
+              "POST /v2/referral/claim-rebate"
+            ]
+          },
+          {
+            "group": "LP",
+            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
+            "pages": [
+              "GET /v2/lp/deposit",
+              "POST /v2/lp/deposit",
+              "GET /v2/lp/mint",
+              "POST /v2/lp/mint",
+              "GET /v2/lp/withdraw",
+              "POST /v2/lp/withdraw",
+              "GET /v2/lp/redeem",
+              "POST /v2/lp/redeem",
+              "GET /v2/lp/state",
+              "POST /v2/lp/state"
+            ]
+          },
+          {
+            "group": "Misc",
+            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
+            "pages": [
+              "GET /v2/misc/claim-keeper-rewards",
+              "POST /v2/misc/claim-keeper-rewards",
+              "GET /v2/misc/add-to-buffer",
+              "POST /v2/misc/add-to-buffer",
+              "GET /v2/misc/builder-code/register",
+              "POST /v2/misc/builder-code/register",
+              "GET /v2/misc/builder-code/modify",
+              "POST /v2/misc/builder-code/modify"
+            ]
+          },
+          {
+            "group": "Reads",
+            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
+            "pages": [
+              "GET /v2/nonce",
+              "POST /v2/nonce",
+              "GET /v2/positions",
+              "POST /v2/positions",
+              "GET /v2/delegation",
+              "POST /v2/delegation",
+              "GET /v2/allowance",
+              "POST /v2/allowance"
+            ]
           }
         ]
       }
