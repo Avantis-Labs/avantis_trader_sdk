@@ -81,6 +81,26 @@ async def test_execute_success_parses_lifecycle(client):
 
 @pytest.mark.asyncio
 @respx.mock
+async def test_execute_without_eip7702_omits_field(client):
+    """The EIP-7702 leg is optional (MM fast path): when not provided the
+    request body must not carry an ``eip7702`` key at all."""
+    route = respx.post(f"{BASE}/market/execute-batched").mock(
+        return_value=_sse_response(
+            (0, "MarketOrderAccepted", {"trackingId": "trk-fast"}),
+            (1, "MarketOrderExecuted", {"orderId": 7, "transactionHash": "0xfast"}),
+        )
+    )
+
+    outcome = await client.execute(0, ERC712)
+
+    assert outcome.tracking_id == "trk-fast"
+    assert outcome.tx_hash == "0xfast"
+    body = json.loads(route.calls[0].request.content)
+    assert body == {"orderType": 0, "erc712": ERC712}
+
+
+@pytest.mark.asyncio
+@respx.mock
 async def test_execute_no_wait_returns_after_accepted(client):
     respx.post(f"{BASE}/market/execute-batched").mock(
         return_value=_sse_response((0, "MarketOrderAccepted", {"trackingId": "trk-2"}))

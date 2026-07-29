@@ -2,8 +2,9 @@
 
 Routes:
 - ``batched-market``       market opens/closes/increases: signed EIP-712 intent
-                           + a pre-signed EIP-7702 type-4 tx (both required —
-                           server-side strategy switch) -> POST
+                           + optionally a pre-signed EIP-7702 type-4 tx
+                           (server-side strategy switch when both are sent;
+                           intent-only is the MM fast path) -> POST
                            {batched-market}/market/execute-batched, lifecycle
                            streamed back as SSE
 - ``relayer-batch``        UPDATE_SL (excluded from the batched-market
@@ -210,9 +211,11 @@ class ExecutionEngine:
         Market opens/closes/increases (the batched-market allow-list) go to
         ``POST {batched-market}/market/execute-batched``, which injects a
         fresh price/spread per attempt server-side and streams the lifecycle
-        back. The endpoint requires BOTH an EIP-712 intent and a pre-signed
-        EIP-7702 transaction for the same order (server-side mechanism
-        switch), so callers must pass the direct-route ``calldata``.
+        back. The EIP-7702 leg is optional: pass the direct-route
+        ``calldata`` to also send a pre-signed EIP-7702 transaction (the
+        server then picks the execution mechanism); omit it to execute the
+        signed intent directly — the market-maker fast path, with no
+        tx-builder round-trip.
 
         ``UPDATE_SL`` is excluded from that allow-list; for it the SDK still
         encodes the operator entry point itself (executePositionUpdateBatched
@@ -230,20 +233,18 @@ class ExecutionEngine:
         signed = sign_intent(payload, signer)
 
         if order_type in BATCHED_MARKET_ORDER_TYPES:
-            if calldata is None:
-                raise ConfigError(
-                    "batched-market execution requires the direct-route calldata "
-                    "for the eip7702 payload (both payloads are mandatory)."
-                )
-            calls = [Call.from_hex(calldata.to, calldata.data, calldata.value_wei)]
-            tx_params = await self._build_type4(calls)
+            eip7702: dict[str, Any] | None = None
+            if calldata is not None:
+                calls = [Call.from_hex(calldata.to, calldata.data, calldata.value_wei)]
+                tx_params = await self._build_type4(calls)
+                eip7702 = _relay_request_params(tx_params)
             outcome = await self.batched_market.execute(
                 int(order_type),
                 {
                     "userIntent": payload.encoded_intent,
                     "userSignature": signed.signature,
                 },
-                _relay_request_params(tx_params),
+                eip7702,
                 wait=wait,
             )
             return ExecutionReceipt(

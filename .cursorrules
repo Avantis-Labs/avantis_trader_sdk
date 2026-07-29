@@ -31,9 +31,11 @@ Sync facade: `Avantis()` (same surface, blocking).
 Service URLs derive from api_base_url (prod-api/staging-api.avantisfi.com):
 /core, /twap, /batched-market, /blitz.
 - relayer mode + market open/close/increase (10 types) -> batched-market
-  POST /market/execute-batched with BOTH payloads (signed EIP-712 intent +
-  pre-signed EIP-7702 type-4 tx); lifecycle streamed back as SSE, replayable
-  via GET /tracking-id/{id}/status (execution/batched_market.py)
+  POST /market/execute-batched with a signed EIP-712 intent + an OPTIONAL
+  pre-signed EIP-7702 type-4 tx (high-level flows send both for the
+  server-side mechanism switch; intent-only is the MM fast path); lifecycle
+  streamed back as SSE, replayable via GET /tracking-id/{id}/status
+  (execution/batched_market.py)
 - relayer mode + UPDATE_SL -> SDK encodes executePositionUpdateBatched
   locally (price update from feed-v3, zeroed spread params, 2.5M gas)
   -> blitz type-2 relay to the TradingRouter

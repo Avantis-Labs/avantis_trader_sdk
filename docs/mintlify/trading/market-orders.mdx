@@ -113,5 +113,33 @@ for ev in outcome.events:                     # full persisted lifecycle
 non-blocking single poll. Every event carries a `seq`, so you can resume
 replay after a crash without missing or double-processing events.
 
+## The executed fill payload
+
+The terminal `MarketOrderExecuted` event carries the **final trade as it
+executed on-chain** — no follow-up positions query is needed to learn the
+fill. It's available as `outcome.terminal.data` (and as `receipt.raw` with
+the default `wait=True`):
+
+| Field | Meaning |
+| --- | --- |
+| `orderId`, `transactionHash` | On-chain order id and execution transaction |
+| `open` | `true` for an open fill, `false` for a close |
+| `price` | Execution price (1e10) |
+| `positionSizeUSDC` | Filled notional in USDC (1e6) |
+| `percentProfit` | Realized PnL as a percent (1e10; meaningful on closes) |
+| `usdcSentToTrader` | USDC returned to the trader (1e6; closes) |
+| `isPnl`, `coinExposure`, `isCoinExposureFixed` | Zero-fee flag, base-asset exposure (1e10), coin-sized flag |
+| `t` | The stored trade tuple: `trader`, `pairIndex`, `index`, `initialPosToken` (final position collateral, 1e6), `positionSizeUSDC` (1e6), `openPrice` (1e10), `buy`, `leverage` (1e10), `tp` / `sl` (1e10), `timestamp` |
+
+Every numeric field is a **string in raw on-chain units** (several exceed
+float precision); convert with `from_usdc` / `from_1e10` from
+`avantis_trader_sdk.types`.
+
+Size increases terminate with `PositionSizeIncreased` instead, which is
+deliberately a different shape: there is no fill `price` /
+`percentProfit` / `usdcSentToTrader`; it reports `coinExposureAdded` plus
+`t` = the **blended resulting position** (open price, leverage and
+collateral recomputed on-chain across the old and new size).
+
 For position-level confirmation, `client.account.positions()` reflects the
 fill after execution; see [Core concepts](/concepts#receipts-and-fills).

@@ -62,9 +62,11 @@ class TradeApi(ExecutingApi):
     ) -> tuple[IntentPayload, Any]:
         """Both encodings of the same order, fetched concurrently.
 
-        The batched-market endpoint requires an EIP-712 intent AND a
-        pre-signed EIP-7702 transaction on every request (the server decides
-        which mechanism executes), so market flows always build both.
+        The batched-market endpoint takes an EIP-712 intent plus an OPTIONAL
+        pre-signed EIP-7702 transaction. The high-level market flows still
+        send both so the server can decide which mechanism executes; market
+        makers building intents locally can skip the calldata leg entirely
+        (see the MM fast path).
         """
         return await asyncio.gather(
             self._txb.intent(intent_path, **params, **intent_extra),

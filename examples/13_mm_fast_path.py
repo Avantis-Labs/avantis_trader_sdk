@@ -2,10 +2,10 @@
 
 The LocalIntentBuilder mirrors the on-chain EIP-712 schemas (proven by the
 golden-vector test suite), so intents are built and signed in microseconds
-with no I/O. One round-trip is architectural and stays: the batched-market
-service requires BOTH the signed intent and a pre-signed EIP-7702
-transaction per market order, and that second leg's calldata comes from the
-tx-builder. Hot path: local build+sign -> one calldata fetch -> POST.
+with no I/O. The batched-market service's EIP-7702 leg is OPTIONAL: a
+signed intent alone executes, so the hot path is local build+sign -> POST,
+with zero API round-trips before submission. (Passing ``calldata=`` still
+attaches the EIP-7702 leg if you want the server-side mechanism switch.)
 
 With ``wait=False`` the SDK returns at ``MarketOrderAccepted``, but an
 accepted order can still fail (declined fill, revert), so YOU own the
@@ -48,20 +48,10 @@ async def main() -> None:
                 open_price=update.price,
                 slippage_percent=0.3,
             )
-            # the EIP-7702 leg; batched-market requires both payloads
-            calldata = await client.txb.calldata(
-                "/v2/trade/open",
-                trader=client.trade.trader,
-                pairIndex=eth.index,
-                side="long",
-                orderType="market",
-                collateralUsdc=100,
-                leverage=10,
-                openPrice=update.price,
-                slippagePercent=0.3,
-            )
+            # submit the signed intent directly — the EIP-7702 leg is
+            # optional, so no tx-builder call is needed on the hot path
             receipt = await engine.submit_intent_batch(
-                payload, AggregatorOrderType.MARKET_OPEN, calldata=calldata, wait=False
+                payload, AggregatorOrderType.MARKET_OPEN, wait=False
             )
             print("accepted:", receipt.tracking_id, "at price", update.price)
             accepted.append(receipt.tracking_id)

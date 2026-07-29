@@ -38,6 +38,19 @@ Ground-up rewrite for Avantis v2. **Breaking: the 1.x API is removed.**
   USDC notional is returned as-is). `account.positions()` tags each position
   with `base_symbol` from the markets pair catalog to support this.
 
+### Unreleased additions (2026-07-29) — batched-market eip7702 optional
+
+- **Batched-market `eip7702` leg is now optional** (relayer change to better
+  support market makers): `POST /market/execute-batched` executes a signed
+  EIP-712 intent on its own, so the MM fast path no longer needs a
+  tx-builder calldata fetch — local build + sign -> POST, zero
+  pre-submission round-trips. `BatchedMarketClient.execute` takes
+  `eip7702=None` (key omitted from the body), and
+  `engine.submit_intent_batch` accepts `calldata=None` for batched-market
+  order types instead of raising `ConfigError`. High-level methods
+  (`trade.market_open` etc.) still send both payloads so the server-side
+  mechanism switch stays available.
+
 ### Unreleased additions (2026-07-28) — backend alignment
 
 Aligns the SDK with the new Avantis backend topology (central routing,

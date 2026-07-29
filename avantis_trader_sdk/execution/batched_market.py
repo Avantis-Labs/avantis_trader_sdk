@@ -5,22 +5,32 @@ src/market-app/batched-market) is the front door for market execution: one
 endpoint for every supported order type, streaming the order lifecycle back
 as Server-Sent Events over the POST response.
 
-Request body (both payloads REQUIRED — the server picks which mechanism to
-act on via its own strategy switch, so ops can move between EIP-712 and
-EIP-7702 without client releases):
+Request body (``erc712`` required, ``eip7702`` OPTIONAL — when present the
+server picks which mechanism to act on via its own strategy switch, so ops
+can move between EIP-712 and EIP-7702 without client releases; when omitted
+the server executes the EIP-712 intent directly, which is the market-maker
+fast path with zero extra round-trips):
 
     {
       "orderType": <AggregatorOrderType int>,
       "erc712":  { "userIntent": "0x…", "userSignature": "0x…" },
       "eip7702": { "chainId": "8453", "to": "0x…", "data": "0x…",
-                   "gas": "2500000", "authorizationList": [...] }
+                   "gas": "2500000", "authorizationList": [...] }   # optional
     }
 
 Stream: ``MarketOrderAccepted`` (seq 0, carries trackingId) -> one initiation
 event (``MarketOrderInitiated`` for opens/closes, ``IncreasePositionRequested``
 for increases) -> exactly one terminal event (``MarketOrderExecuted`` /
 ``PositionSizeIncreased`` on success; ``MarketOrderCanceled`` when the protocol
-declined the fill, e.g. slippage; ``Error``). Keep-alives are SSE comments
+declined the fill, e.g. slippage; ``Error``). The success terminals carry the
+final on-chain fill (server market-fill-details.ts, a published contract):
+``MarketOrderExecuted`` has ``orderId``, ``transactionHash``, ``price``,
+``positionSizeUSDC``, ``percentProfit``, ``usdcSentToTrader``, ``isPnl``,
+``coinExposure`` and the stored trade tuple ``t`` (incl. ``initialPosToken``
+= final collateral, ``leverage``, ``openPrice``, ``tp``/``sl``);
+``PositionSizeIncreased`` has ``coinExposureAdded`` + ``t`` = the blended
+resulting position. All uints are strings in raw units (1e6 USDC, 1e10
+prices/leverage). Keep-alives are SSE comments
 (``: hb``). A dropped stream is recoverable via
 ``GET /tracking-id/{trackingId}/status?afterSeq={lastSeenSeq}`` — every event
 is persisted with its seq, so the replay is complete.
@@ -109,18 +119,24 @@ class BatchedMarketClient:
         self,
         order_type: int,
         erc712: dict[str, Any],
-        eip7702: dict[str, Any],
+        eip7702: dict[str, Any] | None = None,
         *,
         wait: bool = True,
     ) -> BatchedMarketOutcome:
         """Submit a signed order and follow its lifecycle stream.
+
+        ``eip7702`` is optional: when provided the server may execute either
+        leg (server-side mechanism switch); when omitted the EIP-712 intent
+        executes directly (market-maker fast path).
 
         With ``wait=False`` returns as soon as the request is accepted
         (trackingId minted); settle later with :meth:`wait`.
         Raises :class:`RelayError` on ``MarketOrderCanceled`` / terminal
         ``Error``, :class:`ApiError` on a 4xx/5xx rejection.
         """
-        body = {"orderType": int(order_type), "erc712": erc712, "eip7702": eip7702}
+        body: dict[str, Any] = {"orderType": int(order_type), "erc712": erc712}
+        if eip7702 is not None:
+            body["eip7702"] = eip7702
         url = f"{self._base}/market/execute-batched"
 
         tracking_id: str | None = None

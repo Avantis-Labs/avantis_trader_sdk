@@ -5,7 +5,7 @@ description: "Build and sign orders locally, submit with the fewest possible rou
 
 Normal SDK calls fetch the order's EIP-712 intent from the tx-builder API. For market makers, `local_intents()` removes that: the `LocalIntentBuilder` mirrors the on-chain EIP-712 schemas (proven byte-for-byte by the golden-vector test suite), so intents are built and signed in **microseconds with no I/O**.
 
-One round-trip is architectural and stays: the batched-market service demands BOTH a signed intent and a pre-signed EIP-7702 transaction per market order (it picks the execution mechanism server-side), and the EIP-7702 leg's calldata comes from the tx-builder. The hot path is therefore **local build + sign → one calldata fetch → batched-market POST**.
+The batched-market service's EIP-7702 leg is **optional**: a signed intent alone executes. The hot path is therefore **local build + sign → batched-market POST**, with zero API round-trips before submission. (High-level SDK calls like `trade.market_open` still attach a pre-signed EIP-7702 transaction alongside the intent, letting the server pick the execution mechanism; pass `calldata=` to `submit_intent_batch` if you want that from the fast path too.)
 
 The example below sizes the order in coin units (exactly 0.5 ETH), the usual
 shape for market-making flow; the fill leverage floats within
@@ -36,24 +36,9 @@ async with AsyncAvantis() as client:
             open_price=update.price,
             slippage_percent=0.3,
         )
-        calldata = await client.txb.calldata(   # the EIP-7702 leg (required)
-            "/v2/trade/open-coin",
-            trader=client.trade.trader,
-            pairIndex=eth.index,
-            side="long",
-            orderType="market",
-            collateralUsdc=100,
-            coinExposure=0.5,
-            leverage=10,
-            minLeverage=lev.min_leverage,
-            maxLeverage=lev.max_leverage,
-            openPrice=update.price,
-            slippagePercent=0.3,
-        )
-        receipt = await engine.submit_intent_batch(
+        receipt = await engine.submit_intent_batch(  # no calldata leg needed
             payload,
             AggregatorOrderType.MARKET_OPEN_WITH_COIN_EXPOSURE,
-            calldata=calldata,
             wait=False,
         )
         print("accepted:", receipt.tracking_id)
@@ -63,9 +48,10 @@ async with AsyncAvantis() as client:
 ```
 
 <Note>
-TP/SL updates (`UPDATE_SL`) are the fully local case: the SDK encodes the
-operator entry point itself and relays it directly, with no tx-builder call
-at all on the hot path.
+TP/SL updates (`UPDATE_SL`) are also fully local, but ride a different rail:
+the SDK encodes the operator entry point itself and relays it via the blitz
+relayer, so they settle by `request_id` instead of `tracking_id` (see
+[Settling](#settling)).
 </Note>
 
 ## Builder surface
@@ -102,10 +88,14 @@ from avantis_trader_sdk.errors import RelayError
 try:
     outcome = await engine.batched_market.wait(receipt.tracking_id)
     print("executed:", outcome.tx_hash)
+    fill = outcome.terminal.data     # the final trade as executed on-chain
+    print(fill["price"], fill["t"]["initialPosToken"], fill["t"]["leverage"])
 except RelayError as exc:
     # MarketOrderCanceled: the protocol declined the fill (e.g. slippage)
     ...
 ```
+
+The terminal `MarketOrderExecuted` event carries the full fill — execution `price`, `positionSizeUSDC`, `percentProfit`, `usdcSentToTrader`, and the stored trade tuple `t` with the final collateral (`initialPosToken`), leverage, open price and TP/SL — so reconciliation needs **no follow-up positions query**. Numerics are strings in raw on-chain units (1e6 USDC / 1e10 prices-leverage); see the [payload reference](/trading/market-orders#the-executed-fill-payload).
 
 `engine.batched_market.status(tracking_id, after_seq=n)` is the non-blocking single poll; every event carries a `seq`, so a crashed process can resume replay without missing or double-counting events.
 
