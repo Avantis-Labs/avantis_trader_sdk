@@ -1,0 +1,248 @@
+---
+title: "Batched Market Execution"
+description: "Submit signed market orders gaslessly and stream the fill lifecycle over SSE. The market-maker fast path."
+---
+
+The batched-market service is the front door for market execution in relayer
+mode: one endpoint for every supported market order type (opens, closes, and
+size increases). You sign an EIP-712 intent off-chain; the service picks a
+fresh price, prices the spread, builds the calldata, submits it on-chain, and
+**streams the order lifecycle back over Server-Sent Events (SSE)** on the POST
+response.
+
+This is the transport behind `client.trade.market_open` / `market_close` /
+`increase_position` in the SDK, and — with a locally built intent — the
+[market-maker fast path](/advanced/mm-fast-path): local build + sign →
+one POST, zero API round-trips before submission.
+
+| Network | Base URL |
+| --- | --- |
+| Mainnet | `https://prod-api.avantisfi.com/batched-market` |
+| Testnet | `https://staging-api.avantisfi.com/batched-market` |
+
+## Endpoints
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/market/execute-batched` | Submit a signed order; the response is a `text/event-stream` of lifecycle events. |
+| `GET` | `/tracking-id/{trackingId}/status?afterSeq={n}` | Replay the persisted lifecycle events (reconnects, `wait=False` settling). |
+
+## Request body
+
+```json
+{
+  "orderType": 0,
+  "erc712": {
+    "userIntent": "0x…",
+    "userSignature": "0x…"
+  },
+  "eip7702": { "chainId": "8453", "to": "0x…", "data": "0x…", "gas": "2500000", "authorizationList": [] }
+}
+```
+
+| Field | Required | Meaning |
+| --- | --- | --- |
+| `orderType` | yes | The sole discriminator: selects the contract entry point, the intent struct the server decodes, and the gas limit (see the table below). |
+| `erc712.userIntent` | yes | `abi.encode(struct)` of the signed intent. The tx-builder's `/v2/intents/*` endpoints return exactly this as `encodedIntent`; the SDK's `LocalIntentBuilder` produces it locally. |
+| `erc712.userSignature` | yes | The 65-byte r‖s‖v EIP-712 signature over the intent (trader or a registered delegate). Domain: `("AvantisTrading", "1", chainId, TradingRouter)`. |
+| `eip7702` | no | A pre-signed EIP-7702 (type-4) transaction for the same order, relayed as-is. |
+
+<Note>
+**Why `eip7702` exists at all.** The server decides which mechanism to execute
+from its own configuration, never from the request — so operations can move
+traffic between EIP-712 and EIP-7702 (or roll back) without a client release.
+The SDK's high-level calls send both legs to keep that flip free. A client
+that only signs intents may omit `eip7702` — that is the market-maker fast
+path — with the trade-off that its requests start returning `400` if the
+deployment is ever switched to EIP-7702 mode.
+</Note>
+
+## Supported order types
+
+Any value outside this set is rejected with `400`.
+
+| Code | Name | Meaning | Intent struct |
+| --- | --- | --- | --- |
+| 0 | `MARKET_OPEN` | Open, USDC-sized | `OpenTradeReq` |
+| 6 | `MARKET_OPEN_PNL` | Open on a PnL pair, USDC-sized | `OpenTradeReq` |
+| 12 | `MARKET_OPEN_WITH_COIN_EXPOSURE` | Open, coin-sized | `OpenTradeCoinExposureReq` |
+| 13 | `MARKET_OPEN_PNL_WITH_COIN_EXPOSURE` | Open on a PnL pair, coin-sized | `OpenTradeCoinExposureReq` |
+| 1 | `MARKET_CLOSE` | Close, USDC-sized | `CloseTradeReq` |
+| 7 | `MARKET_CLOSE_PNL` | Close on a PnL pair, USDC-sized | `CloseTradeReq` |
+| 15 | `MARKET_CLOSE_WITH_COIN_EXPOSURE` | Close, coin-sized | `CloseTradeCoinExposureReq` |
+| 16 | `MARKET_CLOSE_PNL_WITH_COIN_EXPOSURE` | Close on a PnL pair, coin-sized | `CloseTradeCoinExposureReq` |
+| 9 | `INCREASE_SIZE` | Increase an open position, USDC-sized | `IncreasePositionSizeReq` |
+| 14 | `INCREASE_SIZE_WITH_COIN_EXPOSURE` | Increase, coin-sized | `IncreasePositionSizeWithCoinExposureReq` |
+
+Notes:
+
+- **PnL vs non-PnL is a property of the pair** — use the `_PNL` types on PnL
+  pairs only; mismatches are rejected.
+- **Coin-exposure variants** size the order in the base asset (e.g. exactly
+  0.5 ETH) instead of USDC notional.
+- Increases have no PnL variant.
+- The intent structs, field meanings, and units are documented on the
+  corresponding tx-builder pages (`/v2/intents/open`, `/v2/intents/close`,
+  `/v2/intents/increase`, and their `-coin` variants) — the `message` shown
+  there is exactly what you sign, and the returned `encodedIntent` is the
+  `userIntent` this service consumes. Remember: deadlines are unix
+  **milliseconds**, nonces are unordered 256-bit bitmap values, and closes
+  bind the position's on-chain `timestamp` (`PositionMismatch` on drift).
+
+## The SSE stream
+
+Read the POST response as a stream (`fetch` + reader; the browser
+`EventSource` API is GET-only). Every request produces exactly three events:
+
+```
+MarketOrderAccepted (seq 0)  →  one initiation event  →  one terminal event
+```
+
+| Order types | Initiation | Terminal (success) |
+| --- | --- | --- |
+| opens / closes | `MarketOrderInitiated` | `MarketOrderExecuted` |
+| increases | `IncreasePositionRequested` | `PositionSizeIncreased` |
+
+Either flow can instead end with:
+
+- **`MarketOrderCanceled`** — the transaction succeeded but the protocol
+  declined the fill (e.g. slippage). A market outcome, not a system error.
+- **`Error`** — execution failed (bad intent, no price, retries exhausted) or
+  the stream view timed out.
+
+Wire format: each event is an `event:` line (type), an `id:` line (the `seq`,
+monotonic per trackingId), and a `data:` line (JSON payload), terminated by a
+blank line. Lines starting with `:` are keep-alive comments (sent every ~15s)
+— a spec-compliant parser never surfaces them. The stream has a hard lifetime
+cap (60s in EIP-712 mode, 180s in EIP-7702 mode); a stream that ends without
+a terminal event does **not** mean failure — replay by `seq` (below).
+
+<Warning>
+An `Error` event **without** an `id:` line is transport-only (stream expiry or
+enqueue failure — not persisted). If its message says the stream timed out,
+the order may still execute: fall back to the status endpoint. An `Error`
+**with** a seq is a real terminal failure.
+</Warning>
+
+## Event payloads
+
+All uint values are **strings** in raw on-chain units (USDC 1e6,
+prices/leverage/exposure 1e10) — many exceed `Number.MAX_SAFE_INTEGER`.
+
+**`MarketOrderAccepted`** (seq 0) — the request was accepted and a
+`trackingId` minted. Nothing is on-chain yet; save it for reconnects.
+
+```json
+{ "trackingId": "…" }
+```
+
+**`MarketOrderInitiated`** — the order is registered on-chain with an `orderId`.
+
+```json
+{ "orderId": 42, "trader": "0x…", "pairIndex": 2, "open": true, "isBuy": true, "isPnl": false, "transactionHash": "0x…" }
+```
+
+**`IncreasePositionRequested`** — the increase is registered on-chain.
+
+```json
+{ "orderId": 99, "trader": "0x…", "pairIndex": 2, "index": 7, "isBuy": true, "isPnl": false, "addedCollateral": "50000000", "coinExposure": "0", "isCoinExposureFixed": false, "transactionHash": "0x…" }
+```
+
+**`MarketOrderExecuted`** (terminal — opens/closes) — the final fill. `t` is
+the stored Trade tuple (`initialPosToken` = final collateral, plus `leverage`,
+`openPrice`, `tp`/`sl`). On closes, `percentProfit` and `usdcSentToTrader`
+carry the realized outcome.
+
+```json
+{
+  "orderId": 42,
+  "open": true,
+  "price": "30000000000000",
+  "positionSizeUSDC": "100000000",
+  "percentProfit": "0",
+  "usdcSentToTrader": "0",
+  "isPnl": false,
+  "coinExposure": "5000000000",
+  "isCoinExposureFixed": true,
+  "t": {
+    "trader": "0x…", "pairIndex": 2, "index": 7,
+    "initialPosToken": "…", "positionSizeUSDC": "…", "openPrice": "…",
+    "buy": true, "leverage": "…", "tp": "0", "sl": "0", "timestamp": 1700000000
+  },
+  "transactionHash": "0x…"
+}
+```
+
+**`PositionSizeIncreased`** (terminal — increases) — note the shape differs
+from a fill: no `price` / `percentProfit` / `usdcSentToTrader`, and `t` is the
+**blended resulting position**.
+
+```json
+{ "orderId": 99, "isPnl": false, "coinExposureAdded": "…", "isCoinExposureFixed": false, "t": { "…": "…" }, "transactionHash": "0x…" }
+```
+
+**`MarketOrderCanceled`** (terminal) — the protocol declined the fill.
+
+```json
+{ "orderId": 42, "trader": "0x…", "pairIndex": 2, "transactionHash": "0x…" }
+```
+
+**`Error`** (terminal, or transport-only when it has no seq).
+
+```json
+{ "message": "…", "trackingId": "…" }
+```
+
+## Replaying by trackingId
+
+Every streamed event is persisted with its `seq`, so a dropped stream is fully
+recoverable:
+
+```
+GET /tracking-id/{trackingId}/status?afterSeq={lastSeenSeq}
+```
+
+```json
+{
+  "events": [
+    { "seq": 1, "type": "MarketOrderInitiated", "payload": { "…": "…" }, "at": 1700000000000 },
+    { "seq": 2, "type": "MarketOrderExecuted",  "payload": { "…": "…" }, "at": 1700000000500 }
+  ]
+}
+```
+
+- `afterSeq` is optional — omit it for the full history.
+- `404` = unknown trackingId. An empty `events` array = accepted but nothing
+  has happened yet; poll again (~1–2s cadence) until a terminal event lands.
+
+## Error handling summary
+
+| Signal | Meaning | What to do |
+| --- | --- | --- |
+| HTTP `400` before the stream opens | The request was rejected: unsupported `orderType`, malformed intent or signature, expired deadline, consumed nonce, position mismatch. | Fix and resubmit; the body carries the reason. |
+| Terminal `Error` event | Accepted but execution ultimately failed. | Surface the `message`; sign a new intent to retry. |
+| Terminal `MarketOrderCanceled` | The fill was declined on-chain (e.g. slippage). | A market outcome — retry with wider slippage or a fresh price if desired. |
+| Stream ends with no terminal event | Unknown — the order may still execute. | Replay via the status endpoint; don't assume failure. |
+
+Because intents carry unordered nonces, the service retries execution
+internally without double-execution risk — never re-POST an accepted order;
+only retry if the POST itself returned 4xx.
+
+## Using it from the SDK
+
+```python
+from avantis_trader_sdk.types import AggregatorOrderType
+
+# High-level (signs the intent + optional 7702 leg, streams, settles):
+receipt = await client.trade.market_open("ETH/USD", "long", collateral=100, leverage=10)
+
+# MM fast path (local intent, intent-only POST, settle off the hot path):
+builder = await client.local_intents()
+payload = builder.open_trade_coin(...)                # microseconds, no I/O
+receipt = await client.engine.submit_intent_batch(
+    payload, AggregatorOrderType.MARKET_OPEN_WITH_COIN_EXPOSURE, wait=False
+)
+outcome = await client.engine.batched_market.wait(receipt.tracking_id)  # replay by seq
+```
+
+See [MM fast path](/advanced/mm-fast-path) for the full zero-I/O signing loop.

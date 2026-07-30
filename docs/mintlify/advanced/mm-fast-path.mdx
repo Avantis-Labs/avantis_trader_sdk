@@ -5,7 +5,7 @@ description: "Build and sign orders locally, submit with the fewest possible rou
 
 Normal SDK calls fetch the order's EIP-712 intent from the tx-builder API. For market makers, `local_intents()` removes that: the `LocalIntentBuilder` mirrors the on-chain EIP-712 schemas (proven byte-for-byte by the golden-vector test suite), so intents are built and signed in **microseconds with no I/O**.
 
-The batched-market service's EIP-7702 leg is **optional**: a signed intent alone executes. The hot path is therefore **local build + sign → batched-market POST**, with zero API round-trips before submission. (High-level SDK calls like `trade.market_open` still attach a pre-signed EIP-7702 transaction alongside the intent, letting the server pick the execution mechanism; pass `calldata=` to `submit_intent_batch` if you want that from the fast path too.)
+The [batched-market service](/api-reference/batched-market)'s EIP-7702 leg is **optional**: a signed intent alone executes. The hot path is therefore **local build + sign → batched-market POST**, with zero API round-trips before submission. (High-level SDK calls like `trade.market_open` still attach a pre-signed EIP-7702 transaction alongside the intent, letting the server pick the execution mechanism; pass `calldata=` to `submit_intent_batch` if you want that from the fast path too.)
 
 The example below sizes the order in coin units (exactly 0.5 ETH), the usual
 shape for market-making flow; the fill leverage floats within
