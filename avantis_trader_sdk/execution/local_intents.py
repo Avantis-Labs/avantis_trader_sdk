@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import secrets
 import time
+from decimal import Decimal
 from typing import Any
 
 from eth_abi import encode as abi_encode
@@ -34,6 +35,25 @@ from ..types import IntentPayload
 
 USDC = 10**6
 P10 = 10**10
+
+
+def _scale(value: float | int | str | Decimal, factor: int) -> int:
+    """Human units -> raw integer via exact decimal scaling.
+
+    Binary-float multiplication can truncate one unit low
+    (``int(0.0003 * 1e10) == 2_999_999``, bites low-priced pair prices and
+    TP/SL); a float's ``str()`` is its shortest exact decimal representation,
+    so scaling through Decimal gives the raw value the user actually meant.
+    """
+    return int(Decimal(str(value)) * factor)
+
+
+def _usdc(value: float | int | str | Decimal) -> int:
+    return _scale(value, USDC)
+
+
+def _p10(value: float | int | str | Decimal) -> int:
+    return _scale(value, P10)
 
 # Solidity struct component order for abi.encode(struct). Identical to the
 # typed-data order except DelegateReq (declares expiry, tnc, deadline).
@@ -210,12 +230,12 @@ class LocalIntentBuilder:
             "pairIndex": pair_index,
             "index": 0,
             "initialPosToken": 0,
-            "positionSizeUSDC": int(collateral_usdc * USDC),
-            "openPrice": int(open_price * P10),
+            "positionSizeUSDC": _usdc(collateral_usdc),
+            "openPrice": _p10(open_price),
             "buy": is_long,
-            "leverage": int(leverage * P10),
-            "tp": int(tp * P10),
-            "sl": int(sl * P10),
+            "leverage": _p10(leverage),
+            "tp": _p10(tp),
+            "sl": _p10(sl),
             "timestamp": 0,
         }
 
@@ -247,7 +267,7 @@ class LocalIntentBuilder:
                 sl=sl,
             ),
             "_type": order_type,
-            "_slippageP": int(slippage_percent * P10),
+            "_slippageP": _p10(slippage_percent),
             "_deadline": self._deadline(deadline_ms),
             "_nonce": self._nonce(nonce),
         }
@@ -286,10 +306,10 @@ class LocalIntentBuilder:
                 sl=sl,
             ),
             "_type": order_type,
-            "_coinExposure": int(coin_exposure * P10),
-            "_minLeverage": int(min_leverage * P10),
-            "_maxLeverage": int(max_leverage * P10),
-            "_slippageP": int(slippage_percent * P10),
+            "_coinExposure": _p10(coin_exposure),
+            "_minLeverage": _p10(min_leverage),
+            "_maxLeverage": _p10(max_leverage),
+            "_slippageP": _p10(slippage_percent),
             "_deadline": self._deadline(deadline_ms),
             "_nonce": self._nonce(nonce),
         }
@@ -312,8 +332,8 @@ class LocalIntentBuilder:
             "_pairIndex": pair_index,
             "_index": index,
             "_openTimestamp": open_timestamp,
-            "_amount": int(amount_usdc * USDC),
-            "_wantedPrice": int(wanted_price * P10),
+            "_amount": _usdc(amount_usdc),
+            "_wantedPrice": _p10(wanted_price),
             "_deadline": self._deadline(deadline_ms),
             "_nonce": self._nonce(nonce),
         }
@@ -337,8 +357,8 @@ class LocalIntentBuilder:
             "_pairIndex": pair_index,
             "_index": index,
             "_openTimestamp": open_timestamp,
-            "_coinExposure": int(coin_exposure * P10),
-            "_wantedPrice": int(wanted_price * P10),
+            "_coinExposure": _p10(coin_exposure),
+            "_wantedPrice": _p10(wanted_price),
             "_deadline": self._deadline(deadline_ms),
             "_nonce": self._nonce(nonce),
         }
@@ -358,9 +378,9 @@ class LocalIntentBuilder:
             "trader": to_checksum_address(trader),
             "pairIndex": pair_index,
             "index": index,
-            "openPrice": int(open_price * P10),
-            "initialPosToken": int(additional_collateral_usdc * USDC),
-            "leverage": int(leverage * P10),
+            "openPrice": _p10(open_price),
+            "initialPosToken": _usdc(additional_collateral_usdc),
+            "leverage": _p10(leverage),
         }
 
     def increase_position(
@@ -387,7 +407,7 @@ class LocalIntentBuilder:
                 additional_collateral_usdc=additional_collateral_usdc,
                 leverage=leverage,
             ),
-            "_slippageP": int(slippage_percent * P10),
+            "_slippageP": _p10(slippage_percent),
             "_deadline": self._deadline(deadline_ms),
             "_nonce": self._nonce(nonce),
         }
@@ -420,10 +440,10 @@ class LocalIntentBuilder:
                 additional_collateral_usdc=additional_collateral_usdc,
                 leverage=leverage,
             ),
-            "_coinExposure": int(coin_exposure * P10),
-            "_minLeverage": int(min_leverage * P10),
-            "_maxLeverage": int(max_leverage * P10),
-            "_slippageP": int(slippage_percent * P10),
+            "_coinExposure": _p10(coin_exposure),
+            "_minLeverage": _p10(min_leverage),
+            "_maxLeverage": _p10(max_leverage),
+            "_slippageP": _p10(slippage_percent),
             "_deadline": self._deadline(deadline_ms),
             "_nonce": self._nonce(nonce),
         }
@@ -444,8 +464,8 @@ class LocalIntentBuilder:
             "trader": to_checksum_address(trader),
             "_pairIndex": pair_index,
             "_index": index,
-            "_newTp": int(tp * P10),
-            "_newSl": int(sl * P10),
+            "_newTp": _p10(tp),
+            "_newSl": _p10(sl),
             "_deadline": self._deadline(deadline_ms),
             "_nonce": self._nonce(nonce),
         }
@@ -486,10 +506,10 @@ class LocalIntentBuilder:
             "pairIndex": pair_index,
             "index": index,
             "triggerType": _TRIGGER_TYPE_CODES[trigger],
-            "coinSize": int(coin_exposure * P10),
+            "coinSize": _p10(coin_exposure),
             "buy": is_long,
-            "price": int(price * P10) if price is not None else 0,
-            "percentage": int(percentage * P10) if percentage is not None else 0,
+            "price": _p10(price) if price is not None else 0,
+            "percentage": _p10(percentage) if percentage is not None else 0,
             "timestamp": open_timestamp,
             "signTimestamp": (
                 sign_timestamp_ms if sign_timestamp_ms is not None else int(time.time() * 1000)
@@ -518,12 +538,12 @@ class LocalIntentBuilder:
         message = {
             "trader": to_checksum_address(trader),
             "pairIndex": pair_index,
-            "collateral": int(collateral_usdc * USDC),
+            "collateral": _usdc(collateral_usdc),
             "buy": is_long,
             "isCoin": coin_exposure is not None,
-            "coinSize": int(coin_exposure * P10) if coin_exposure is not None else 0,
-            "defaultLeverage": int(leverage * P10),
-            "maxLeverage": int(max_leverage * P10),
+            "coinSize": _p10(coin_exposure) if coin_exposure is not None else 0,
+            "defaultLeverage": _p10(leverage),
+            "maxLeverage": _p10(max_leverage),
             "runTime": run_time_seconds,
             "nonce": self._nonce(nonce),
             "deadline": self._deadline(deadline_ms),
@@ -546,7 +566,7 @@ class LocalIntentBuilder:
             "trader": to_checksum_address(trader),
             "pairIndex": pair_index,
             "index": index,
-            "coinSizeToClose": int(coin_exposure_to_close * P10),
+            "coinSizeToClose": _p10(coin_exposure_to_close),
             "runTime": run_time_seconds,
             "nonce": self._nonce(nonce),
             "deadline": self._deadline(deadline_ms),

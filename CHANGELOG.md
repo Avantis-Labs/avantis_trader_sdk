@@ -37,6 +37,13 @@ Ground-up rewrite for Avantis v2. **Breaking: the 1.x API is removed.**
   (collateral × leverage ÷ open price; for USD-base pairs like USD/JPY the
   USDC notional is returned as-is). `account.positions()` tags each position
   with `base_symbol` from the markets pair catalog to support this.
+  `size_in_asset` and `position_size` are computed with the contracts'
+  integer math (`PositionMath.sol` floor divisions on raw 1e6/1e10 units) so
+  they match on-chain coin exposure / leveraged position exactly.
+- Local intent builder scales human units to raw integers through exact
+  decimal arithmetic instead of binary-float multiplication
+  (`int(0.0003 * 1e10)` truncates to `2999999`), so signed intents carry the
+  exact raw values the caller specified.
 
 ### Unreleased additions (2026-07-29) — batched-market eip7702 optional
 

@@ -75,23 +75,37 @@ class Position(BaseModel):
 
     @property
     def position_size(self) -> Decimal:
-        """Notional in USDC (collateral * leverage)."""
-        return self.collateral * self.leverage
+        """Notional in USDC (collateral * leverage), floored to 1e6 units as
+        on-chain (``PositionMath.scaleByLeverage``)."""
+        return from_usdc(int(self.collateral_raw) * int(self.leverage_raw) // 10**10)
 
     @property
     def size_in_asset(self) -> Decimal:
         """Position size in the base asset (collateral * leverage / open price).
+
+        Mirrors the contracts' integer math (PositionMath.sol) so the value
+        matches on-chain coin exposure exactly: the leveraged position is
+        floored to 1e6 USDC units (``scaleByLeverage``), then converted with
+        two sequential floor divisions to 1e10 coin units
+        (``usdcToCoinAtPrice``). Plain Decimal division can disagree in the
+        last digits because the chain rounds down at each step.
 
         For USD-base pairs (USD/JPY, USD/CHF, ...) the USDC notional already
         IS the base-asset size, so no division by the open price. This relies
         on ``base_symbol`` (set by ``AccountApi.positions()``); when it is
         missing the usual quote-USD convention is assumed.
         """
+        # scaleByLeverage: collateral (1e6) * leverage (1e10) / 1e10 -> 1e6
+        lev_pos_raw = int(self.collateral_raw) * int(self.leverage_raw) // 10**10
         if self.base_symbol is not None and self.base_symbol.upper() == "USD":
-            return self.position_size
-        if self.open_price == 0:
+            return from_usdc(lev_pos_raw)
+        price_raw = int(self.open_price_raw)
+        if price_raw == 0:
             return Decimal(0)
-        return self.position_size / self.open_price
+        # usdcToCoinAtPrice: a * PRICE_PRECISION * COIN_OI_PRECISION / price
+        # / USDC_PRECISION, floor at each division -> 1e10 coin units
+        coin_raw = lev_pos_raw * 10**10 * 10**10 // price_raw // 10**6
+        return from_1e10(coin_raw)
 
 
 class LimitOrder(BaseModel):
