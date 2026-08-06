@@ -60,7 +60,9 @@ class AsyncAvantis:
     def trade(self):
         from .trading import TradeApi
 
-        return TradeApi(self.config, self.engine, self.txb, self.transport)
+        return TradeApi(
+            self.config, self.engine, self.txb, self.transport, self.markets.pair
+        )
 
     @cached_property
     def account(self):

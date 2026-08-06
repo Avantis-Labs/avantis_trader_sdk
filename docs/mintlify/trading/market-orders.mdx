@@ -17,16 +17,25 @@ receipt = await client.trade.market_open(
 
 | Parameter | Default | Notes |
 | --- | --- | --- |
-| `pair` | required | Symbol (`"ETH/USD"`) or pair index |
+| `pair` | required | Symbol (`"ETH/USD"`, `"BTC_UPSIDE"`) or pair index |
 | `side` | required | `"long"` or `"short"` |
 | `collateral` | required | USDC |
 | `leverage` | required | Multiplier (`10` = 10x) |
 | `take_profit` / `stop_loss` | `None` | Trigger prices |
 | `open_price` | `None` | Reference price the fill is validated against (± `slippage_percent`); resolved from the live feed when omitted |
 | `slippage_percent` | `1` | Max slippage (`1` = 1%) |
-| `zero_fee` | `False` | Open a zero-fee (ZFP) position: no open/close fee, tiered profit share instead |
 | `skip_validation` | `False` | Skip the API's pre-trade validation |
 | `wait` | `True` | Poll the relayer until settled |
+
+<Info>
+**Upside markets route automatically.** Upside pairs (formerly "zero-fee"/ZFP)
+are separate markets suffixed `_UPSIDE` — e.g. `BTC_UPSIDE/USD` next to
+`BTC/USD`. Opening one sends the PnL (Upside) order type by itself: no
+open/close fee, a tiered profit share on gains instead. There is no flag to
+pass — the pair determines the order type (the contract rejects any
+mismatch). Upside pairs are market-only: no limit/stop opens and no TWAP.
+See [Markets](/data/markets#upside-markets) for discovering them.
+</Info>
 
 ## Open sized in coin units
 
@@ -59,7 +68,6 @@ pos = (await client.account.positions()).positions[0]
 await client.trade.market_close(
     pos.pair_index, pos.index,
     collateral_to_close=float(pos.collateral),
-    is_pnl=pos.is_pnl,
 )
 
 # or close 0.25 ETH worth
@@ -71,8 +79,11 @@ await client.trade.market_close_coin(pos.pair_index, pos.index, coin_exposure=0.
 | `trade_index` | required | `Position.index` from [positions](/account/positions) |
 | `collateral_to_close` / `coin_exposure` | required | Partial amounts allowed |
 | `expected_price` | `None` | Resolved from the live feed when omitted |
-| `is_pnl` | `False` | Set from `Position.is_pnl` so ZFP closes route correctly |
 | `open_timestamp` | `None` | Binds the close to a specific open (see below) |
+
+Closes route from the pair too: a position on an Upside pair closes with the
+PnL close type automatically (`Position.is_upside` is informational — you
+don't pass it anywhere).
 
 <Warning>
 The close intent binds the position's open timestamp. If you open and close in quick succession and hit a `PositionMismatch`-style simulation failure, pass `open_timestamp=pos.opened_at` explicitly, or re-fetch positions first.
@@ -128,7 +139,7 @@ the default `wait=True`):
 | `positionSizeUSDC` | Filled notional in USDC (1e6) |
 | `percentProfit` | Realized PnL as a percent (1e10; meaningful on closes) |
 | `usdcSentToTrader` | USDC returned to the trader (1e6; closes) |
-| `isPnl`, `coinExposure`, `isCoinExposureFixed` | Zero-fee flag, base-asset exposure (1e10), coin-sized flag |
+| `isPnl`, `coinExposure`, `isCoinExposureFixed` | Upside (PnL-type) flag, base-asset exposure (1e10), coin-sized flag |
 | `t` | The stored trade tuple: `trader`, `pairIndex`, `index`, `initialPosToken` (final position collateral, 1e6), `positionSizeUSDC` (1e6), `openPrice` (1e10), `buy`, `leverage` (1e10), `tp` / `sl` (1e10), `timestamp` |
 
 Every numeric field is a **string in raw on-chain units** (several exceed

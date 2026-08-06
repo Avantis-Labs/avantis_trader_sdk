@@ -20,17 +20,41 @@ Everything comes from one `/v2/trading` snapshot, cached for 5 seconds (`snapsho
 
 | Field | Meaning |
 | --- | --- |
-| `leverages` | Min/max leverage (plus ZFP-specific bounds) |
+| `leverages` | Min/max leverage (plus Upside-specific bounds) |
 | `open_fee_p`, `close_fee_p`, `spread_p` | Fees and fixed spread, in % |
 | `min_lev_pos_usdc` | Minimum position notional in USDC |
 | `open_interest`, `pair_oi`, `pair_max_oi`, `max_wallet_oi` | OI state and caps |
 | `funding_rate`, `funding_fee_per_hour_p`, `margin_fee` | Funding and rollover |
 | `values.max_gain_p`, `values.max_sl_p` | TP/SL percent bounds (`2500` = 2500% gain cap) |
 | `twap_params` | Min/max run time, frequency, TWAP fee |
-| `pnl_fees` | ZFP profit-share tiers |
+| `pnl_fees` | Upside profit-share tiers |
+| `is_upside` | `True` for Upside markets (`_UPSIDE`-suffixed pairs) |
 | `is_market_open` | Market-hours check (matters for forex/commodities) |
 
 The snapshot itself (`await client.markets.snapshot()`) carries protocol-wide state: `total_oi`, `max_open_interest`, `group_info`, `max_trades_per_pair`.
+
+## Upside markets
+
+Upside markets (formerly "zero-fee"/ZFP) are separate pairs suffixed
+`_UPSIDE` — `BTC_UPSIDE/USD` trades alongside `BTC/USD` with the same price
+feed but no open/close fee and a tiered profit share on gains. Trading
+methods route the order type automatically from the pair; you just pick the
+market:
+
+```python
+upside = await client.markets.upside_pairs()          # {index: PairInfo}
+
+btc_upside = await client.markets.pair("BTC_UPSIDE")  # symbol works too
+twin = await client.markets.upside_pair_for("BTC/USD")  # fixed-fee -> upside twin
+
+print(btc_upside.is_upside)     # True
+print(btc_upside.base_symbol)   # "BTC/USD" (suffix stripped)
+```
+
+Symbol resolution accepts `"BTC_UPSIDE"`, `"BTC_UPSIDE/USD"`, and quote-side
+forms like `"USD/JPY_UPSIDE"`; `upside_pair_for` raises when a market has no
+upside listing. Upside pairs are market-only — see
+[Market orders](/trading/market-orders).
 
 ## Spread
 

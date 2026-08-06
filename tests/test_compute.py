@@ -112,14 +112,14 @@ def test_net_pnl_fixed_fee():
     assert out.net == pytest.approx(100 - 0.495 - 1.5 - 0.5)
 
 
-def test_net_pnl_zfp_profit_share():
+def test_net_pnl_upside_profit_share():
     out = net_pnl(
         current_price=3300,
         open_price=3000,
         collateral=100,
         leverage=10,
         is_long=True,
-        is_pnl=True,
+        is_upside=True,
         pnl_tier_p=ETH_PAIR["pnlFees"]["tierP"],
         pnl_fees_p=ETH_PAIR["pnlFees"]["feesP"],
     )
@@ -247,6 +247,47 @@ def test_validate_order_failures():
     )
     # slLimit = (0.05 + 0.01) * 75 = 4.5 > 1
     assert any("guarantee execution" in e for e in v.errors)
+
+
+def test_validate_order_upside_rules_derive_from_pair():
+    """is_upside=None (default) derives the Upside rule set from the pair
+    itself — matching the SDK's automatic order-type routing."""
+    import json
+
+    upside_raw = json.loads(json.dumps(ETH_PAIR))
+    upside_raw.update({"index": 116, "from": "ETH_UPSIDE"})
+    upside_raw["storagePairParams"] = {"isPnlTypeAllowed": 1}
+    upside_snap = TradingSnapshot.model_validate(
+        {
+            "pairCount": 1,
+            "maxTradesPerPair": 40,
+            "totalOi": 7397826.55,
+            "maxOpenInterest": 90410372.13,
+            "pairInfos": {"116": upside_raw},
+            "groupInfo": {"0": {"name": "CRYPTO1", "groupMaxOI": 50000000, "groupOI": 7e6}},
+        }
+    )
+    upside_pair = upside_snap.pairs[116]
+    assert upside_pair.is_upside
+    assert upside_pair.storage_pair_params.is_pnl_type_allowed == 1
+
+    # PnL leverage envelope [75, 500] applies automatically
+    v = validate_order(upside_pair, upside_snap, collateral=100, leverage=10, is_long=True)
+    assert any("outside [75" in e for e in v.errors)
+
+    # Upside SL floor: max(MIN_UPSIDE_SL_P, pnl_order_min_sl) applies
+    v = validate_order(
+        upside_pair, upside_snap,
+        collateral=100, leverage=100, is_long=True, stop_loss_percent=2,
+    )
+    assert any("Upside stop loss" in e for e in v.errors)
+
+    # explicit override still wins (fixed-fee rules on the upside pair)
+    v = validate_order(
+        upside_pair, upside_snap,
+        collateral=100, leverage=10, is_long=True, is_upside=False,
+    )
+    assert not any("outside" in e for e in v.errors)
 
 
 def test_market_hours_crypto_always_open():

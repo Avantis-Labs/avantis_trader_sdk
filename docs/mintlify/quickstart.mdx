@@ -58,7 +58,6 @@ pos = positions.positions[0]
 await client.trade.market_close(
     pos.pair_index, pos.index,
     collateral_to_close=float(pos.collateral),  # full close
-    is_pnl=pos.is_pnl,
 )
 ```
 

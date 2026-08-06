@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from .liquidity import max_position_size
 from .tpsl import pnl_order_min_sl
 
-MIN_ZFP_SL_P = 5.0
+MIN_UPSIDE_SL_P = 5.0
 SL_BUFFER_SPREAD_P = 0.01  # added to the dynamic spread before scaling by leverage
 SPREAD_ERROR_THRESHOLD_P = 0.5
 SPREAD_LOSS_THRESHOLD_P = 25.1
@@ -35,7 +35,7 @@ def validate_order(
     collateral: float,
     leverage: float,
     is_long: bool,
-    is_pnl: bool = False,
+    is_upside: bool | None = None,
     limit_price: float | None = None,
     market_price: float | None = None,
     take_profit_percent: float | None = None,
@@ -44,8 +44,16 @@ def validate_order(
     wallet_oi: float = 0.0,
     open_trades_on_pair: int = 0,
 ) -> OrderValidation:
-    """Validate a prospective open order against pair config and live OI."""
+    """Validate a prospective open order against pair config and live OI.
+
+    ``is_upside`` selects the Upside (PnL) rule set — leverage envelope, TP
+    cap net of profit share, SL floor. Leave it as ``None`` to derive from
+    the pair itself (``pair_info.is_upside``), matching the SDK's automatic
+    order-type routing.
+    """
     v = OrderValidation()
+    if is_upside is None:
+        is_upside = bool(getattr(pair_info, "is_upside", False))
     position_size = collateral * leverage
 
     # pair state
@@ -58,8 +66,8 @@ def validate_order(
 
     # leverage envelope
     lev = pair_info.leverages
-    min_lev = lev.pnl_min_leverage if is_pnl else lev.min_leverage
-    max_lev = lev.pnl_max_leverage if is_pnl else lev.max_leverage
+    min_lev = lev.pnl_min_leverage if is_upside else lev.min_leverage
+    max_lev = lev.pnl_max_leverage if is_upside else lev.max_leverage
     if leverage < min_lev or leverage > max_lev:
         v.errors.append(f"leverage {leverage}x outside [{min_lev}, {max_lev}]")
 
@@ -86,7 +94,7 @@ def validate_order(
     # TP bounds
     if take_profit_percent is not None:
         max_tp = pair_info.values.max_gain_p
-        if is_pnl and pair_info.pnl_fees.tier_p:
+        if is_upside and pair_info.pnl_fees.tier_p:
             from .pnl import adjusted_max_gain_p
 
             max_tp = adjusted_max_gain_p(
@@ -102,17 +110,17 @@ def validate_order(
                 f"stop loss {stop_loss_percent}% above max {pair_info.values.max_sl_p}%"
             )
         # UI rule: slPLimit = (priceImpactBenefit + SL_BUFFER_SPREAD) * leverage,
-        # spread and buffer both in plain percent units; ZFP floors at
-        # max(slPLimit, MIN_ZFP_SL_GE) and the pnlOrderMinSL curve.
+        # spread and buffer both in plain percent units; Upside floors at
+        # max(slPLimit, MIN_UPSIDE_SL_P) and the pnlOrderMinSL curve.
         sl_limit = (
             ((dynamic_spread_p or 0.0) + SL_BUFFER_SPREAD_P) * leverage
             if dynamic_spread_p is not None
             else 0.0
         )
-        if is_pnl:
-            min_sl = max(sl_limit, MIN_ZFP_SL_P, pnl_order_min_sl(leverage))
+        if is_upside:
+            min_sl = max(sl_limit, MIN_UPSIDE_SL_P, pnl_order_min_sl(leverage))
             if stop_loss_percent < min_sl:
-                v.errors.append(f"ZFP stop loss must be >= {min_sl:.2f}%")
+                v.errors.append(f"Upside stop loss must be >= {min_sl:.2f}%")
         elif dynamic_spread_p is not None and stop_loss_percent < sl_limit:
             v.errors.append(
                 f"stop loss can't be less than {sl_limit:.2f}% to guarantee execution"

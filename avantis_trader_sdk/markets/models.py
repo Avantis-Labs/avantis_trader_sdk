@@ -10,6 +10,17 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from ..errors import ApiError
 
+# Upside pairs (formerly "ZFP"/zero-fee) are listed as separate markets whose
+# base or quote symbol carries this suffix (BTC_UPSIDE/USD, USD/JPY_UPSIDE).
+UPSIDE_SUFFIX = "_UPSIDE"
+
+
+def strip_upside_suffix(symbol: str) -> str:
+    """"BTC_UPSIDE" -> "BTC"; non-upside symbols pass through unchanged."""
+    if symbol.upper().endswith(UPSIDE_SUFFIX):
+        return symbol[: -len(UPSIDE_SUFFIX)]
+    return symbol
+
 
 class Leverages(BaseModel):
     model_config = ConfigDict(extra="allow")
@@ -100,6 +111,21 @@ class LazerFeed(BaseModel):
     state: str | None = None
 
 
+class StoragePairParams(BaseModel):
+    """On-chain pair params (TradingStorage). ``is_pnl_type_allowed`` gates the
+    Upside (PnL) order type: the contract reverts ``PnlOrderNotAllowed`` unless
+    it matches the order's ``_type``, so it must be 1 on upside pairs and the
+    order type plain market everywhere else."""
+
+    model_config = ConfigDict(extra="allow")
+
+    is_pnl_type_allowed: int = Field(alias="isPnlTypeAllowed", default=0)
+    pos_spread_cap: float = Field(alias="posSpreadCap", default=0)
+    neg_spread_cap: float = Field(alias="negSpreadCap", default=0)
+    pnl_pos_spread_cap: float = Field(alias="pnlPosSpreadCap", default=0)
+    pnl_neg_spread_cap: float = Field(alias="pnlNegSpreadCap", default=0)
+
+
 class PairInfo(BaseModel):
     model_config = ConfigDict(extra="allow")
 
@@ -136,11 +162,32 @@ class PairInfo(BaseModel):
     additional_params: AdditionalPairParams2 = Field(
         alias="additionalPairParams2", default_factory=AdditionalPairParams2
     )
+    storage_pair_params: StoragePairParams = Field(
+        alias="storagePairParams", default_factory=StoragePairParams
+    )
     liquidity: dict[str, float] = Field(default_factory=dict)
 
     @property
     def symbol(self) -> str:
         return f"{self.from_symbol}/{self.to_symbol}"
+
+    @property
+    def is_upside(self) -> bool:
+        """True for Upside markets (BTC_UPSIDE/USD, USD/JPY_UPSIDE, ...).
+
+        Same convention as the Avantis UI: the ``_UPSIDE`` suffix on either
+        symbol. Upside pairs take ONLY the PnL order type (market_pnl) and are
+        market-only — no limit/stop opens, no TWAP.
+        """
+        upper_from = self.from_symbol.upper()
+        upper_to = self.to_symbol.upper()
+        return upper_from.endswith(UPSIDE_SUFFIX) or upper_to.endswith(UPSIDE_SUFFIX)
+
+    @property
+    def base_symbol(self) -> str:
+        """The pair symbol with any ``_UPSIDE`` suffix stripped
+        ("BTC_UPSIDE/USD" -> "BTC/USD")."""
+        return f"{strip_upside_suffix(self.from_symbol)}/{strip_upside_suffix(self.to_symbol)}"
 
     @property
     def is_market_open(self) -> bool:
@@ -165,6 +212,12 @@ class GroupInfo(BaseModel):
 
 
 def _normalize_symbol(ref: str) -> tuple[str, str]:
+    """Legacy separator rewrite ("eth-usd"/"eth_usd" -> ETH, USD).
+
+    Only used as the LAST resolution step: upside symbols carry a real
+    underscore (BTC_UPSIDE) that this rewrite would destroy, so exact
+    matching runs first in :meth:`TradingSnapshot.pair_by_symbol`.
+    """
     cleaned = ref.upper().replace("-", "/").replace("_", "/")
     if "/" not in cleaned:
         return cleaned, "USD"
@@ -188,8 +241,25 @@ class TradingSnapshot(BaseModel):
         return {info.index: info for info in self.pair_infos.values()}
 
     def pair_by_symbol(self, ref: str) -> PairInfo:
+        """Resolve "ETH/USD", "eth-usd", "ETH", "BTC_UPSIDE", "USD/JPY_UPSIDE".
+
+        Exact from/to matching runs first with underscores preserved (upside
+        symbols contain them), then a bare-base match (quote defaults to USD),
+        and finally the legacy ``-``/``_`` -> ``/`` rewrite.
+        """
+        cleaned = ref.strip().upper()
+        pairs = list(self.pair_infos.values())
+        for info in pairs:
+            if info.symbol.upper() == cleaned:
+                return info
+        base_matches = [p for p in pairs if p.from_symbol.upper() == cleaned]
+        for info in base_matches:
+            if info.to_symbol.upper() == "USD":
+                return info
+        if len(base_matches) == 1:
+            return base_matches[0]
         base, quote = _normalize_symbol(ref)
-        for info in self.pair_infos.values():
+        for info in pairs:
             if info.from_symbol.upper() == base and info.to_symbol.upper() == quote:
                 return info
         raise ApiError(f"unknown pair {ref!r}")

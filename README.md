@@ -68,9 +68,10 @@ round-trips on the hot path; see `examples/13_mm_fast_path.py`.
 
 ## What's covered
 
-- **Trading**: market/limit opens (incl. coin-sized and zero-fee/PnL orders),
-  partial/full closes, margin updates, position increases, TP/SL updates,
-  partial TP/SL trigger orders, TWAP.
+- **Trading**: market/limit opens (incl. coin-sized orders and Upside
+  markets with automatic PnL-order routing), partial/full closes, margin
+  updates, position increases, TP/SL updates, partial TP/SL trigger orders,
+  TWAP.
 - **Account**: positions with liq price/rollover/funding, limit orders, TWAPs,
   balances, allowances, delegation management, USDC approvals, rebate and
   keeper-reward claims, builder codes.
@@ -79,9 +80,9 @@ round-trips on the hot path; see `examples/13_mm_fast_path.py`.
   OHLCV candles.
 - **Info**: trade/order history with full fee breakdowns, portfolio analytics
   (PnL, win rate, volume, fees), referral stats, vault APY.
-- **Compute** (pure functions, UI parity): net PnL incl. ZFP fee tiers and
-  loss protection, liquidation price, skew-adjusted open fees, maker/taker
-  classification, OI headroom, TP/SL bounds, pre-trade validation.
+- **Compute** (pure functions, UI parity): net PnL incl. Upside profit-share
+  tiers and loss protection, liquidation price, skew-adjusted open fees,
+  maker/taker classification, OI headroom, TP/SL bounds, pre-trade validation.
 - **Streams**: Lazer SSE + Pyth Hermes prices, pair-data updates, order
   execution events.
 - **LP**: vault deposit/withdraw (ERC-4626), previews, utilization, APY.
@@ -99,7 +100,7 @@ round-trips on the hot path; see `examples/13_mm_fast_path.py`.
 ## Examples
 
 See [`examples/`](examples/): one runnable script per flow, from
-`01_configure_and_meta.py` to `18_sync_and_kms.py`.
+`01_configure_and_meta.py` to `19_upside_pairs.py`.
 
 ## Errors
 

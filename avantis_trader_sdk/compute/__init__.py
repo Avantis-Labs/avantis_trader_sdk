@@ -28,9 +28,10 @@ from .tpsl import (
     tp_percent_to_price,
     tp_price_to_percent,
 )
-from .validation import OrderValidation, validate_order
+from .validation import MIN_UPSIDE_SL_P, OrderValidation, validate_order
 
 __all__ = [
+    "MIN_UPSIDE_SL_P",
     "gross_pnl",
     "net_pnl",
     "position_net_pnl",

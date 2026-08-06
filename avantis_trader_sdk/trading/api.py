@@ -1,23 +1,37 @@
 """User-facing trading surface.
 
 Every method follows the same recipe:
-1. Build the payload via tx-builder (intent for the relayer route, calldata
+1. Resolve the pair against the markets catalog (symbol or index; the
+   tx-builder always receives the resolved ``pairIndex``).
+2. Build the payload via tx-builder (intent for the relayer route, calldata
    for the direct route / passthrough).
-2. Route through the ExecutionEngine.
+3. Route through the ExecutionEngine.
 
 All amounts are human units (100 = 100 USDC, 10 = 10x). ``pair`` accepts
-either a symbol ("ETH/USD", "eth-usd") or a pair index.
+either a symbol ("ETH/USD", "eth-usd", "BTC_UPSIDE") or a pair index.
+
+Upside markets (separate pairs suffixed ``_UPSIDE``, formerly branded ZFP /
+zero-fee) route automatically: opens/closes on an upside pair take the PnL
+order type — there is no flag to pass. The pair fully determines the type
+(the contract reverts ``PnlOrderNotAllowed`` on any mismatch), which also
+means upside pairs are market-only: no limit/stop opens and no TWAP.
 """
 
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from ..base_api import ExecutingApi
-from ..errors import ConfigError
+from ..config import AvantisConfig
+from ..errors import ConfigError, ValidationError
+from ..execution import ExecutionEngine
 from ..execution.local_intents import LocalIntentBuilder
+from ..markets.models import PairInfo
 from ..signing import sign_intent
+from ..transport import HttpTransport
+from ..txbuilder import TxBuilderClient
 from ..types import (
     AggregatorOrderType,
     ExecutionReceipt,
@@ -32,14 +46,35 @@ from ..types import (
 PairRef = str | int
 
 
-def _pair_params(pair: PairRef) -> dict[str, Any]:
-    if isinstance(pair, int):
-        return {"pairIndex": pair}
-    return {"pair": pair}
-
-
 class TradeApi(ExecutingApi):
     _local: LocalIntentBuilder | None = None  # lazy; for locally-built intents
+
+    def __init__(
+        self,
+        config: AvantisConfig,
+        engine: ExecutionEngine,
+        txb: TxBuilderClient,
+        transport: HttpTransport,
+        get_pair: Callable[[PairRef], Awaitable[PairInfo]],
+    ) -> None:
+        super().__init__(config, engine, txb, transport)
+        self._get_pair = get_pair
+
+    async def _resolve_pair(self, pair: PairRef) -> PairInfo:
+        """Pair ref (symbol or index) -> PairInfo from the markets snapshot
+        (5s cache). Order-type routing derives from it (``is_upside``)."""
+        return await self._get_pair(pair)
+
+    @staticmethod
+    def _require_not_upside(info: PairInfo, what: str) -> None:
+        if info.is_upside:
+            raise ValidationError(
+                f"{what} is not available on Upside pairs ({info.symbol} is "
+                "market-only: the contract accepts only the PnL market order "
+                "type on it). Use market_open/market_close, or trade the "
+                f"fixed-fee pair {info.base_symbol!r} instead.",
+                code="UPSIDE_MARKET_ONLY",
+            )
 
     async def _local_intents(self) -> LocalIntentBuilder:
         """Local builder for the off-chain-verified intents (TwapCancelReq,
@@ -86,18 +121,22 @@ class TradeApi(ExecutingApi):
         take_profit: Num | None = None,
         stop_loss: Num | None = None,
         slippage_percent: Num = 1,
-        zero_fee: bool = False,
         skip_validation: bool = False,
         wait: bool = True,
     ) -> ExecutionReceipt:
-        """Open a market position (or a zero-fee/PnL position with zero_fee=True).
+        """Open a market position.
 
-        ``open_price`` is the reference price the fill is validated against
-        (± slippage_percent); resolved from the live feed when omitted.
+        Upside pairs (e.g. ``"BTC_UPSIDE"`` / index 116) route automatically
+        as PnL (Upside) orders — no flag needed; fixed-fee pairs always send
+        the plain market type. ``open_price`` is the reference price the fill
+        is validated against (± slippage_percent); resolved from the live
+        feed when omitted.
         """
-        order_type = OrderType.MARKET_PNL if zero_fee else OrderType.MARKET
+        info = await self._resolve_pair(pair)
+        upside = info.is_upside
+        order_type = OrderType.MARKET_PNL if upside else OrderType.MARKET
         params: dict[str, Any] = {
-            **_pair_params(pair),
+            "pairIndex": info.index,
             "trader": self.trader,
             "side": Side(side).value,
             "orderType": order_type.value,
@@ -115,7 +154,7 @@ class TradeApi(ExecutingApi):
             )
             agg = (
                 AggregatorOrderType.MARKET_OPEN_PNL
-                if zero_fee
+                if upside
                 else AggregatorOrderType.MARKET_OPEN
             )
             return await self._engine.submit_intent_batch(
@@ -139,22 +178,24 @@ class TradeApi(ExecutingApi):
         slippage_percent: Num = 1,
         take_profit: Num | None = None,
         stop_loss: Num | None = None,
-        zero_fee: bool = False,
         skip_validation: bool = False,
         wait: bool = True,
     ) -> ExecutionReceipt:
         """Open sized in coin units (fill leverage floats within [min, max] bounds).
 
-        ``leverage`` is the target/reference leverage (contract-required);
-        min/max default to the pair envelope when omitted. ``open_price`` is
-        the reference price the fill is validated against (± slippage_percent);
-        resolved from the live feed when omitted.
+        Upside pairs route automatically as PnL (Upside) orders, like
+        :meth:`market_open`. ``leverage`` is the target/reference leverage
+        (contract-required); min/max default to the pair envelope when
+        omitted. ``open_price`` is the reference price the fill is validated
+        against (± slippage_percent); resolved from the live feed when omitted.
         """
+        info = await self._resolve_pair(pair)
+        upside = info.is_upside
         params: dict[str, Any] = {
-            **_pair_params(pair),
+            "pairIndex": info.index,
             "trader": self.trader,
             "side": Side(side).value,
-            "orderType": (OrderType.MARKET_PNL if zero_fee else OrderType.MARKET).value,
+            "orderType": (OrderType.MARKET_PNL if upside else OrderType.MARKET).value,
             "collateralUsdc": collateral,
             "coinExposure": coin_exposure,
             "leverage": leverage,
@@ -172,7 +213,7 @@ class TradeApi(ExecutingApi):
             )
             agg = (
                 AggregatorOrderType.MARKET_OPEN_PNL_WITH_COIN_EXPOSURE
-                if zero_fee
+                if upside
                 else AggregatorOrderType.MARKET_OPEN_WITH_COIN_EXPOSURE
             )
             return await self._engine.submit_intent_batch(
@@ -199,11 +240,15 @@ class TradeApi(ExecutingApi):
     ) -> ExecutionReceipt:
         """Place a limit (or stop-limit) open order.
 
-        Note: limit opens escrow USDC on placement. On the relayer route this
-        goes through the TX_RELAY passthrough (matching the Avantis UI).
+        Not available on Upside pairs (market-only; there is no PnL limit
+        order type on-chain). Note: limit opens escrow USDC on placement. On
+        the relayer route this goes through the TX_RELAY passthrough
+        (matching the Avantis UI).
         """
+        info = await self._resolve_pair(pair)
+        self._require_not_upside(info, "limit_open")
         params: dict[str, Any] = {
-            **_pair_params(pair),
+            "pairIndex": info.index,
             "trader": self.trader,
             "side": Side(side).value,
             "orderType": (OrderType.STOP_LIMIT if stop else OrderType.LIMIT).value,
@@ -229,13 +274,16 @@ class TradeApi(ExecutingApi):
         collateral_to_close: Num,
         *,
         expected_price: Num | None = None,
-        is_pnl: bool = False,
         open_timestamp: int | None = None,
         wait: bool = True,
     ) -> ExecutionReceipt:
-        """Close a position partially or fully (pass the full collateral for a full close)."""
+        """Close a position partially or fully (pass the full collateral for a full close).
+
+        Positions on Upside pairs close with the PnL close type automatically.
+        """
+        info = await self._resolve_pair(pair)
         params: dict[str, Any] = {
-            **_pair_params(pair),
+            "pairIndex": info.index,
             "trader": self.trader,
             "tradeIndex": trade_index,
             "collateralToCloseUsdc": collateral_to_close,
@@ -248,7 +296,7 @@ class TradeApi(ExecutingApi):
             )
             agg = (
                 AggregatorOrderType.MARKET_CLOSE_PNL
-                if is_pnl
+                if info.is_upside
                 else AggregatorOrderType.MARKET_CLOSE
             )
             return await self._engine.submit_intent_batch(
@@ -265,12 +313,13 @@ class TradeApi(ExecutingApi):
         coin_exposure: Num,
         *,
         expected_price: Num | None = None,
-        is_pnl: bool = False,
         open_timestamp: int | None = None,
         wait: bool = True,
     ) -> ExecutionReceipt:
+        """Close sized in coin units. Upside pairs route as PnL automatically."""
+        info = await self._resolve_pair(pair)
         params: dict[str, Any] = {
-            **_pair_params(pair),
+            "pairIndex": info.index,
             "trader": self.trader,
             "tradeIndex": trade_index,
             "coinExposure": coin_exposure,
@@ -283,7 +332,7 @@ class TradeApi(ExecutingApi):
             )
             agg = (
                 AggregatorOrderType.MARKET_CLOSE_PNL_WITH_COIN_EXPOSURE
-                if is_pnl
+                if info.is_upside
                 else AggregatorOrderType.MARKET_CLOSE_WITH_COIN_EXPOSURE
             )
             return await self._engine.submit_intent_batch(
@@ -307,7 +356,7 @@ class TradeApi(ExecutingApi):
         wait: bool = True,
     ) -> ExecutionReceipt:
         params: dict[str, Any] = {
-            **_pair_params(pair),
+            "pairIndex": (await self._resolve_pair(pair)).index,
             "trader": self.trader,
             "orderIndex": order_index,
             "price": price,
@@ -321,7 +370,7 @@ class TradeApi(ExecutingApi):
         self, pair: PairRef, order_index: int, *, wait: bool = True
     ) -> ExecutionReceipt:
         params: dict[str, Any] = {
-            **_pair_params(pair),
+            "pairIndex": (await self._resolve_pair(pair)).index,
             "trader": self.trader,
             "orderIndex": order_index,
         }
@@ -340,7 +389,7 @@ class TradeApi(ExecutingApi):
     ) -> ExecutionReceipt:
         """Deposit or withdraw collateral on an open position."""
         params: dict[str, Any] = {
-            **_pair_params(pair),
+            "pairIndex": (await self._resolve_pair(pair)).index,
             "trader": self.trader,
             "tradeIndex": trade_index,
             "action": MarginAction(action).value,
@@ -360,7 +409,7 @@ class TradeApi(ExecutingApi):
         wait: bool = True,
     ) -> ExecutionReceipt:
         params: dict[str, Any] = {
-            **_pair_params(pair),
+            "pairIndex": (await self._resolve_pair(pair)).index,
             "trader": self.trader,
             "tradeIndex": trade_index,
             "additionalCollateralUsdc": collateral,
@@ -396,7 +445,7 @@ class TradeApi(ExecutingApi):
         """Increase sized in coin units (``leverage`` = reference leverage for
         the added collateral; fill floats within [min, max])."""
         params: dict[str, Any] = {
-            **_pair_params(pair),
+            "pairIndex": (await self._resolve_pair(pair)).index,
             "trader": self.trader,
             "tradeIndex": trade_index,
             "additionalCollateralUsdc": collateral,
@@ -430,13 +479,19 @@ class TradeApi(ExecutingApi):
         stop_loss: Num | None = None,
         wait: bool = True,
     ) -> ExecutionReceipt:
-        """Update TP/SL on an open position. 0 removes the level.
+        """Update the GLOBAL (on-chain) TP/SL on an open position. 0 removes
+        the level.
 
-        v2 removed the public updateTpAndSl entry point — this is intent-only
-        and therefore always goes through the relayer, even in direct mode.
+        v2 removed the public updateTpAndSl entry point — this signs an
+        EIP-712 ``UpdateTpSlReq`` executed by the Avantis operator
+        (executePositionUpdateBatched), so it always goes through the relayer,
+        even in direct mode. These levels surface on positions as the
+        ``priceTriggers`` entries flagged ``isGlobal`` (synthetic
+        ``global-tp-*`` / ``global-sl-*`` ids). For partial/off-chain
+        triggers use :meth:`partial_tp_sl`.
         """
         params: dict[str, Any] = {
-            **_pair_params(pair),
+            "pairIndex": (await self._resolve_pair(pair)).index,
             "trader": self.trader,
             "tradeIndex": trade_index,
             "takeProfit": take_profit,
@@ -464,7 +519,7 @@ class TradeApi(ExecutingApi):
         trigger = TriggerType(trigger)
         kind_full = {"tp": "take_profit", "sl": "stop_loss"}.get(kind, kind)
         params: dict[str, Any] = {
-            **_pair_params(pair),
+            "pairIndex": (await self._resolve_pair(pair)).index,
             "trader": self.trader,
             "tradeIndex": trade_index,
             "side": Side(side).value,
@@ -539,6 +594,21 @@ class TradeApi(ExecutingApi):
         # over the submission so callers keep the signed fields too.
         return {**submission, **(stored if isinstance(stored, dict) else {})}
 
+    @staticmethod
+    def _require_offchain_document_id(document_id: str, what: str) -> None:
+        """Positions' ``priceTriggers`` mix off-chain orders with synthetic
+        global entries (``global-tp-*`` / ``global-sl-*``, ``isGlobal`` true).
+        The global ones live on-chain and have no off-chain document — they
+        are managed via :meth:`update_tp_sl`, not the off-chain CRUD."""
+        if str(document_id).startswith("global-"):
+            raise ValidationError(
+                f"{what}: {document_id!r} is a synthetic id for the position's "
+                "global on-chain TP/SL (priceTriggers entry with isGlobal). "
+                "Change or remove it with update_tp_sl(); the off-chain order "
+                "CRUD only accepts real documentIds.",
+                code="GLOBAL_TRIGGER_ID",
+            )
+
     async def update_partial_tp_sl(
         self,
         document_id: str,
@@ -556,10 +626,12 @@ class TradeApi(ExecutingApi):
         """Replace a stored partial TP/SL order in place (atomic edit).
 
         ``document_id`` comes from the create response / a position's
-        ``offchainOrders``. The replacement is a freshly signed TpSlReq —
-        pass the FULL new order, not a diff. Ownership is enforced from the
-        signature; per-position caps are not re-checked (1:1 replace).
+        ``price_triggers`` (entries with ``is_global`` False). The
+        replacement is a freshly signed TpSlReq — pass the FULL new order,
+        not a diff. Ownership is enforced from the signature; per-position
+        caps are not re-checked (1:1 replace).
         """
+        self._require_offchain_document_id(document_id, "update_partial_tp_sl")
         submission = await self._partial_tp_sl_submission(
             pair,
             trade_index,
@@ -583,8 +655,10 @@ class TradeApi(ExecutingApi):
         """Cancel a stored partial TP/SL trigger order.
 
         ``order`` is the dict returned by :meth:`partial_tp_sl` / an entry
-        from a position's ``offchainOrders`` (must carry ``documentId``), or
-        the ``documentId`` string itself. Ownership proof is an EIP-712
+        from a position's ``price_triggers`` with ``is_global`` False (must
+        carry ``documentId``), or the ``documentId`` string itself. Global
+        (on-chain) triggers cannot be cancelled here — use
+        :meth:`update_tp_sl` with 0. Ownership proof is an EIP-712
         ``CancelOffchainOrder`` signature over the documentId; the trader or
         an active delegate may sign.
         """
@@ -592,8 +666,9 @@ class TradeApi(ExecutingApi):
         if not document_id:
             raise ConfigError(
                 "cancel_partial_tp_sl needs the order's documentId (returned by "
-                "partial_tp_sl and on /user-data offchainOrders entries)."
+                "partial_tp_sl and on positions' priceTriggers entries)."
             )
+        self._require_offchain_document_id(str(document_id), "cancel_partial_tp_sl")
         signer = self._engine.signer
         if signer is None:
             raise ConfigError("cancel_partial_tp_sl requires a signing key")
@@ -659,12 +734,15 @@ class TradeApi(ExecutingApi):
     ) -> ExecutionReceipt:
         """Open a TWAP order (collateral spread over run_time_seconds slices).
 
-        ``coin_exposure`` switches to fixed exposure targeting. Leverage
-        bounds are required by the contract struct. The receipt's
+        Not available on Upside pairs (their TWAP params are zeroed
+        on-chain). ``coin_exposure`` switches to fixed exposure targeting.
+        Leverage bounds are required by the contract struct. The receipt's
         ``order_id`` is the on-chain twapId (use it to cancel).
         """
+        info = await self._resolve_pair(pair)
+        self._require_not_upside(info, "twap_open")
         params: dict[str, Any] = {
-            **_pair_params(pair),
+            "pairIndex": info.index,
             "trader": self.trader,
             "side": Side(side).value,
             "collateralUsdc": collateral,
@@ -683,9 +761,14 @@ class TradeApi(ExecutingApi):
         coin_exposure_to_close: Num,
         run_time_seconds: int,
     ) -> ExecutionReceipt:
-        """Close exposure via TWAP slices spread over ``run_time_seconds``."""
+        """Close exposure via TWAP slices spread over ``run_time_seconds``.
+
+        Not available on Upside pairs (market-only).
+        """
+        info = await self._resolve_pair(pair)
+        self._require_not_upside(info, "twap_close")
         params: dict[str, Any] = {
-            **_pair_params(pair),
+            "pairIndex": info.index,
             "trader": self.trader,
             "tradeIndex": trade_index,
             "coinExposureToClose": coin_exposure_to_close,
@@ -724,7 +807,7 @@ class TradeApi(ExecutingApi):
         is no trader-side RFQ cancel on-chain (operator-only).
         """
         params: dict[str, Any] = {
-            **_pair_params(pair),
+            "pairIndex": (await self._resolve_pair(pair)).index,
             "trader": self.trader,
             "side": Side(side).value,
             "collateralUsdc": collateral,
@@ -748,7 +831,7 @@ class TradeApi(ExecutingApi):
     ) -> ExecutionReceipt:
         """NOTE: RFQ is not live on Avantis yet — kept for when it ships."""
         params: dict[str, Any] = {
-            **_pair_params(pair),
+            "pairIndex": (await self._resolve_pair(pair)).index,
             "trader": self.trader,
             "tradeIndex": trade_index,
             "coinExposureToClose": coin_exposure_to_close,

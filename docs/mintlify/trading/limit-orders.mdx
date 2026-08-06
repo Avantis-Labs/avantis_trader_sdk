@@ -27,6 +27,10 @@ await client.trade.limit_open(
 Limit opens **escrow the USDC collateral on placement**. Cancelling refunds it. On the relayer route this uses the passthrough (same path as the Avantis UI), so it is still gasless.
 </Note>
 
+<Warning>
+[Upside pairs](/data/markets#upside-markets) are market-only — `limit_open` on one raises a `ValidationError` (`UPSIDE_MARKET_ONLY`) before any network call.
+</Warning>
+
 ## Update
 
 Standing orders are addressed by `pair` + `order_index` (from `limit_orders` in [positions](/account/positions)):

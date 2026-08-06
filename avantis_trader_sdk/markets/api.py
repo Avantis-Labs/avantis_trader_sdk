@@ -74,6 +74,37 @@ class MarketsApi:
     async def pair_index(self, symbol: str) -> int:
         return (await self.pair(symbol)).index
 
+    async def upside_pairs(self) -> dict[int, PairInfo]:
+        """Upside markets only (separate pairs carrying the ``_UPSIDE`` suffix,
+        e.g. BTC_UPSIDE/USD). These take the PnL order type automatically —
+        see ``TradeApi``."""
+        return {i: p for i, p in (await self.pairs()).items() if p.is_upside}
+
+    async def upside_pair_for(self, base: str | int) -> PairInfo:
+        """The Upside twin of a fixed-fee market ("BTC/USD" -> BTC_UPSIDE/USD).
+
+        Matched like the Avantis UI: same symbols after stripping the
+        ``_UPSIDE`` suffix (plus the shared price feed as a sanity check).
+        Passing an upside pair returns it unchanged. Raises :class:`ApiError`
+        when the market has no upside listing.
+        """
+        info = await self.pair(base)
+        if info.is_upside:
+            return info
+        for candidate in (await self.pairs()).values():
+            if not candidate.is_upside:
+                continue
+            if candidate.base_symbol.upper() != info.symbol.upper():
+                continue
+            same_feed = (
+                not info.feed.feed_id
+                or not candidate.feed.feed_id
+                or candidate.feed.feed_id == info.feed.feed_id
+            )
+            if same_feed:
+                return candidate
+        raise ApiError(f"pair {info.symbol!r} has no Upside market")
+
     # ------------------------------------------------------------------ prices
 
     async def price(self, pair: str | int) -> float:
@@ -211,13 +242,15 @@ class MarketsApi:
         collateral: float,
         leverage: float,
         is_long: bool,
-        is_pnl: bool = False,
+        is_upside: bool = False,
         trader: str | None = None,
     ) -> dict[str, Any]:
         """LEGACY risk-engine dynamic spread (``GET /v2/dynamic-spread``).
 
         Still what mainnet risk-api.avantisfi.com serves; superseded by
         :meth:`spread` (risk-engine v2) which the v2 UI uses on testnet.
+        ``is_upside`` quotes the Upside (PnL) spread curve (wire param
+        ``isPnl``).
         """
         info = await self.pair(pair)
         precision = 18
@@ -225,7 +258,7 @@ class MarketsApi:
             "collateralUsdc": collateral,
             "isLong": str(is_long).lower(),
             "leverage": leverage,
-            "isPnl": str(is_pnl).lower(),
+            "isPnl": str(is_upside).lower(),
             "precision": precision,
         }
         if trader:

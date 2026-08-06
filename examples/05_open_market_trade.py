@@ -3,6 +3,10 @@
 The SDK fetches the intent from the tx-builder API, signs it locally (with a
 digest correctness check), and queues it with the Avantis relayer. No RPC, no
 ETH needed.
+
+The order type routes from the pair: trade an Upside market (e.g.
+"BTC_UPSIDE") and the SDK sends the PnL (Upside) order type automatically —
+see examples/19_upside_pairs.py.
 """
 
 import asyncio

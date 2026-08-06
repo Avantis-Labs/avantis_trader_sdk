@@ -5,13 +5,14 @@ description: "Full-position TP/SL on-chain, partial TP/SL as off-chain trigger o
 
 Avantis v2 has two distinct TP/SL mechanisms. Pick by whether you want to close the whole position or part of it:
 
-| | `update_tp_sl` | `partial_tp_sl` |
+| | `update_tp_sl` (global) | `partial_tp_sl` |
 | --- | --- | --- |
 | Closes | Entire position | A slice (coin exposure) |
 | Stored | On-chain | Off-chain, with the Avantis operator |
 | Route | Intent via relayer, **always** (even in direct mode) | Signed order stored via core API |
 | Change | Re-set the levels | `update_partial_tp_sl(document_id, ...)` |
 | Remove | Set the level to `0` | `cancel_partial_tp_sl(order)` |
+| On positions | `price_triggers` entries with `is_global=True` (synthetic `global-*` ids) | `price_triggers` entries with `is_global=False` (real `documentId`) |
 
 ## Full-position TP/SL
 
@@ -52,7 +53,12 @@ order = await client.trade.partial_tp_sl(
 | `percentage` | Gain/loss percent for percentage triggers |
 | `open_timestamp` | Bind to a specific open when the position was just modified |
 
-Existing partial orders appear on `Position.offchain_orders` when you fetch [positions](/account/positions).
+Existing triggers appear on `Position.price_triggers` when you fetch
+[positions](/account/positions): partial orders carry `is_global=False` and a
+real `documentId`; the global TP/SL shows up as read-only `is_global=True`
+entries with synthetic `global-tp-*` / `global-sl-*` ids. Passing a synthetic
+global id to `update_partial_tp_sl` / `cancel_partial_tp_sl` raises a
+`ValidationError` — manage those levels with `update_tp_sl`.
 
 ## Update a partial TP/SL
 

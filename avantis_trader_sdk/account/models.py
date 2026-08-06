@@ -10,6 +10,58 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from ..types import from_1e10, from_usdc
 
+# OffchainOrderDto.orderType values (backend LimitOrder enum).
+_TRIGGER_KINDS = {0: "tp", 1: "sl", 2: "liq", 3: "open", 4: "partial_tp", 5: "partial_sl"}
+
+
+class PriceTrigger(BaseModel):
+    """One entry of a position's ``priceTriggers``.
+
+    Two flavors share the shape (backend OffchainOrderDto):
+
+    - ``is_global`` True — the position's global on-chain TP/SL. Synthetic
+      ``documentId`` (``global-tp-...`` / ``global-sl-...``) that the
+      offchain-orders CRUD does NOT accept; manage via
+      ``trade.update_tp_sl()``. ``coin_size`` is the full position size.
+    - ``is_global`` False — an off-chain partial TP/SL signed intent; its
+      ``documentId`` works with ``trade.update_partial_tp_sl()`` /
+      ``cancel_partial_tp_sl()``.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
+    document_id: str = Field(alias="documentId")
+    trader: str = ""
+    pair_index: int = Field(alias="pairIndex", default=0)
+    index: int = 0
+    is_global: bool = Field(alias="isGlobal", default=False)
+    order_type: int = Field(alias="orderType", default=0)
+    trigger_type: int = Field(alias="triggerType", default=0)
+    buy: bool = False
+    coin_size_raw: str = Field(alias="coinSize", default="0")
+    price_raw: str = Field(alias="price", default="0")
+    percentage_raw: str = Field(alias="percentage", default="0")
+    final_trigger_price_raw: str = Field(alias="finalTriggerPrice", default="0")
+    timestamp: int = 0
+    sign_timestamp: int = Field(alias="signTimestamp", default=0)
+
+    @property
+    def kind(self) -> str:
+        """"tp" / "sl" / "partial_tp" / "partial_sl" (from the orderType enum)."""
+        return _TRIGGER_KINDS.get(self.order_type, str(self.order_type))
+
+    @property
+    def coin_size(self) -> Decimal:
+        return from_1e10(self.coin_size_raw)
+
+    @property
+    def price(self) -> Decimal:
+        return from_1e10(self.price_raw)
+
+    @property
+    def final_trigger_price(self) -> Decimal:
+        return from_1e10(self.final_trigger_price_raw)
+
 
 class Position(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="allow")
@@ -18,7 +70,10 @@ class Position(BaseModel):
     pair_index: int = Field(alias="pairIndex")
     index: int
     buy: bool
-    is_pnl: bool = Field(alias="isPnl", default=False)
+    is_upside: bool = Field(alias="isPnl", default=False)
+    """True when the position lives on an Upside pair (wire field ``isPnl``):
+    it was opened with the PnL order type and pays a profit share instead of
+    fixed fees."""
     collateral_raw: str = Field(alias="collateral")
     leverage_raw: str = Field(alias="leverage")
     open_price_raw: str = Field(alias="openPrice")
@@ -29,11 +84,29 @@ class Position(BaseModel):
     unrealised_funding_fee_raw: str = Field(alias="unrealisedFundingFee", default="0")
     loss_protection_raw: str = Field(alias="lossProtection", default="0")
     opened_at: int = Field(alias="openedAt", default=0)
+    price_triggers: list[PriceTrigger] = Field(alias="priceTriggers", default_factory=list)
+    """All TP/SL triggers: global on-chain ones (``is_global`` True) plus
+    off-chain partial orders. Prefer this over ``offchain_orders``."""
     offchain_orders: list[dict[str, Any]] = Field(alias="offchainOrders", default_factory=list)
+    """DEPRECATED (mirrors the API): off-chain orders only, never the global
+    TP/SL. Use ``price_triggers``."""
     base_symbol: str | None = None
-    """Base ("from") asset of the pair, e.g. "ETH" for ETH/USD or "USD" for
-    USD/JPY. Not part of the core API payload — populated by
-    ``AccountApi.positions()`` from the markets pair catalog."""
+    """Base ("from") asset of the pair with any ``_UPSIDE`` suffix stripped,
+    e.g. "BTC" for BTC_UPSIDE/USD or "USD" for USD/JPY. Not part of the core
+    API payload — populated by ``AccountApi.positions()`` from the markets
+    pair catalog."""
+
+    # -- triggers -------------------------------------------------------------
+
+    @property
+    def global_triggers(self) -> list[PriceTrigger]:
+        """The on-chain TP/SL (read-only entries; change via update_tp_sl)."""
+        return [t for t in self.price_triggers if t.is_global]
+
+    @property
+    def partial_triggers(self) -> list[PriceTrigger]:
+        """Off-chain partial TP/SL orders (documentId works with the CRUD)."""
+        return [t for t in self.price_triggers if not t.is_global]
 
     # -- human units ---------------------------------------------------------
 

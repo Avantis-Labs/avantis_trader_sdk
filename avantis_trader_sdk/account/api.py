@@ -13,7 +13,7 @@ from ..base_api import ExecutingApi
 from ..config import AvantisConfig
 from ..errors import ConfigError, DelegationError
 from ..execution import ExecutionEngine
-from ..markets.models import PairInfo
+from ..markets.models import PairInfo, strip_upside_suffix
 from ..signing import BaseSigner, sign_intent
 from ..transport import HttpTransport
 from ..txbuilder import TxBuilderClient
@@ -44,6 +44,7 @@ class AccountApi(ExecutingApi):
         liquidation price, rollover, and unrealized funding).
 
         Each position also gets ``base_symbol`` from the markets pair catalog
+        (with any ``_UPSIDE`` suffix stripped — BTC_UPSIDE/USD tags as "BTC")
         so ``Position.size_in_asset`` handles USD-base pairs (USD/JPY, ...)
         correctly.
         """
@@ -58,7 +59,7 @@ class AccountApi(ExecutingApi):
             for pos in user_data.positions:
                 info = pairs.get(pos.pair_index)
                 if info is not None:
-                    pos.base_symbol = info.from_symbol
+                    pos.base_symbol = strip_upside_suffix(info.from_symbol)
         return user_data
 
     async def positions_onchain(self, trader: str | None = None) -> dict[str, Any]:

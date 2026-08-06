@@ -23,7 +23,6 @@ async def main() -> None:
             pos.pair_index,
             pos.index,
             collateral_to_close=float(pos.collateral),  # full close
-            is_pnl=pos.is_pnl,
         )
         print("close tx:", receipt.tx_hash)
 

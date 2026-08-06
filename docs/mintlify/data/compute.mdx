@@ -20,9 +20,9 @@ pnl = compute.position_net_pnl(position, pair_info, current_price)
 | Function | Purpose |
 | --- | --- |
 | `gross_pnl(current_price, open_price, collateral, leverage, is_long)` | Raw unrealized PnL |
-| `net_pnl(...)` | Full breakdown with fees, funding, loss protection, ZFP profit share |
+| `net_pnl(...)` | Full breakdown with fees, funding, loss protection, Upside profit share |
 | `position_net_pnl(position, pair_info, current_price)` | Convenience wrapper over a fetched `Position` |
-| `pnl_type_fee`, `pnl_fee_by_gross_profit_p`, `adjusted_max_gain_p` | ZFP tiered profit-share math |
+| `pnl_type_fee`, `pnl_fee_by_gross_profit_p`, `adjusted_max_gain_p` | Upside tiered profit-share math |
 
 ## Liquidation
 
@@ -51,7 +51,7 @@ tp_price = compute.tp_percent_to_price(3500, 100, 10, True)   # +100% of collate
 sl_pct = compute.sl_price_to_percent(3500, 3300, 10, True)    # base price, SL price
 ```
 
-`pnl_order_min_sl(leverage)` gives the minimum SL percent for zero-fee positions.
+`pnl_order_min_sl(leverage)` gives the minimum SL percent for Upside positions.
 
 ## Pre-trade validation
 

@@ -18,15 +18,15 @@ Ground-up rewrite for Avantis v2. **Breaking: the 1.x API is removed.**
 
 ### New in v2
 
-- Full v2 trading surface: coin-sized opens/closes, zero-fee (PnL) orders,
+- Full v2 trading surface: coin-sized opens/closes, Upside (PnL) orders,
   position increases, partial TP/SL trigger orders (off-chain stored), TWAP.
   (RFQ methods exist in the client but the product is not live yet —
   undocumented on purpose.)
 - Local intent builder + nonce pool for market makers (zero HTTP on the hot
   path), validated against on-chain golden vectors.
 - Markets snapshot models for the 100+ pair catalog; UI-parity compute layer
-  (net PnL with ZFP tiers and loss protection, liquidation price, skew fees,
-  maker/taker, OI headroom, pre-trade validation).
+  (net PnL with Upside profit-share tiers and loss protection, liquidation
+  price, skew fees, maker/taker, OI headroom, pre-trade validation).
 - Portfolio/history/referral/vault analytics clients.
 - Streams: Lazer SSE + Pyth Hermes prices, Socket.IO pair data, Pusher order
   execution events.
@@ -44,6 +44,56 @@ Ground-up rewrite for Avantis v2. **Breaking: the 1.x API is removed.**
   decimal arithmetic instead of binary-float multiplication
   (`int(0.0003 * 1e10)` truncates to `2999999`), so signed intents carry the
   exact raw values the caller specified.
+
+### Unreleased additions (2026-08-06) — Upside pairs
+
+Upside markets (the rebranded ZFP / zero-fee product) are separate pairs
+suffixed `_UPSIDE` (testnet 115–122, e.g. `BTC_UPSIDE/USD` = 116) whose
+`storagePairParams.isPnlTypeAllowed` = 1; the contract enforces strict
+equality between that flag and the PnL order type, so the pair fully
+determines how an order must route.
+
+- **Automatic order-type routing** — trade methods resolve the pair against
+  the markets catalog and pick the order type from it: opens/closes on an
+  upside pair send `market_pnl` / the `MARKET_*_PNL` aggregator types, fixed
+  pairs the plain market types. The tx-builder now always receives the
+  resolved `pairIndex` (symbol resolution no longer depends on the server).
+  **Breaking:** `market_open`/`market_open_coin` lose `zero_fee`,
+  `market_close`/`market_close_coin` lose `is_pnl` — there is nothing to
+  pass anymore.
+- **Upside pairs are market-only**: `limit_open`, `twap_open` and
+  `twap_close` raise `ValidationError` (`UPSIDE_MARKET_ONLY`) on them
+  (on-chain `PnlOrderNotAllowed`; TWAP params zeroed).
+- **Markets**: upside-aware symbol resolution (`"BTC_UPSIDE"`,
+  `"btc_upside/usd"`, `"USD/JPY_UPSIDE"`, bare `"ETH"`, legacy `"eth-usd"`
+  all resolve; exact match first so underscores in upside names survive),
+  `PairInfo.is_upside` / `base_symbol` / `storage_pair_params`
+  (`isPnlTypeAllowed`), `markets.upside_pairs()` and
+  `markets.upside_pair_for()` (fixed-fee -> upside twin).
+- **Positions & global TP/SL (`priceTriggers`)**: positions parse the new
+  `priceTriggers` field — global on-chain TP/SL as synthetic
+  `global-tp-*`/`global-sl-*` entries (`is_global` True) plus off-chain
+  partial orders — as `Position.price_triggers` (`PriceTrigger` model,
+  `global_triggers`/`partial_triggers` filters). `offchainOrders` is
+  deprecated upstream but still parsed. `update_partial_tp_sl` /
+  `cancel_partial_tp_sl` reject synthetic `global-*` documentIds
+  (`GLOBAL_TRIGGER_ID`) — global levels are managed via `update_tp_sl`,
+  which keeps its existing EIP-712 `UpdateTpSlReq` -> operator
+  `executePositionUpdateBatched` route (confirmed current; batched-market
+  still rejects `UPDATE_SL`).
+- **Rebrand ZFP/zero-fee -> Upside** across the public surface.
+  **Breaking:** `Position.is_pnl` -> `is_upside` (wire alias `isPnl` kept),
+  compute kwargs `is_pnl` -> `is_upside` (`net_pnl`, `tp_percent_to_price`,
+  `tp_price_to_percent`), `MIN_ZFP_SL_P` -> `MIN_UPSIDE_SL_P`,
+  `markets.dynamic_spread(is_pnl=)` -> `is_upside=`. `validate_order` takes
+  `is_upside: bool | None = None` and derives it from `pair_info.is_upside`
+  when omitted. Wire/protocol identifiers are unchanged (`market_pnl` order
+  type, `AggregatorOrderType.MARKET_OPEN_PNL`, JSON `isPnl`/`pnlFees`).
+- `positions()` `base_symbol` tagging strips the `_UPSIDE` suffix
+  (BTC_UPSIDE/USD tags "BTC"), keeping `size_in_asset` correct on upside
+  pairs.
+- New example `examples/19_upside_pairs.py`; docs pages updated (market
+  orders, markets, positions, compute, quickstart, migration).
 
 ### Unreleased additions (2026-08-06) — risk-engine v2 spread API
 

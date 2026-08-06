@@ -33,6 +33,59 @@ META = {
     "defaults": {"executionFeeWei": "0", "intentDeadlineMs": 120000, "slippagePercent": "1"},
 }
 
+# Shared /v2/trading snapshot: fixed-fee pairs (isPnlTypeAllowed 0) plus their
+# Upside twins as separate _UPSIDE pairs (isPnlTypeAllowed 1), mirroring the
+# testnet catalog (BTC_UPSIDE/USD = 116, USD/JPY_UPSIDE = 119).
+TRADING_SNAPSHOT = {
+    "pairInfos": {
+        "ETH/USD": {
+            "index": 1,
+            "from": "ETH",
+            "to": "USD",
+            "feed": {"feedId": "0xeth"},
+            "storagePairParams": {"isPnlTypeAllowed": 0},
+        },
+        "BTC/USD": {
+            "index": 2,
+            "from": "BTC",
+            "to": "USD",
+            "feed": {"feedId": "0xbtc"},
+            "storagePairParams": {"isPnlTypeAllowed": 0},
+        },
+        "USD/JPY": {
+            "index": 20,
+            "from": "USD",
+            "to": "JPY",
+            "feed": {"feedId": "0xjpy"},
+            "storagePairParams": {"isPnlTypeAllowed": 0},
+        },
+        "BTC_UPSIDE/USD": {
+            "index": 116,
+            "from": "BTC_UPSIDE",
+            "to": "USD",
+            "feed": {"feedId": "0xbtc"},
+            "storagePairParams": {"isPnlTypeAllowed": 1},
+        },
+        "USD/JPY_UPSIDE": {
+            "index": 119,
+            "from": "USD",
+            "to": "JPY_UPSIDE",
+            "feed": {"feedId": "0xjpy"},
+            "storagePairParams": {"isPnlTypeAllowed": 1},
+        },
+    }
+}
+
+
+def mock_data_api(base_url: str):
+    """Mount the /v2/trading respx route (trade methods resolve pairs first)."""
+    import httpx
+    import respx
+
+    return respx.get(f"{base_url}/v2/trading").mock(
+        return_value=httpx.Response(200, json=TRADING_SNAPSHOT)
+    )
+
 
 @pytest.fixture
 def meta() -> dict:

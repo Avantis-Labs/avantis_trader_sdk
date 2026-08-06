@@ -14,7 +14,7 @@ import respx
 
 from avantis_trader_sdk import AsyncAvantis
 from avantis_trader_sdk.intents_schema import INTENT_TYPES
-from tests.conftest import META, TEST_ADDRESS, TEST_KEY, TRADER, VECTORS
+from tests.conftest import META, TEST_ADDRESS, TEST_KEY, TRADER, VECTORS, mock_data_api
 
 TXB = "https://txb.test"
 RELAYER = "https://relayer.test"
@@ -110,6 +110,7 @@ async def test_market_open_batched_market_dual_payload():
     """Market opens submit BOTH the signed EIP-712 intent and a pre-signed
     EIP-7702 type-4 tx to the batched-market SSE endpoint."""
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
+    mock_data_api(DATA)
     intent_route = respx.post(f"{TXB}/v2/intents/open").mock(
         return_value=_ok(_open_intent_payload())
     )
@@ -135,8 +136,12 @@ async def test_market_open_batched_market_dual_payload():
     assert receipt.order_id == 42
     assert intent_route.called and calldata_route.called
 
-    # intent request carried human units as strings
+    # intent request carried human units as strings + the RESOLVED pairIndex
+    # (symbols are resolved SDK-side against the markets catalog)
     intent_req = json.loads(intent_route.calls[0].request.content)
+    assert intent_req["pairIndex"] == "1"
+    assert "pair" not in intent_req
+    assert intent_req["orderType"] == "market"
     assert intent_req["collateralUsdc"] == "100"
     assert intent_req["leverage"] == "10"
     assert intent_req["side"] == "long"
@@ -178,6 +183,7 @@ async def test_market_open_coin_sends_required_leverage():
         "encodedIntent": "0x" + "ab" * 64,
     }
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
+    mock_data_api(DATA)
     intent_route = respx.post(f"{TXB}/v2/intents/open-coin").mock(
         return_value=_ok(payload)
     )
@@ -210,6 +216,7 @@ async def test_update_tp_sl_stays_on_blitz_type2_batch():
     """UPDATE_SL is excluded from the batched-market allow-list: the SDK still
     encodes executePositionUpdateBatched locally and relays via blitz."""
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
+    mock_data_api(DATA)
     respx.post(f"{TXB}/v2/intents/tpsl-update").mock(
         return_value=_ok(_tpsl_intent_payload())
     )
@@ -267,6 +274,7 @@ async def test_update_tp_sl_stays_on_blitz_type2_batch():
 @respx.mock
 async def test_limit_open_uses_type4_passthrough():
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
+    mock_data_api(DATA)
     respx.post(f"{TXB}/v2/trade/open").mock(return_value=_ok(_calldata_payload()))
     create_route = respx.post(f"{RELAYER}/relays").mock(
         return_value=httpx.Response(200, json={"requestId": "req-9"})
@@ -305,6 +313,7 @@ async def test_delegate_key_signs_authorization_with_nonce_zero_no_rpc():
     the EIP-7702 authorization is correctly signed over nonce 0 and the SDK
     needs no RPC at all — the normal setup."""
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
+    mock_data_api(DATA)
     respx.post(f"{TXB}/v2/trade/open").mock(return_value=_ok(_calldata_payload()))
     create_route = respx.post(f"{RELAYER}/relays").mock(
         return_value=httpx.Response(200, json={"requestId": "req-n"})
@@ -330,6 +339,7 @@ async def test_trader_eoa_without_rpc_fails_fast_in_relayer_mode():
     from avantis_trader_sdk.errors import ConfigError
 
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
+    mock_data_api(DATA)
     respx.post(f"{TXB}/v2/trade/open").mock(return_value=_ok(_calldata_payload()))
 
     async with AsyncAvantis(
@@ -361,6 +371,7 @@ async def test_trader_eoa_with_rpc_reads_real_authorization_nonce():
         return httpx.Response(200, json={"jsonrpc": "2.0", "id": body["id"], "result": result})
 
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
+    mock_data_api(DATA)
     respx.post(f"{TXB}/v2/trade/open").mock(return_value=_ok(_calldata_payload()))
     respx.post(RPC).mock(side_effect=rpc_responder)
     create_route = respx.post(f"{RELAYER}/relays").mock(
@@ -466,6 +477,7 @@ async def test_batched_market_canceled_raises():
     from avantis_trader_sdk.errors import RelayError
 
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
+    mock_data_api(DATA)
     respx.post(f"{TXB}/v2/intents/open").mock(return_value=_ok(_open_intent_payload()))
     respx.post(f"{TXB}/v2/trade/open").mock(return_value=_ok(_calldata_payload()))
     respx.post(f"{BATCHED}/market/execute-batched").mock(
@@ -487,6 +499,7 @@ async def test_relayer_reverted_receipt_raises():
     from avantis_trader_sdk.errors import RelayError
 
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
+    mock_data_api(DATA)
     respx.post(f"{TXB}/v2/intents/tpsl-update").mock(
         return_value=_ok(_tpsl_intent_payload())
     )
@@ -518,6 +531,7 @@ async def test_relayer_failed_status_raises():
     from avantis_trader_sdk.errors import RelayError
 
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
+    mock_data_api(DATA)
     respx.post(f"{TXB}/v2/intents/tpsl-update").mock(
         return_value=_ok(_tpsl_intent_payload())
     )
@@ -542,6 +556,7 @@ async def test_relayer_failed_status_raises():
 @respx.mock
 async def test_relayer_busy_503_retries_then_succeeds():
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
+    mock_data_api(DATA)
     respx.post(f"{TXB}/v2/intents/tpsl-update").mock(
         return_value=_ok(_tpsl_intent_payload())
     )
@@ -570,6 +585,7 @@ async def test_api_validation_error_maps_to_typed_exception():
     from avantis_trader_sdk.errors import ValidationError
 
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
+    mock_data_api(DATA)
     respx.post(f"{TXB}/v2/intents/open").mock(
         return_value=httpx.Response(
             400,

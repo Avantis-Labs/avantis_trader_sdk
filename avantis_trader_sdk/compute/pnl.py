@@ -20,7 +20,7 @@ def gross_pnl(
 def pnl_fee_by_gross_profit_p(
     tier_p: list[float], desired_gross_profit_p: float, fees_p: list[float]
 ) -> float:
-    """Tiered ZFP profit-sharing fee %: highest tier whose threshold is met."""
+    """Tiered Upside profit-sharing fee %: highest tier whose threshold is met."""
     for i in range(len(tier_p) - 1, -1, -1):
         if desired_gross_profit_p >= tier_p[i]:
             return fees_p[i] if i < len(fees_p) else 0.0
@@ -30,7 +30,7 @@ def pnl_fee_by_gross_profit_p(
 def pnl_type_fee(
     tier_p: list[float], fees_p: list[float], profit_p: float, pnl: float
 ) -> tuple[float, float]:
-    """(feeP, fee USDC) for a realized ZFP profit; 0 when pnl <= 0."""
+    """(feeP, fee USDC) for a realized Upside profit; 0 when pnl <= 0."""
     if pnl <= 0:
         return 0.0, 0.0
     i = 0
@@ -42,7 +42,7 @@ def pnl_type_fee(
 
 
 def adjusted_max_gain_p(max_gain_p: float, tier_p: list[float], fees_p: list[float]) -> float:
-    """Max TP % for ZFP positions, net of the profit-sharing fee at that level."""
+    """Max TP % for Upside positions, net of the profit-sharing fee at that level."""
     return max_gain_p * (100 - pnl_fee_by_gross_profit_p(tier_p, max_gain_p, fees_p)) / 100
 
 
@@ -64,7 +64,7 @@ def net_pnl(
     collateral: float,
     leverage: float,
     is_long: bool,
-    is_pnl: bool = False,
+    is_upside: bool = False,
     close_fee_p: float = 0.0,
     fee_discount_p: float = 0.0,
     rollover_fee: float = 0.0,
@@ -75,13 +75,13 @@ def net_pnl(
 ) -> NetPnlBreakdown:
     """Unrealized net PnL breakdown for an open position (UI parity).
 
-    - Fixed-fee (is_pnl=False): net = gross - closingFee - rollover - funding
+    - Fixed-fee (is_upside=False): net = gross - closingFee - rollover - funding
       + lossProtection (loss protection only offsets negative gross, capped).
-    - ZFP (is_pnl=True): net = gross * (1 - tieredFeeP/100) - rollover - funding.
+    - Upside (is_upside=True): net = gross * (1 - tieredFeeP/100) - rollover - funding.
     """
     g = gross_pnl(current_price, open_price, collateral, leverage, is_long)
 
-    if is_pnl:
+    if is_upside:
         gross_p = g / collateral * 100 if collateral else 0.0
         fee_p = (
             pnl_fee_by_gross_profit_p(pnl_tier_p or [], gross_p, pnl_fees_p or [])
@@ -126,7 +126,7 @@ def position_net_pnl(position, pair_info, current_price: float) -> NetPnlBreakdo
         collateral=float(position.collateral),
         leverage=float(position.leverage),
         is_long=position.buy,
-        is_pnl=position.is_pnl,
+        is_upside=position.is_upside,
         close_fee_p=pair_info.close_fee_p,
         rollover_fee=float(position.rollover_fee),
         funding_fee=float(position.unrealised_funding_fee),

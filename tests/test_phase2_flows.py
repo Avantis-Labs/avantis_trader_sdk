@@ -10,13 +10,14 @@ import respx
 from avantis_trader_sdk import AsyncAvantis
 from avantis_trader_sdk.errors import ConfigError
 from avantis_trader_sdk.intents_schema import INTENT_TYPES
-from tests.conftest import META, TEST_ADDRESS, TEST_KEY, TRADER, VECTORS
+from tests.conftest import META, TEST_ADDRESS, TEST_KEY, TRADER, VECTORS, mock_data_api
 
 TXB = "https://txb.test"
 RELAYER = "https://relayer.test"
 CORE = "https://core.test"
 TWAP = "https://twap.test"
 RPC = "https://rpc.test"
+DATA = "https://data.test"
 
 
 def _ok(data):
@@ -32,6 +33,7 @@ def _client(**kw) -> AsyncAvantis:
         relayer_url=RELAYER,
         core_api_url=CORE,
         twap_api_url=TWAP,
+        data_api_url=DATA,
         relay_poll_interval_s=0.01,
     )
     defaults.update(kw)
@@ -76,6 +78,7 @@ DOCUMENT_ID = "665f1c2ab7a1b2c3d4e5f601"
 @respx.mock
 async def test_offchain_partial_tpsl_submit():
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
+    mock_data_api(DATA)
     respx.post(f"{TXB}/v2/intents/tpsl-partial").mock(
         return_value=_ok(_vector_payload("TpSlReq"))
     )
@@ -103,6 +106,7 @@ async def test_offchain_partial_tpsl_submit():
 @respx.mock
 async def test_offchain_partial_tpsl_update_puts_to_document():
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
+    mock_data_api(DATA)
     respx.post(f"{TXB}/v2/intents/tpsl-partial").mock(
         return_value=_ok(_vector_payload("TpSlReq"))
     )
@@ -130,6 +134,7 @@ async def test_offchain_partial_tpsl_cancel_signs_document_id():
     from eth_account import Account
 
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
+    mock_data_api(DATA)
     respx.post(f"{TXB}/v2/intents/tpsl-partial").mock(
         return_value=_ok(_vector_payload("TpSlReq"))
     )
@@ -167,6 +172,7 @@ async def test_twap_open_posts_signed_intent_to_twap_app():
     """twap_open: tx-builder intent -> local sign -> POST {twap}/twaps/open
     with DTO conventions (pairIndex number, __reserved1 -> reserved1)."""
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
+    mock_data_api(DATA)
     respx.post(f"{TXB}/v2/intents/twap-open").mock(
         return_value=_ok(_vector_payload("TwapOpenOrder"))
     )
@@ -203,6 +209,7 @@ async def test_twap_open_posts_signed_intent_to_twap_app():
 @respx.mock
 async def test_twap_close_posts_signed_intent():
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
+    mock_data_api(DATA)
     respx.post(f"{TXB}/v2/intents/twap-close").mock(
         return_value=_ok(_vector_payload("TwapCloseOrder"))
     )
@@ -312,6 +319,7 @@ async def test_referral_direct_action_blocked_in_delegate_mode():
 @respx.mock
 async def test_direct_route_via_rpc():
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
+    mock_data_api(DATA)
     respx.post(f"{TXB}/v2/trade/open").mock(
         return_value=_ok(
             {

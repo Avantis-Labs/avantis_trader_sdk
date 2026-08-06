@@ -15,11 +15,13 @@ def tp_percent_to_price(
     leverage: float,
     is_long: bool,
     *,
-    is_pnl: bool = False,
+    is_upside: bool = False,
     pnl_fee_p: float = 0.0,
 ) -> float:
+    """``is_upside`` applies the Upside profit-share adjustment so the NET
+    profit hits the target percent."""
     add = base_price * (take_profit_percent / 100) / leverage
-    if is_pnl and pnl_fee_p < 100:
+    if is_upside and pnl_fee_p < 100:
         add = add / (100 - pnl_fee_p) * 100  # fee-adjusted so NET profit hits the target
     return base_price + add if is_long else base_price - add
 
@@ -30,12 +32,12 @@ def tp_price_to_percent(
     leverage: float,
     is_long: bool,
     *,
-    is_pnl: bool = False,
+    is_upside: bool = False,
     pnl_fee_p: float = 0.0,
 ) -> float:
     direction = 1 if is_long else -1
     profit_p = (tp_price - base_price) * direction / base_price * 100 * leverage
-    if is_pnl:
+    if is_upside:
         profit_p = profit_p * (100 - pnl_fee_p) / 100
     return profit_p
 
@@ -55,7 +57,7 @@ def sl_price_to_percent(
 
 
 def pnl_order_min_sl(leverage: float) -> float:
-    """Minimum SL % for ZFP (guaranteed-execution) orders — piecewise in leverage."""
+    """Minimum SL % for Upside (guaranteed-execution) orders — piecewise in leverage."""
     if leverage <= 10:
         return (leverage / 10) * 1.5
     if leverage <= 25:

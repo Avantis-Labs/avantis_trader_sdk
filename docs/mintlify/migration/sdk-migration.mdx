@@ -83,7 +83,7 @@ Every 0.x write was a `build_*_tx` + `sign_and_get_receipt` pair (plus a
 | 0.x | 2.x |
 | --- | --- |
 | `trade.build_trade_open_tx(TradeInput, MARKET, slippage)` | `trade.market_open(pair, side, collateral=, leverage=, ...)` |
-| `trade.build_trade_open_tx(TradeInput, MARKET_ZERO_FEE, ...)` | `trade.market_open(..., zero_fee=True)` |
+| `trade.build_trade_open_tx(TradeInput, MARKET_ZERO_FEE, ...)` | `trade.market_open(...)` on the Upside pair (e.g. `"BTC_UPSIDE"`) — the PnL order type routes from the pair, no flag |
 | `trade.build_trade_open_tx(TradeInput, LIMIT / STOP_LIMIT, ...)` | `trade.limit_open(...)` |
 | `trade.build_trade_close_tx(pair_index, trade_index, collateral_to_close, trader)` | `trade.market_close(pair, index, collateral_to_close=)` |
 | `trade.build_order_cancel_tx(...)` | `trade.cancel_limit_order(pair, index)` |
@@ -160,7 +160,7 @@ async with AsyncAvantis() as client:
     pos = positions.positions[0]
     await client.trade.market_close(
         pos.pair_index, pos.index,
-        collateral_to_close=float(pos.collateral), is_pnl=pos.is_pnl,
+        collateral_to_close=float(pos.collateral),
     )
 ```
 
