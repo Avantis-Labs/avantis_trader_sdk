@@ -17,7 +17,8 @@ Environment variables:
 - ``AVANTIS_TX_BUILDER_URL`` / ``AVANTIS_RELAYER_URL`` / ``AVANTIS_DATA_API_URL``
   / ``AVANTIS_CORE_API_URL`` / ``AVANTIS_TWAP_API_URL``
   / ``AVANTIS_BATCHED_MARKET_URL`` / ``AVANTIS_HISTORY_API_URL``
-  / ``AVANTIS_RISK_API_URL`` / ``AVANTIS_FEED_URL``   per-service overrides
+  / ``AVANTIS_RISK_API_URL`` / ``AVANTIS_RISK_V2_API_URL``
+  / ``AVANTIS_FEED_URL``   per-service overrides
 """
 
 from __future__ import annotations
@@ -41,6 +42,9 @@ class NetworkProfile:
     data_api_url: str
     history_api_url: str
     risk_api_url: str
+    # risk-engine v2 (spread-module): POST /spread + GET /orderbook/snapshots.
+    # Separate host from the legacy risk-engine until the mainnet cutover.
+    risk_v2_api_url: str
     feed_url: str
     # Centrally-routed services (avantis-cd services/infra-http-routes):
     # derived from api_base_url when left empty.
@@ -72,6 +76,8 @@ TESTNET = NetworkProfile(
     # risk-api-testnet.avantisfi.com is cluster-internal; -public is the
     # reachable ingress (avantis-cd/services/risk-engine/testnet-public).
     risk_api_url="https://risk-api-testnet-public.avantisfi.com",
+    # risk-engine-v2-api (avantis-cd/services/risk-engine-v2-api/testnet).
+    risk_v2_api_url="https://risk-api-v2-testnet.avantisfi.com",
     feed_url="https://feed-v3.avantisfi.com",
     pusher_key="f86bc7e9919fc938694a",
     pusher_cluster="mt1",
@@ -84,6 +90,11 @@ MAINNET = NetworkProfile(
     data_api_url="https://data.avantisfi.com",
     history_api_url="https://api.avantisfi.com",
     risk_api_url="https://risk-api.avantisfi.com",
+    # The v2 spread engine is not deployed on mainnet yet (avantis-cd only
+    # defines services/risk-engine-v2-api/testnet); at the v2 cutover it takes
+    # over risk-api.avantisfi.com. Until then POST /spread 404s on mainnet —
+    # use dynamic_spread() (legacy GET) there.
+    risk_v2_api_url="https://risk-api.avantisfi.com",
     feed_url="https://feed-v3.avantisfi.com",
 )
 
@@ -99,6 +110,7 @@ _ENV_URL_OVERRIDES = {
     "batched_market_url": "AVANTIS_BATCHED_MARKET_URL",
     "history_api_url": "AVANTIS_HISTORY_API_URL",
     "risk_api_url": "AVANTIS_RISK_API_URL",
+    "risk_v2_api_url": "AVANTIS_RISK_V2_API_URL",
     "feed_url": "AVANTIS_FEED_URL",
 }
 
@@ -128,6 +140,7 @@ class AvantisConfig:
     batched_market_url: str = ""
     history_api_url: str = ""
     risk_api_url: str = ""
+    risk_v2_api_url: str = ""
     feed_url: str = ""
     hermes_ws_url: str = ""
     pusher_key: str | None = None

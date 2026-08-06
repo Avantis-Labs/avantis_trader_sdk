@@ -1,4 +1,5 @@
-"""Blitz relayer client (`POST /relays`, `GET /relays/{requestId}`).
+"""Blitz relayer client (`POST /relays`, `GET /relays/{requestId}`,
+`GET /relays/by-tx-hash/{txHash}`).
 
 The blitz relayer (avantis-backend-monorepo src/blitz-relayer-app) is a pure
 transaction broadcaster: callers submit ready-to-broadcast ``txParams`` and it
@@ -73,6 +74,22 @@ class RelayerClient:
         )
         if resp.status_code == 404:
             raise RelayError(f"unknown relay {request_id}", request_id=request_id)
+        return self._parse_status(resp)
+
+    async def status_by_tx_hash(self, tx_hash: str) -> RelayStatus | None:
+        """Look up a relay by its broadcast transaction hash.
+
+        ``GET /relays/by-tx-hash/{txHash}``; returns None when the hash is not
+        known to the relayer (unknown hash answers 200 with a null body).
+        """
+        resp = await self._t.request(
+            "GET", f"{self._base}/relays/by-tx-hash/{tx_hash}", allow_404=True
+        )
+        if resp.status_code == 404 or not resp.content or resp.text.strip() in ("", "null"):
+            return None
+        return self._parse_status(resp)
+
+    def _parse_status(self, resp) -> RelayStatus:
         try:
             body = resp.json()
         except ValueError as exc:

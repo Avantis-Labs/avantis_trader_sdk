@@ -177,7 +177,7 @@ were RPC multicall fan-outs. In 2.x, one snapshot call carries the full
 | `pairs_cache.get_pairs_info()` / `get_pair_index(...)` | `markets.pairs()` / `markets.pair_index(...)` (or just pass the symbol) |
 | `snapshot.get_snapshot()` | `markets.snapshot()`: OI, caps, fees, funding, spreads, leverage envelopes, market hours per pair |
 | `asset_parameters.get_oi()` / `get_oi_limits()` / `get_utilization()` / `get_asset_skew()` | fields on `markets.snapshot()` pairs |
-| `asset_parameters.get_price_impact_spread()` / `get_skew_impact_spread()` / `get_opening_price_impact_spread()` | `markets.dynamic_spread(...)`; v2's spread model is flow-based and served by the risk API |
+| `asset_parameters.get_price_impact_spread()` / `get_skew_impact_spread()` / `get_opening_price_impact_spread()` | `markets.spread(...)` (risk engine v2; `markets.dynamic_spread(...)` on mainnet until the cutover); v2's spread model is flow-based and served by the risk API |
 | `category_parameters.*` / `blended.*` | group fields on `markets.snapshot()` |
 | `fee_parameters.get_new_trade_opening_fee(...)` | `compute.skew_adjusted_open_fee(...)` (plus `compute.maker_or_taker_fee_p(...)`; maker/taker is new in v2) |
 | `fee_parameters.get_margin_fee()` | margin-fee / funding fields on `markets.snapshot()` pairs |

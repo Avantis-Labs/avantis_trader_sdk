@@ -32,16 +32,24 @@ Everything comes from one `/v2/trading` snapshot, cached for 5 seconds (`snapsho
 
 The snapshot itself (`await client.markets.snapshot()`) carries protocol-wide state: `total_oi`, `max_open_interest`, `group_info`, `max_trades_per_pair`.
 
-## Dynamic spread
+## Spread
 
-Per-order spread from the risk engine, dependent on size, direction, and current skew:
+Per-order spread quote from the risk engine v2 — the same endpoint the Avantis web app uses. Size the request by coin exposure directly, or by `collateral` + `leverage` (converted at `wanted_price`, or the live price when omitted):
 
 ```python
-spread = await client.markets.dynamic_spread(
+spread = await client.markets.spread(
     "ETH/USD", collateral=1000, leverage=10, is_long=True,
 )
-print(spread["dynamicSpreadPct"], spread["metadata"])   # percent, descaled
+print(spread["spreadPct"], spread["spreadMechanism"])   # percent, descaled
 ```
+
+`spreadPct` is the quoted value (the with-flow estimate when the flow mechanism is active, otherwise the without-flow spread). A `404` means the engine matched a mechanism but could not compute a spread (for example a stale orderbook) — treat it as "do not execute", not as zero spread.
+
+<Note>
+The v2 spread engine is live on testnet. Mainnet serves the legacy engine until the v2 cutover — use `client.markets.dynamic_spread(...)` (same arguments, response key `dynamicSpreadPct`) there in the meantime.
+</Note>
+
+Related risk reads: `client.markets.open_interests()` (per-pair long/short OI including pending amounts) and `client.markets.orderbook_snapshots()` (cumulative bid/ask coin liquidity per orderbook source).
 
 ## Candles
 

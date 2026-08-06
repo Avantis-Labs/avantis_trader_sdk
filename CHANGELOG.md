@@ -45,6 +45,50 @@ Ground-up rewrite for Avantis v2. **Breaking: the 1.x API is removed.**
   (`int(0.0003 * 1e10)` truncates to `2999999`), so signed intents carry the
   exact raw values the caller specified.
 
+### Unreleased additions (2026-08-06) — risk-engine v2 spread API
+
+Backend/UI parity audit (backend monorepo, avantis-ui-v2, avantis-cd as of
+2026-08-06). TWAP, off-chain TP/SL, batched-market and blitz surfaces were
+confirmed unchanged; the one drift was the spread API, which the UI switched
+on 2026-07-30 (`d5eab0c0`).
+
+- **New `markets.spread()`** — the risk-engine v2 quote endpoint
+  (`POST {risk-v2}/spread`) that replaces the legacy dynamic-spread GET in
+  the v2 UI. Coin-sized request: pass `coin_size` directly or
+  `collateral` + `leverage` (converted via `wanted_price` or the live feed
+  price, matching the UI's `coinFromCollateral`). `order_type` uses the
+  risk-engine enum (market=0, limit=1 — also for stop-limit —, tp=2, sl=3,
+  liquidation=4; NOT the trade order-type enum). Anonymous quotes send the
+  zero address (`trader` is required and checksummed server-side). Response
+  adds descaled floats: `spreadPct` (quoted; with-flow when available),
+  `spreadPctWithoutFlow`, `estimatedSpreadPctWithFlow`, alongside the raw
+  `spreadMechanism` (SM001–SM006), `byPass` and `flowParams`. Error
+  semantics: 400 malformed, 403 blocked (roll/closed market/wallet), 404 =
+  no spread computable — "do not execute", never zero.
+- New config field `risk_v2_api_url` (`AVANTIS_RISK_V2_API_URL`): testnet
+  `https://risk-api-v2-testnet.avantisfi.com` (live); mainnet defaults to
+  `https://risk-api.avantisfi.com`, which the v2 engine takes over at the
+  cutover — until then mainnet still serves only the legacy engine, so
+  `markets.dynamic_spread()` (kept, docstring marked LEGACY) remains the
+  mainnet path.
+- **`markets.open_interests()`** — core `GET /v2/open-interests` (per-pair
+  long/short OI incl. pending amounts + market-maker breakdown).
+- **`markets.orderbook_snapshots()`** — risk-engine v2
+  `GET /orderbook/snapshots` (cumulative bid/ask coin liquidity per
+  pair/source with `ageMs` staleness).
+- **`RelayerClient.status_by_tx_hash()`** — blitz
+  `GET /relays/by-tx-hash/{txHash}` (added to blitz 2026-08); returns None
+  for unknown hashes.
+- Audit notes: the batched-market allow-list (10 order types), TWAP
+  open/close/cancel schemas (ms deadlines, runTime seconds, `reserved1`),
+  off-chain TP/SL CRUD and blitz `/relays` all match the SDK as-is. The old
+  `/v2/relay/queue` relayer was deleted server-side 2026-08-03 (the SDK
+  never used it). Central `{api_base}/...` path routing lives on the
+  unmerged `avantis-cd` `ft/central-routing` branch (applied to the cluster
+  out-of-band); per-service URL overrides keep working as the fallback.
+  New core `/v2-onboarding/*` invite/whitelist endpoints exist but were not
+  added (launch-window UI concern).
+
 ### Unreleased additions (2026-07-29) — batched-market eip7702 optional
 
 - **Batched-market `eip7702` leg is now optional** (relayer change to better

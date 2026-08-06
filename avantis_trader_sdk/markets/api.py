@@ -3,12 +3,40 @@
 from __future__ import annotations
 
 import time
+from decimal import Decimal
 from typing import Any
 
 from ..config import AvantisConfig
 from ..errors import ApiError
 from ..transport import HttpTransport
+from ..types import PRECISION_10, Num, to_api_num
 from .models import PairInfo, TradingSnapshot
+
+ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
+
+# risk-engine v2 spread OrderType enum (proto/risk-engine.proto). Note this is
+# NOT the trade OrderType enum: stop-limit maps onto LIMIT here (the UI sends
+# 1 for both limit flavors).
+SPREAD_ORDER_TYPES = {
+    "market": 0,
+    "limit": 1,
+    "stop_limit": 1,
+    "tp": 2,
+    "sl": 3,
+    "liquidation": 4,
+}
+
+
+def _to_raw10(value: Num) -> str:
+    """Human number -> 1e10 integer string via exact decimal arithmetic."""
+    return str(int(Decimal(to_api_num(value)) * PRECISION_10))
+
+
+def _from_raw10(value: Any) -> float | None:
+    try:
+        return float(Decimal(str(value)) / PRECISION_10)
+    except (TypeError, ValueError, ArithmeticError):
+        return None
 
 
 class MarketsApi:
@@ -67,6 +95,115 @@ class MarketsApi:
             "GET", f"{self._cfg.feed_url}/v2/pairs/{info.index}/price-update-data"
         )
 
+    async def spread(
+        self,
+        pair: str | int,
+        *,
+        is_long: bool,
+        coin_size: Num | None = None,
+        collateral: Num | None = None,
+        leverage: Num | None = None,
+        is_open: bool = True,
+        order_type: int | str = "market",
+        wanted_price: Num | None = None,
+        trader: str | None = None,
+    ) -> dict[str, Any]:
+        """Quoted spread from the risk-engine v2 spread API (``POST /spread``).
+
+        This replaces :meth:`dynamic_spread` (the legacy risk-engine, which the
+        v2 UI stopped calling in favor of this endpoint). The engine is sized
+        by COIN exposure: pass ``coin_size`` (base-asset units) directly, or
+        ``collateral`` + ``leverage`` and it is derived as
+        ``collateral * leverage / price`` (``wanted_price`` if given, else the
+        live feed price) — the same conversion the UI applies.
+
+        ``order_type`` is the risk-engine enum (``market``/``limit`` — also
+        used for stop-limit — /``tp``/``sl``/``liquidation``) or its int value.
+        ``wanted_price`` additionally feeds mechanism SM002; omit it to skip.
+
+        Returns the raw response plus descaled float percentages:
+        ``spreadPct`` (the quoted value: with-flow when available, else
+        without-flow), ``spreadPctWithoutFlow`` and
+        ``estimatedSpreadPctWithFlow``. Other fields: ``spreadMechanism``
+        (SM001-SM006), ``byPass``, ``flowParams``.
+
+        Error semantics (surfaced as :class:`ApiError`): 400 = malformed
+        request, 403 = spread blocked (roll window / closed market / wallet),
+        404 = mechanism matched but no spread computable — treat as
+        "do not execute", never as zero spread.
+
+        Deployment note: live on testnet (risk-api-v2-testnet); mainnet still
+        serves the legacy engine until the v2 cutover, so use
+        :meth:`dynamic_spread` there in the meantime.
+        """
+        info = await self.pair(pair)
+
+        if coin_size is None:
+            if collateral is None or leverage is None:
+                raise ApiError("spread() needs coin_size or collateral+leverage")
+            ref_price = (
+                Decimal(to_api_num(wanted_price))
+                if wanted_price is not None
+                else Decimal(repr(await self.price(info.index)))
+            )
+            if ref_price <= 0:
+                raise ApiError(f"no reference price for pair {info.symbol}")
+            coin_size = (
+                Decimal(to_api_num(collateral)) * Decimal(to_api_num(leverage)) / ref_price
+            )
+
+        if isinstance(order_type, str):
+            try:
+                order_type_int = SPREAD_ORDER_TYPES[order_type.lower()]
+            except KeyError:
+                raise ApiError(
+                    f"unknown spread order_type {order_type!r}; "
+                    f"use one of {sorted(SPREAD_ORDER_TYPES)}"
+                ) from None
+        else:
+            order_type_int = int(order_type)
+
+        body: dict[str, Any] = {
+            "pairIndex": info.index,
+            # trader is required (checksummed); the zero address matches the
+            # UI's anonymous-quote fallback.
+            "trader": trader or ZERO_ADDRESS,
+            "coinSize10": _to_raw10(coin_size),
+            "isLong": is_long,
+            "isOpen": is_open,
+            "orderType": order_type_int,
+        }
+        if wanted_price is not None:
+            body["wantedPrice10"] = _to_raw10(wanted_price)
+
+        data = await self._t.json(
+            "POST", f"{self._cfg.risk_v2_api_url}/spread", json=body
+        )
+
+        out = dict(data)
+        without_flow = _from_raw10(out.get("spreadPctWithoutFlow10"))
+        with_flow = _from_raw10(out.get("estimatedSpreadPctWithFlow10"))
+        out["spreadPctWithoutFlow"] = without_flow
+        out["estimatedSpreadPctWithFlow"] = with_flow
+        quoted = with_flow if with_flow is not None else without_flow
+        out["spreadPct"] = quoted if quoted is not None else 0.0
+        return out
+
+    async def open_interests(self) -> dict[str, Any]:
+        """Live per-pair long/short OI incl. pending amounts and the
+        market-maker breakdown (core ``GET /v2/open-interests``)."""
+        return await self._t.json(
+            "GET", f"{self._cfg.core_api_url}/v2/open-interests"
+        )
+
+    async def orderbook_snapshots(self) -> Any:
+        """Cumulative bid/ask coin liquidity per pair and orderbook source
+        (risk-engine v2 ``GET /orderbook/snapshots``); ``ageMs`` flags
+        staleness."""
+        return await self._t.json(
+            "GET", f"{self._cfg.risk_v2_api_url}/orderbook/snapshots"
+        )
+
     async def dynamic_spread(
         self,
         pair: str | int,
@@ -77,7 +214,11 @@ class MarketsApi:
         is_pnl: bool = False,
         trader: str | None = None,
     ) -> dict[str, Any]:
-        """Risk-API dynamic spread (percent) + component breakdown."""
+        """LEGACY risk-engine dynamic spread (``GET /v2/dynamic-spread``).
+
+        Still what mainnet risk-api.avantisfi.com serves; superseded by
+        :meth:`spread` (risk-engine v2) which the v2 UI uses on testnet.
+        """
         info = await self.pair(pair)
         precision = 18
         params: dict[str, Any] = {
