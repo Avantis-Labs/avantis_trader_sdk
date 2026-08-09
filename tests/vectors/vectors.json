@@ -278,10 +278,10 @@
     {
       "kind": "CancelOffchainOrder",
       "message": {
-        "documentId": "665f1c2ab7a1b2c3d4e5f601"
+        "entityId": "665f1c2ab7a1b2c3d4e5f601"
       },
-      "structHash": "0x0641c7083f738c2416da53b3e078bc304c0d780f3cd406268f98586a026658b9",
-      "digest": "0x81123bf757a547f9c586221588327bc42dca0c50dd1807ed5f655f87eebb011f"
+      "structHash": "0x91bbbed16a9f988f07b74cca032a9e3ebb893658bdfa406d9481a7e537f57fd5",
+      "digest": "0x891eadb563e50c65b2603143534dc011f81a0f5fd4c3d93478929f4245c0b9da"
     }
   ]
 }

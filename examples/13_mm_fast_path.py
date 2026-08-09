@@ -16,9 +16,9 @@ seq-resumable poll).
 Beyond ``open_trade``/``close_trade`` the builder covers the whole intent
 surface: ``open_trade_coin``/``close_trade_coin`` (coin-sized, pair with
 AggregatorOrderType.*_WITH_COIN_EXPOSURE), ``increase_position[_coin]``,
-``update_tp_sl`` (fully local: no calldata leg, settles via
-``engine.relayer.wait(request_id)``), ``partial_tp_sl`` (stored off-chain,
-not relayed), ``twap_open``/``twap_close``/``twap_cancel``,
+``update_tp_sl`` and ``partial_tp_sl`` (both submitted to the core API
+/price-triggers endpoint — what ``trade.update_tp_sl`` / ``partial_tp_sl``
+do — not to batched-market), ``twap_open``/``twap_close``/``twap_cancel``,
 ``cancel_offchain_order``, ``delegate_req``, and the referral intents.
 Prices are always caller-supplied; there is no feed lookup locally.
 """

@@ -322,9 +322,9 @@ def test_cancel_offchain_order_helper_matches_golden_digest():
         v for v in VECTORS["vectors"] if v["kind"] == "CancelOffchainOrder"
     )
     payload = _builder().cancel_offchain_order(
-        document_id="665f1c2ab7a1b2c3d4e5f601"
+        entity_id="665f1c2ab7a1b2c3d4e5f601"
     )
-    assert payload.message == {"documentId": "665f1c2ab7a1b2c3d4e5f601"}
+    assert payload.message == {"entityId": "665f1c2ab7a1b2c3d4e5f601"}
     assert payload.digest == vector["digest"]
 
 

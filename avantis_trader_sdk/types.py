@@ -106,31 +106,25 @@ class AggregatorOrderType(IntEnum):
     MARKET_CLOSE_PNL_WITH_COIN_EXPOSURE = 16
 
 
-class RelayAction(str, Enum):
-    TX_RELAY = "TX_RELAY"
-    BATCH_MARKET_EXECUTION = "BATCH_MARKET_EXECUTION"
-    BATCH_POSITION_UPDATE = "BATCH_POSITION_UPDATE"
-
-
-# Intent kind -> relayer batch action. Only intents the operator relayer's
-# batch endpoints actually consume are listed; TWAP/RFQ initiation and
-# partial TP/SL storage use different transports (twap-app intents /
-# core-API offchain orders), and delegate/referral sigs are relayed as
-# *WithSig calldata.
-INTENT_BATCH_ACTION: dict[str, RelayAction] = {
-    "OpenTradeReq": RelayAction.BATCH_MARKET_EXECUTION,
-    "OpenTradeCoinExposureReq": RelayAction.BATCH_MARKET_EXECUTION,
-    "CloseTradeReq": RelayAction.BATCH_MARKET_EXECUTION,
-    "CloseTradeCoinExposureReq": RelayAction.BATCH_MARKET_EXECUTION,
-    "IncreasePositionSizeReq": RelayAction.BATCH_POSITION_UPDATE,
-    "IncreasePositionSizeWithCoinExposureReq": RelayAction.BATCH_POSITION_UPDATE,
-    "UpdateTpSlReq": RelayAction.BATCH_POSITION_UPDATE,
-}
+# Intent kinds the batched-market endpoint consumes. TWAP/RFQ initiation and
+# TP/SL use different transports (twap-app intents / core-API price-triggers),
+# and delegate/referral sigs are relayed as *WithSig calldata.
+BATCHED_MARKET_INTENT_KINDS: frozenset[str] = frozenset(
+    {
+        "OpenTradeReq",
+        "OpenTradeCoinExposureReq",
+        "CloseTradeReq",
+        "CloseTradeCoinExposureReq",
+        "IncreasePositionSizeReq",
+        "IncreasePositionSizeWithCoinExposureReq",
+    }
+)
 
 # The batched-market endpoint's allow-list (avantis-backend-monorepo
 # src/market-app/batched-market/batched-order-types.ts). Membership routes an
-# intent to POST /market/execute-batched; anything else (UPDATE_SL) stays on
-# the blitz type-2 relay.
+# intent to POST /market/execute-batched. UPDATE_SL is not relayed by the SDK
+# at all anymore — global TP/SL goes through the core API price-triggers
+# endpoint (TradeApi.update_tp_sl).
 BATCHED_MARKET_ORDER_TYPES: frozenset[AggregatorOrderType] = frozenset(
     {
         AggregatorOrderType.MARKET_OPEN,
@@ -226,7 +220,7 @@ class ExecutionReceipt(BaseModel):
 
     route: Literal[
         "batched-market",
-        "relayer-batch",
+        "price-triggers",
         "relayer-passthrough",
         "twap-api",
         "rpc",

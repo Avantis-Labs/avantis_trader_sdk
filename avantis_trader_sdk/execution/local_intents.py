@@ -455,8 +455,8 @@ class LocalIntentBuilder:
         trader: str,
         pair_index: int,
         index: int,
-        tp: float = 0,
-        sl: float = 0,
+        tp: float | str | Decimal = 0,
+        sl: float | str | Decimal = 0,
         nonce: int | None = None,
         deadline_ms: int | None = None,
     ) -> IntentPayload:
@@ -491,7 +491,7 @@ class LocalIntentBuilder:
 
         NO deadline by design — freshness comes from ``signTimestamp`` (ms,
         must not be in the future). The signed order is stored OFF-CHAIN via
-        the core API /offchain-orders; building/signing alone does nothing.
+        the core API /price-triggers; building/signing alone does nothing.
         """
         if trigger not in _TRIGGER_TYPE_CODES:
             raise ValueError(f"trigger must be one of {sorted(_TRIGGER_TYPE_CODES)}")
@@ -591,11 +591,11 @@ class LocalIntentBuilder:
         }
         return self.build("TwapCancelReq", message)
 
-    def cancel_offchain_order(self, *, document_id: str) -> IntentPayload:
-        """Delete proof for a stored partial TP/SL: signs the order's Mongo
-        ``documentId`` (from the create response / a position's
-        ``offchainOrders``). Off-chain only — never submitted to a contract."""
-        return self.build("CancelOffchainOrder", {"documentId": document_id})
+    def cancel_offchain_order(self, *, entity_id: str) -> IntentPayload:
+        """Delete proof for a stored partial TP/SL: signs the order's
+        ``entityId`` (from the create response / a position's
+        ``priceTriggers``). Off-chain only — never submitted to a contract."""
+        return self.build("CancelOffchainOrder", {"entityId": entity_id})
 
     def delegate_req(
         self,

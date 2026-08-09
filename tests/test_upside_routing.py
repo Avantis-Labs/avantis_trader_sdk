@@ -334,7 +334,7 @@ def _position_payload(**overrides) -> dict:
         "openedAt": 1782374525,
         "priceTriggers": [
             {
-                "documentId": f"global-tp-{TRADER}-116-0",
+                "entityId": f"global-tp-{TRADER}-116-0",
                 "trader": TRADER,
                 "pairIndex": 116,
                 "index": 0,
@@ -351,6 +351,8 @@ def _position_payload(**overrides) -> dict:
                 "isGlobal": True,
             },
             {
+                # Old wire name: pre-/price-triggers deployments send
+                # documentId. Parsing it proves the back-compat alias.
                 "documentId": "665f1c2ab7a1b2c3d4e5f601",
                 "trader": TRADER,
                 "pairIndex": 116,
@@ -368,7 +370,6 @@ def _position_payload(**overrides) -> dict:
                 "isGlobal": False,
             },
         ],
-        "offchainOrders": [],
     }
     payload.update(overrides)
     return payload
@@ -381,13 +382,15 @@ def test_position_parses_price_triggers_and_is_upside():
 
     (glob,) = pos.global_triggers
     assert glob.is_global and glob.kind == "tp"
-    assert glob.document_id.startswith("global-tp-")
+    assert glob.entity_id.startswith("global-tp-")
     assert float(glob.price) == pytest.approx(60000.0)
     assert float(glob.coin_size) == pytest.approx(2.0)
 
     (partial,) = pos.partial_triggers
     assert not partial.is_global and partial.kind == "partial_tp"
-    assert partial.document_id == "665f1c2ab7a1b2c3d4e5f601"
+    # Fed via the legacy `documentId` wire name — the validation alias maps it.
+    assert partial.entity_id == "665f1c2ab7a1b2c3d4e5f601"
+    assert partial.document_id == partial.entity_id  # deprecated property
     assert float(partial.final_trigger_price) == pytest.approx(58000.0)
 
 
@@ -412,12 +415,12 @@ async def test_positions_strip_upside_suffix_from_base_symbol():
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_global_trigger_ids_rejected_by_offchain_crud():
-    """Synthetic global-tp-*/global-sl-* documentIds (priceTriggers isGlobal
-    entries) must not reach the offchain-orders CRUD."""
+async def test_global_trigger_ids_rejected_by_partial_crud():
+    """Synthetic global-tp-*/global-sl-* entityIds (priceTriggers isGlobal
+    entries) must not reach the partial-order CRUD (/price-triggers)."""
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
     mock_data_api(DATA)
-    delete_route = respx.delete(f"{CORE}/offchain-orders").mock(
+    delete_route = respx.delete(f"{CORE}/price-triggers").mock(
         return_value=httpx.Response(200, json={})
     )
 
@@ -426,6 +429,9 @@ async def test_global_trigger_ids_rejected_by_offchain_crud():
         with pytest.raises(ValidationError, match="update_tp_sl") as exc:
             await client.trade.cancel_partial_tp_sl(global_id)
         assert exc.value.code == "GLOBAL_TRIGGER_ID"
+
+        with pytest.raises(ValidationError, match="update_tp_sl"):
+            await client.trade.cancel_partial_tp_sl({"entityId": global_id})
 
         with pytest.raises(ValidationError, match="update_tp_sl"):
             await client.trade.cancel_partial_tp_sl({"documentId": global_id})

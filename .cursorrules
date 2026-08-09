@@ -6,8 +6,10 @@ Official Python SDK for Avantis v2 - perpetuals on Base (8453). API-first
 the SDK signs locally and submits via the Avantis relayer (default, gasless)
 or the user's own RPC (direct mode).
 
-Deep reference docs live in docs/v2/RESEARCH.md (endpoints, units, formulas,
-gotchas) and docs/v2/PROGRESS.md (state + discoveries). Read them first.
+User-facing docs live in docs/mintlify/ (source of truth; mirrored to the
+avantis-python-sdk repo — see docs/mintlify/README.md for the sync). For
+endpoint/unit/gotcha details, the docstrings in the modules below are the
+reference.
 
 ## Core Patterns
 
@@ -34,11 +36,13 @@ Service URLs derive from api_base_url (prod-api/staging-api.avantisfi.com):
   POST /market/execute-batched with a signed EIP-712 intent + an OPTIONAL
   pre-signed EIP-7702 type-4 tx (high-level flows send both for the
   server-side mechanism switch; intent-only is the MM fast path); lifecycle
-  streamed back as SSE, replayable via GET /tracking-id/{id}/status
-  (execution/batched_market.py)
-- relayer mode + UPDATE_SL -> SDK encodes executePositionUpdateBatched
-  locally (price update from feed-v3, zeroed spread params, 2.5M gas)
-  -> blitz type-2 relay to the TradingRouter
+  streamed back as SSE (incl. non-terminal AttemptFailed events; Error
+  payloads carry a machine `code`), replayable via
+  GET /tracking-id/{id}/status (execution/batched_market.py)
+- global TP/SL (UpdateTpSlReq) -> signed intent PUT to the core API
+  /price-triggers/global-{tp|sl}-{trader}-{pair}-{index} (userIntent +
+  signedMessage); the backend executes executePositionUpdateBatched itself.
+  Same path in relayer AND direct mode (no public contract entry point).
 - relayer mode + everything else -> type-4 passthrough via blitz (SDK-built
   EIP-7702 smart-account tx via eip7702/account.py)
 - TWAP open/close/cancel -> signed intents POSTed to the twap-app API
@@ -58,10 +62,12 @@ Service URLs derive from api_base_url (prod-api/staging-api.avantisfi.com):
 5. Human units at the API boundary (100 = 100 USDC); send numbers as strings.
 6. Referral/approve/claims/LP are msg.sender-scoped: blocked in delegate mode
    (delegatable=False guard in base_api.py).
-7. TP/SL update is intent-only in v2; partial TP/SL is stored OFF-CHAIN via
-   core API /offchain-orders.
+7. TP/SL update is intent-only in v2; both global and partial TP/SL go
+   through core API /price-triggers (ids are `entityId`; partial updates
+   mint a NEW entityId, global ids are deterministic and stable).
 
 ## When Modifying
 - Keep methods async; pydantic v2 models; typed errors from errors.py.
-- Add an example for new features; update CHANGELOG.md and docs/v2/PROGRESS.md.
+- Add an example for new features; update CHANGELOG.md and docs/mintlify/
+  (then re-sync the avantis-python-sdk mirror).
 - Run: pytest && ruff check --fix && mypy avantis_trader_sdk

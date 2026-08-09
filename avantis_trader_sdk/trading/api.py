@@ -23,9 +23,10 @@ import asyncio
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from ..account.models import Position, UserData
 from ..base_api import ExecutingApi
 from ..config import AvantisConfig
-from ..errors import ConfigError, ValidationError
+from ..errors import ConfigError, RelayTimeoutError, ValidationError
 from ..execution import ExecutionEngine
 from ..execution.local_intents import LocalIntentBuilder
 from ..markets.models import PairInfo
@@ -41,6 +42,7 @@ from ..types import (
     OrderType,
     Side,
     TriggerType,
+    from_1e10,
 )
 
 PairRef = str | int
@@ -77,11 +79,10 @@ class TradeApi(ExecutingApi):
             )
 
     async def _local_intents(self) -> LocalIntentBuilder:
-        """Local builder for the off-chain-verified intents (TwapCancelReq,
-        CancelOffchainOrder). The tx-builder also serves these
-        (/v2/intents/twap-cancel, /v2/intents/offchain-cancel — digest-equal
-        by golden vectors); building locally just skips the round-trip since
-        neither needs any chain state."""
+        """Local builder for intents that need no chain state
+        (CancelOffchainOrder, TwapCancelReq, UpdateTpSlReq): the schema comes
+        from ``intents_schema`` (golden-vector proven), so building locally
+        skips a tx-builder round-trip."""
         if self._local is None:
             self._local = LocalIntentBuilder(
                 await self._engine.chain_id(), await self._engine.trading_router()
@@ -470,6 +471,26 @@ class TradeApi(ExecutingApi):
             await self._calldata("/v2/position/increase-coin", params), wait=wait
         )
 
+    async def _fetch_position(self, pair_index: int, trade_index: int) -> Position:
+        """The open position at (trader, pairIndex, index) from the core API,
+        or a 404-flavored ValidationError (mirrors the backend's global
+        price-trigger path, which rejects mutations on unknown positions)."""
+        assert self._t is not None
+        data = await self._t.json(
+            "GET",
+            f"{self._cfg.core_api_url}/user-data",
+            params={"trader": self.trader},
+        )
+        position = UserData.model_validate(data).position(pair_index, trade_index)
+        if position is None:
+            raise ValidationError(
+                f"no open position for {self.trader} at pairIndex={pair_index} "
+                f"index={trade_index}",
+                code="NO_POSITION",
+                status=404,
+            )
+        return position
+
     async def update_tp_sl(
         self,
         pair: PairRef,
@@ -479,27 +500,111 @@ class TradeApi(ExecutingApi):
         stop_loss: Num | None = None,
         wait: bool = True,
     ) -> ExecutionReceipt:
-        """Update the GLOBAL (on-chain) TP/SL on an open position. 0 removes
-        the level.
+        """Update the GLOBAL (on-chain) TP/SL on an open position.
 
-        v2 removed the public updateTpAndSl entry point — this signs an
-        EIP-712 ``UpdateTpSlReq`` executed by the Avantis operator
-        (executePositionUpdateBatched), so it always goes through the relayer,
-        even in direct mode. These levels surface on positions as the
-        ``priceTriggers`` entries flagged ``isGlobal`` (synthetic
-        ``global-tp-*`` / ``global-sl-*`` ids). For partial/off-chain
-        triggers use :meth:`partial_tp_sl`.
+        ``None`` keeps a leg unchanged (its current value is copied from the
+        position — the signed intent always carries both legs); ``0`` clears
+        a leg. ``stop_loss=0`` truly removes the SL. A position always has a
+        TP on-chain, so ``take_profit=0`` RESETS it to the pair's max-gain
+        cap (``maxGainP``, typically +2500%) rather than removing it.
+
+        v2 has no public updateTpAndSl entry point — this signs an EIP-712
+        ``UpdateTpSlReq`` and submits it to the core API price-triggers
+        endpoint (``PUT /price-triggers/global-...``), which verifies it and
+        executes ``executePositionUpdateBatched(UPDATE_SL, ...)`` through the
+        Avantis operator. Same path in relayer and direct mode. A 2xx means
+        ACCEPTED for execution, not mined: with ``wait=True`` the SDK polls
+        the position until the new levels are visible on ``/user-data``.
+
+        These levels surface on positions as the ``priceTriggers`` entries
+        flagged ``isGlobal`` (deterministic ``global-tp-*`` / ``global-sl-*``
+        entity ids). For partial/off-chain triggers use
+        :meth:`partial_tp_sl`.
         """
-        params: dict[str, Any] = {
-            "pairIndex": (await self._resolve_pair(pair)).index,
-            "trader": self.trader,
-            "tradeIndex": trade_index,
-            "takeProfit": take_profit,
-            "stopLoss": stop_loss,
-        }
-        intent = await self._txb.intent("/v2/intents/tpsl-update", **params)
-        return await self._engine.submit_intent_batch(
-            intent, AggregatorOrderType.UPDATE_SL, wait=wait
+        if take_profit is None and stop_loss is None:
+            raise ValidationError(
+                "update_tp_sl needs take_profit and/or stop_loss",
+                code="NOTHING_TO_UPDATE",
+            )
+        signer = self._engine.signer
+        if signer is None:
+            raise ConfigError("update_tp_sl requires a signing key")
+        info = await self._resolve_pair(pair)
+        position = await self._fetch_position(info.index, trade_index)
+
+        builder = await self._local_intents()
+        intent = builder.update_tp_sl(
+            trader=self.trader,
+            pair_index=info.index,
+            index=trade_index,
+            tp=take_profit if take_profit is not None else from_1e10(position.tp_raw),
+            sl=stop_loss if stop_loss is not None else from_1e10(position.sl_raw),
+        )
+        signed = sign_intent(intent, signer)
+
+        # Either leg's synthetic id addresses the same position; the backend
+        # routes on the id shape and validates trader/pair/index against the
+        # signed intent. Use the leg being changed for readability.
+        kind = "tp" if take_profit is not None else "sl"
+        entity_id = f"global-{kind}-{position.trader}-{info.index}-{trade_index}"
+        assert self._t is not None
+        response = await self._t.json(
+            "PUT",
+            f"{self._cfg.core_api_url}/price-triggers/{entity_id}",
+            json={
+                "userIntent": intent.encoded_intent,
+                "signedMessage": signed.signature,
+            },
+        )
+        receipt = ExecutionReceipt(
+            route="price-triggers",
+            description=intent.intent,
+            raw=response if isinstance(response, dict) else None,
+        )
+        if wait:
+            await self._wait_for_tp_sl_change(
+                info.index,
+                trade_index,
+                before=(position.tp_raw, position.sl_raw),
+                expected=(str(intent.message["_newTp"]), str(intent.message["_newSl"])),
+            )
+        return receipt
+
+    async def _wait_for_tp_sl_change(
+        self,
+        pair_index: int,
+        trade_index: int,
+        *,
+        before: tuple[str, str],
+        expected: tuple[str, str],
+    ) -> None:
+        """Poll /user-data until the position's (tp, sl) match the accepted
+        update. ``take_profit=0`` is contract-corrected to the max-gain price
+        (PairStorage.correctTp), so an exact match cannot be required for a
+        zero TP leg — any change from the pre-update snapshot settles it too.
+
+        One reset case is unobservable: signing ``_newTp = 0`` when the TP
+        already sits at the corrected default re-stores the same value, so
+        nothing on /user-data changes. If the timeout expires with every
+        OTHER leg confirmed and only a zero-TP leg pending, the update is
+        treated as settled instead of raising."""
+        sl_ok = False
+        deadline = asyncio.get_event_loop().time() + self._cfg.relay_poll_timeout_s
+        while asyncio.get_event_loop().time() < deadline:
+            position = await self._fetch_position(pair_index, trade_index)
+            now = (position.tp_raw, position.sl_raw)
+            tp_ok = now[0] == expected[0] or (expected[0] == "0" and now[0] != before[0])
+            sl_ok = now[1] == expected[1]
+            if tp_ok and sl_ok:
+                return
+            await asyncio.sleep(self._cfg.relay_poll_interval_s)
+        if sl_ok and expected[0] == "0":
+            return  # zero-TP reset with no observable change (see docstring)
+        raise RelayTimeoutError(
+            f"TP/SL update accepted but not visible on the position after "
+            f"{self._cfg.relay_poll_timeout_s:.0f}s (pairIndex={pair_index} "
+            f"index={trade_index}). It may still execute — re-check "
+            "account.positions()."
         )
 
     async def _partial_tp_sl_submission(
@@ -571,9 +676,9 @@ class TradeApi(ExecutingApi):
 
         Signs a TpSlReq intent (no deadline by design; freshness comes from
         signTimestamp) and stores it with the Avantis operator via
-        ``POST {core}/offchain-orders``. The operator executes it on-chain
+        ``POST {core}/price-triggers``. The operator executes it on-chain
         when the trigger price hits. Returns the stored order — keep its
-        ``documentId`` to update or cancel later.
+        ``entityId`` to update or cancel later.
         """
         submission = await self._partial_tp_sl_submission(
             pair,
@@ -588,30 +693,32 @@ class TradeApi(ExecutingApi):
         )
         assert self._t is not None
         stored = await self._t.json(
-            "POST", f"{self._cfg.core_api_url}/offchain-orders", json=submission
+            "POST", f"{self._cfg.core_api_url}/price-triggers", json=submission
         )
-        # The response is the persisted order (carries documentId); merge it
+        # The response is the persisted order (carries entityId); merge it
         # over the submission so callers keep the signed fields too.
         return {**submission, **(stored if isinstance(stored, dict) else {})}
 
     @staticmethod
-    def _require_offchain_document_id(document_id: str, what: str) -> None:
+    def _require_partial_entity_id(entity_id: str, what: str) -> None:
         """Positions' ``priceTriggers`` mix off-chain orders with synthetic
         global entries (``global-tp-*`` / ``global-sl-*``, ``isGlobal`` true).
-        The global ones live on-chain and have no off-chain document — they
-        are managed via :meth:`update_tp_sl`, not the off-chain CRUD."""
-        if str(document_id).startswith("global-"):
+        The global ones live on-chain — manage them with
+        :meth:`update_tp_sl` (``take_profit=0`` resets the TP,
+        ``stop_loss=0`` removes the SL), not the partial-order CRUD."""
+        if str(entity_id).startswith("global-"):
             raise ValidationError(
-                f"{what}: {document_id!r} is a synthetic id for the position's "
+                f"{what}: {entity_id!r} is the synthetic id of the position's "
                 "global on-chain TP/SL (priceTriggers entry with isGlobal). "
-                "Change or remove it with update_tp_sl(); the off-chain order "
-                "CRUD only accepts real documentIds.",
+                "Change or remove it with update_tp_sl() — e.g. stop_loss=0 "
+                "removes the SL; the partial-order CRUD only accepts stored "
+                "order entityIds.",
                 code="GLOBAL_TRIGGER_ID",
             )
 
     async def update_partial_tp_sl(
         self,
-        document_id: str,
+        entity_id: str,
         pair: PairRef,
         trade_index: int,
         *,
@@ -625,13 +732,17 @@ class TradeApi(ExecutingApi):
     ) -> dict[str, Any]:
         """Replace a stored partial TP/SL order in place (atomic edit).
 
-        ``document_id`` comes from the create response / a position's
+        ``entity_id`` comes from the create response / a position's
         ``price_triggers`` (entries with ``is_global`` False). The
         replacement is a freshly signed TpSlReq — pass the FULL new order,
         not a diff. Ownership is enforced from the signature; per-position
         caps are not re-checked (1:1 replace).
+
+        The backend deletes the old order and stores the replacement
+        atomically, minting a NEW id: the returned dict's ``entityId`` is the
+        replacement's id — adopt it, the old one is gone.
         """
-        self._require_offchain_document_id(document_id, "update_partial_tp_sl")
+        self._require_partial_entity_id(entity_id, "update_partial_tp_sl")
         submission = await self._partial_tp_sl_submission(
             pair,
             trade_index,
@@ -644,42 +755,48 @@ class TradeApi(ExecutingApi):
             open_timestamp=open_timestamp,
         )
         assert self._t is not None
-        stored = await self._t.json(
+        response = await self._t.json(
             "PUT",
-            f"{self._cfg.core_api_url}/offchain-orders/{document_id}",
+            f"{self._cfg.core_api_url}/price-triggers/{entity_id}",
             json=submission,
         )
-        return {**submission, **(stored if isinstance(stored, dict) else {})}
+        # Mutation response: {success, result: {oldEntityId, newEntityId}}.
+        result = response.get("result") if isinstance(response, dict) else None
+        new_id = (result or {}).get("newEntityId") or entity_id
+        return {**submission, "entityId": new_id, "oldEntityId": entity_id}
 
     async def cancel_partial_tp_sl(self, order: dict[str, Any] | str) -> None:
         """Cancel a stored partial TP/SL trigger order.
 
         ``order`` is the dict returned by :meth:`partial_tp_sl` / an entry
         from a position's ``price_triggers`` with ``is_global`` False (must
-        carry ``documentId``), or the ``documentId`` string itself. Global
+        carry ``entityId``), or the ``entityId`` string itself. Global
         (on-chain) triggers cannot be cancelled here — use
         :meth:`update_tp_sl` with 0. Ownership proof is an EIP-712
-        ``CancelOffchainOrder`` signature over the documentId; the trader or
+        ``CancelOffchainOrder`` signature over the entityId; the trader or
         an active delegate may sign.
         """
-        document_id = order if isinstance(order, str) else order.get("documentId")
-        if not document_id:
+        if isinstance(order, str):
+            entity_id: Any = order
+        else:
+            entity_id = order.get("entityId") or order.get("documentId")
+        if not entity_id:
             raise ConfigError(
-                "cancel_partial_tp_sl needs the order's documentId (returned by "
+                "cancel_partial_tp_sl needs the order's entityId (returned by "
                 "partial_tp_sl and on positions' priceTriggers entries)."
             )
-        self._require_offchain_document_id(str(document_id), "cancel_partial_tp_sl")
+        self._require_partial_entity_id(str(entity_id), "cancel_partial_tp_sl")
         signer = self._engine.signer
         if signer is None:
             raise ConfigError("cancel_partial_tp_sl requires a signing key")
         builder = await self._local_intents()
-        intent = builder.cancel_offchain_order(document_id=str(document_id))
+        intent = builder.cancel_offchain_order(entity_id=str(entity_id))
         signed = sign_intent(intent, signer)
         assert self._t is not None
         await self._t.json(
             "DELETE",
-            f"{self._cfg.core_api_url}/offchain-orders",
-            json={"documentId": str(document_id), "signedMessage": signed.signature},
+            f"{self._cfg.core_api_url}/price-triggers",
+            json={"entityId": str(entity_id), "signedMessage": signed.signature},
         )
 
     # ------------------------------------------------------------------ TWAP / RFQ

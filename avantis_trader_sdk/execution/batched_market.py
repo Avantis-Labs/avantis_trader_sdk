@@ -18,8 +18,9 @@ fast path with zero extra round-trips):
                    "gas": "2500000", "authorizationList": [...] }   # optional
     }
 
-Stream: ``MarketOrderAccepted`` (seq 0, carries trackingId) -> one initiation
-event (``MarketOrderInitiated`` for opens/closes, ``IncreasePositionRequested``
+Stream: ``MarketOrderAccepted`` (seq 0, carries trackingId) -> zero or more
+non-terminal ``AttemptFailed`` events -> one initiation event
+(``MarketOrderInitiated`` for opens/closes, ``IncreasePositionRequested``
 for increases) -> exactly one terminal event (``MarketOrderExecuted`` /
 ``PositionSizeIncreased`` on success; ``MarketOrderCanceled`` when the protocol
 declined the fill, e.g. slippage; ``Error``). The success terminals carry the
@@ -35,11 +36,26 @@ prices/leverage). Keep-alives are SSE comments
 ``GET /tracking-id/{trackingId}/status?afterSeq={lastSeenSeq}`` — every event
 is persisted with its seq, so the replay is complete.
 
-Transport-only quirk: the server's stream-expiry / enqueue-failure ``Error``
-events are written without an ``id:`` line (they are not persisted). An
-``Error`` WITHOUT a seq therefore means "stream view timed out — the order may
-still execute", and this client falls back to status polling; an ``Error``
-WITH a seq is a real terminal failure.
+``AttemptFailed`` (non-terminal, persisted with a seq) reports one execution
+attempt that hit a retryable condition — payload
+``{attempt, code, message, willRetry}`` — while the backend keeps working the
+request. Unknown event types MUST be ignored (the server adds non-terminal
+types without a version bump), which this client does by matching terminals
+against an allow-list.
+
+``AttemptFailed`` and ``Error`` payloads carry a machine-readable ``code``
+next to the human ``message``: a bare Avantis contract error name
+(``WrongSl``, ``HighSlippage``) when the failure decoded to a revert, or a
+synthetic backend code (``NO_PRICE``, ``SPREAD_BLOCKED``,
+``SPREAD_UNAVAILABLE``, ``SUBMISSION_FAILED``, ``ATTEMPTS_EXHAUSTED``,
+``TX_NOT_EXECUTED``, ``STREAM_TIMEOUT``, ``ENQUEUE_FAILED``, plus
+``RELAY_FAILED`` / ``TX_REVERTED`` / ``RELAY_TIMEOUT`` in 7702 mode).
+
+``code == "STREAM_TIMEOUT"`` is the one ``Error`` that is NOT the request's
+outcome — only this connection's view of it timed out (the server also emits
+it without an ``id:`` line; it is not persisted). This client falls back to
+status polling for it; every other ``Error`` is a real terminal failure and
+raises :class:`RelayError` carrying the ``code``.
 """
 
 from __future__ import annotations
@@ -56,9 +72,17 @@ from ..errors import ApiError, RelayError, RelayTimeoutError
 from ..transport import HttpTransport
 
 ACCEPTED = "MarketOrderAccepted"
+ATTEMPT_FAILED = "AttemptFailed"  # non-terminal: one retryable attempt failed
 TERMINAL_SUCCESS = frozenset({"MarketOrderExecuted", "PositionSizeIncreased"})
 TERMINAL_FAILURE = frozenset({"MarketOrderCanceled", "Error"})
 TERMINAL = TERMINAL_SUCCESS | TERMINAL_FAILURE
+
+# Error codes emitted by the controller for THIS CONNECTION's stream view
+# rather than the request itself. STREAM_TIMEOUT means the order may still be
+# executing (recover via status polling); ENQUEUE_FAILED means the request
+# never reached the execution queue.
+_STREAM_TIMEOUT_CODE = "STREAM_TIMEOUT"
+_ENQUEUE_FAILED_CODE = "ENQUEUE_FAILED"
 
 # Server heartbeats every 15s; anything above that with margin works.
 _SSE_READ_TIMEOUT_S = 45.0
@@ -97,6 +121,13 @@ class BatchedMarketOutcome:
             if "orderId" in ev.data:
                 return int(ev.data["orderId"])
         return None
+
+    @property
+    def attempt_failures(self) -> list[BatchedMarketEvent]:
+        """Non-terminal ``AttemptFailed`` events observed along the way
+        (payloads: ``{attempt, code, message, willRetry}``). Informational —
+        a successful outcome can still have several."""
+        return [ev for ev in self.events if ev.type == ATTEMPT_FAILED]
 
 
 class BatchedMarketClient:
@@ -157,16 +188,27 @@ class BatchedMarketClient:
                             )
                         continue
                     if ev.type in TERMINAL:
-                        if ev.type == "Error" and ev.seq is None:
-                            # Transport-only event: stream expiry (order may
-                            # still land -> poll) or enqueue failure (final).
+                        if ev.type == "Error":
+                            code = str(ev.data.get("code") or "")
                             msg = str(ev.data.get("message", ""))
-                            if "timed out" in msg.lower() and tracking_id:
-                                break  # fall through to status polling
-                            raise RelayError(
-                                f"batched-market rejected the order: {msg or ev.data}",
-                                request_id=tracking_id,
+                            # STREAM_TIMEOUT is this connection's view timing
+                            # out, not the request's outcome — the order may
+                            # still execute. (Older servers sent it without a
+                            # code or an id: line; keep that sniff as a
+                            # fallback.) Recover via status polling.
+                            stream_timed_out = code == _STREAM_TIMEOUT_CODE or (
+                                not code and ev.seq is None and "timed out" in msg.lower()
                             )
+                            if stream_timed_out and tracking_id:
+                                break  # fall through to status polling
+                            if code == _ENQUEUE_FAILED_CODE or ev.seq is None:
+                                # Never reached the execution queue (or an
+                                # unpersisted transport-side rejection).
+                                raise RelayError(
+                                    f"batched-market rejected the order: {msg or ev.data}",
+                                    request_id=tracking_id,
+                                    code=code or None,
+                                )
                         return self._settle(tracking_id, ev, events)
         except httpx.HTTPError as exc:
             # Connection dropped mid-stream; the order may still be executing.
@@ -242,10 +284,13 @@ class BatchedMarketClient:
                 request_id=tracking_id,
             )
         if terminal.type == "Error":
+            code = str(terminal.data.get("code") or "") or None
             raise RelayError(
-                f"batched-market execution failed: "
-                f"{terminal.data.get('message') or terminal.data}",
+                "batched-market execution failed"
+                + (f" [{code}]" if code else "")
+                + f": {terminal.data.get('message') or terminal.data}",
                 request_id=tracking_id,
+                code=code,
             )
         return outcome
 

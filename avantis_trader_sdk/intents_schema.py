@@ -189,12 +189,15 @@ INTENT_TYPES: dict[str, dict[str, list[Field]]] = {
         ],
     },
     # Deletes a stored off-chain partial TP/SL order. OFF-CHAIN ONLY: the core
-    # backend recovers the signer over the Mongo documentId (handed out by
-    # /user-data and the /offchain-orders create response); never submitted to
-    # a contract, so there is no abi.encode form.
+    # backend recovers the signer over the order's entityId (handed out by
+    # /user-data priceTriggers and the /price-triggers create response); never
+    # submitted to a contract, so there is no abi.encode form. The field was
+    # named `documentId` before the /price-triggers migration (backend
+    # offchain-order-encoding.ts renamed it 2026-08); old signatures no longer
+    # verify.
     "CancelOffchainOrder": {
         "CancelOffchainOrder": [
-            {"name": "documentId", "type": "string"},
+            {"name": "entityId", "type": "string"},
         ],
     },
     "RfqOpenOrder": {

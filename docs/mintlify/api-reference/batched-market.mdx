@@ -92,10 +92,12 @@ Notes:
 ## The SSE stream
 
 Read the POST response as a stream (`fetch` + reader; the browser
-`EventSource` API is GET-only). Every request produces exactly three events:
+`EventSource` API is GET-only). Every request produces one accepted event,
+zero or more non-terminal `AttemptFailed` events, one initiation event, and
+exactly one terminal event:
 
 ```
-MarketOrderAccepted (seq 0)  →  one initiation event  →  one terminal event
+MarketOrderAccepted (seq 0)  →  [AttemptFailed ...]  →  one initiation event  →  one terminal event
 ```
 
 | Order types | Initiation | Terminal (success) |
@@ -110,6 +112,20 @@ Either flow can instead end with:
 - **`Error`** — execution failed (bad intent, no price, retries exhausted) or
   the stream view timed out.
 
+**`AttemptFailed`** (non-terminal, persisted) reports one execution attempt
+that hit a retryable condition — payload `{attempt, code, message,
+willRetry}` — while the service keeps working the request. Treat unknown
+event types as non-terminal noise: the server adds informational types
+without a version bump.
+
+`AttemptFailed` and `Error` payloads carry a machine-readable **`code`** next
+to the human `message`: a bare Avantis contract error name (`WrongSl`,
+`HighSlippage`, ...) when the failure decoded to a specific revert, or a
+synthetic service code (`NO_PRICE`, `SPREAD_BLOCKED`, `SPREAD_UNAVAILABLE`,
+`SUBMISSION_FAILED`, `ATTEMPTS_EXHAUSTED`, `TX_NOT_EXECUTED`,
+`STREAM_TIMEOUT`, `ENQUEUE_FAILED`, plus `RELAY_FAILED` / `TX_REVERTED` /
+`RELAY_TIMEOUT` in EIP-7702 mode). Branch on `code`, not on the message.
+
 Wire format: each event is an `event:` line (type), an `id:` line (the `seq`,
 monotonic per trackingId), and a `data:` line (JSON payload), terminated by a
 blank line. Lines starting with `:` are keep-alive comments (sent every ~15s)
@@ -118,10 +134,11 @@ cap (60s in EIP-712 mode, 180s in EIP-7702 mode); a stream that ends without
 a terminal event does **not** mean failure — replay by `seq` (below).
 
 <Warning>
-An `Error` event **without** an `id:` line is transport-only (stream expiry or
-enqueue failure — not persisted). If its message says the stream timed out,
-the order may still execute: fall back to the status endpoint. An `Error`
-**with** a seq is a real terminal failure.
+An `Error` with `code: "STREAM_TIMEOUT"` (also recognizable by its missing
+`id:` line — it is not persisted) is **not the request's outcome**: only this
+connection's view of it timed out, and the order may still execute. Fall back
+to the status endpoint. Every other `Error` is a real terminal failure;
+`ENQUEUE_FAILED` means the request never reached the execution queue.
 </Warning>
 
 ## Event payloads
@@ -187,10 +204,18 @@ from a fill: no `price` / `percentProfit` / `usdcSentToTrader`, and `t` is the
 { "orderId": 42, "trader": "0x…", "pairIndex": 2, "transactionHash": "0x…" }
 ```
 
-**`Error`** (terminal, or transport-only when it has no seq).
+**`AttemptFailed`** (non-terminal) — one retryable attempt failed; the
+service is still working the request.
 
 ```json
-{ "message": "…", "trackingId": "…" }
+{ "attempt": 1, "code": "NO_PRICE", "message": "…", "willRetry": true }
+```
+
+**`Error`** (terminal — except `STREAM_TIMEOUT`, which is this connection's
+view expiring).
+
+```json
+{ "status": "failed", "code": "ATTEMPTS_EXHAUSTED", "message": "…", "trackingId": "…" }
 ```
 
 ## Replaying by trackingId
@@ -220,7 +245,9 @@ GET /tracking-id/{trackingId}/status?afterSeq={lastSeenSeq}
 | Signal | Meaning | What to do |
 | --- | --- | --- |
 | HTTP `400` before the stream opens | The request was rejected: unsupported `orderType`, malformed intent or signature, expired deadline, consumed nonce, position mismatch. | Fix and resubmit; the body carries the reason. |
-| Terminal `Error` event | Accepted but execution ultimately failed. | Surface the `message`; sign a new intent to retry. |
+| `AttemptFailed` event | One attempt hit a retryable condition; the service retries. | Informational — wait for the terminal event. |
+| Terminal `Error` event | Accepted but execution ultimately failed. | Branch on the `code` (contract error name or service code); sign a new intent to retry. |
+| `Error` with `code: "STREAM_TIMEOUT"` | Only this connection's stream view expired. | Replay via the status endpoint; the order may still execute. |
 | Terminal `MarketOrderCanceled` | The fill was declined on-chain (e.g. slippage). | A market outcome — retry with wider slippage or a fresh price if desired. |
 | Stream ends with no terminal event | Unknown — the order may still execute. | Replay via the status endpoint; don't assume failure. |
 

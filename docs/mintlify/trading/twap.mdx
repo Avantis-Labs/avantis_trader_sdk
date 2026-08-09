@@ -47,6 +47,7 @@ await client.trade.twap_close(
 
 ```python
 twaps = await client.account.twaps()             # paginated (0-based); include_canceled=True for history
+twap = await client.account.twap(123)            # one TWAP by twapId; None if unknown (404)
 await client.trade.twap_cancel(twap_id=123)      # twapId from receipt.order_id / account.twaps()
 ```
 

@@ -27,7 +27,7 @@ requires `rpc_url` / `AVANTIS_RPC_URL` (any Base endpoint, e.g.
 Sub-routes, chosen automatically per action:
 
 - **Batched market**: market opens/closes and increases submit a signed EIP-712 intent — plus, from the high-level methods, an optional pre-signed EIP-7702 transaction (the server picks which mechanism executes) — to the batched-market service, which executes with a fresh price per attempt and streams the order lifecycle back (accepted → initiated → executed/canceled). Receipt `route` is `batched-market`, with `tracking_id` (lifecycle replay handle) and `order_id` (on-chain id) filled in. A protocol-declined fill (`MarketOrderCanceled`, e.g. slippage) raises `RelayError`. Intent-only submission (no EIP-7702 leg) is the [market-maker fast path](/advanced/mm-fast-path).
-- **Intent batch**: full-position TP/SL updates are signed as EIP-712 intents, encoded into the operator batch entry point locally, and broadcast via the relayer. Receipt `route` is `relayer-batch`.
+- **Price triggers**: full-position TP/SL updates are signed as EIP-712 intents and submitted to the core API price-triggers endpoint, which executes the operator entry point itself. Receipt `route` is `price-triggers`. This same path is used in direct mode (there is no public contract entry point).
 - **Passthrough**: limit orders, margin, approvals, claims, LP, and referral are built as transactions and relayed through your EIP-7702 smart account. Receipt `route` is `relayer-passthrough`.
 - **TWAP API**: TWAP open/close/cancel are signed intents submitted to the TWAP service, which sends the registration transaction itself. Receipt `route` is `twap-api`.
 

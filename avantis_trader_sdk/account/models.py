@@ -4,9 +4,8 @@ human-unit properties out)."""
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from ..types import from_1e10, from_usdc
 
@@ -20,17 +19,23 @@ class PriceTrigger(BaseModel):
     Two flavors share the shape (backend OffchainOrderDto):
 
     - ``is_global`` True — the position's global on-chain TP/SL. Synthetic
-      ``documentId`` (``global-tp-...`` / ``global-sl-...``) that the
-      offchain-orders CRUD does NOT accept; manage via
-      ``trade.update_tp_sl()``. ``coin_size`` is the full position size.
+      deterministic ``entityId`` (``global-tp-{trader}-{pairIndex}-{index}`` /
+      ``global-sl-...``); change or remove via ``trade.update_tp_sl()``.
+      ``coin_size`` is the full position size.
     - ``is_global`` False — an off-chain partial TP/SL signed intent; its
-      ``documentId`` works with ``trade.update_partial_tp_sl()`` /
-      ``cancel_partial_tp_sl()``.
+      ``entityId`` works with ``trade.update_partial_tp_sl()`` /
+      ``cancel_partial_tp_sl()``. NOTE: a DB-backed entityId changes on every
+      update (the response's ``newEntityId`` replaces it); global ids are
+      stable.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="allow")
 
-    document_id: str = Field(alias="documentId")
+    entity_id: str = Field(
+        alias="entityId",
+        # Pre-2026-08 core API deployments named this field `documentId`.
+        validation_alias=AliasChoices("entityId", "documentId"),
+    )
     trader: str = ""
     pair_index: int = Field(alias="pairIndex", default=0)
     index: int = 0
@@ -44,6 +49,11 @@ class PriceTrigger(BaseModel):
     final_trigger_price_raw: str = Field(alias="finalTriggerPrice", default="0")
     timestamp: int = 0
     sign_timestamp: int = Field(alias="signTimestamp", default=0)
+
+    @property
+    def document_id(self) -> str:
+        """DEPRECATED alias for :attr:`entity_id` (pre-/price-triggers name)."""
+        return self.entity_id
 
     @property
     def kind(self) -> str:
@@ -86,10 +96,8 @@ class Position(BaseModel):
     opened_at: int = Field(alias="openedAt", default=0)
     price_triggers: list[PriceTrigger] = Field(alias="priceTriggers", default_factory=list)
     """All TP/SL triggers: global on-chain ones (``is_global`` True) plus
-    off-chain partial orders. Prefer this over ``offchain_orders``."""
-    offchain_orders: list[dict[str, Any]] = Field(alias="offchainOrders", default_factory=list)
-    """DEPRECATED (mirrors the API): off-chain orders only, never the global
-    TP/SL. Use ``price_triggers``."""
+    off-chain partial orders. (The API's deprecated ``offchainOrders`` alias
+    was removed 2026-08; this is the only trigger list now.)"""
     base_symbol: str | None = None
     """Base ("from") asset of the pair with any ``_UPSIDE`` suffix stripped,
     e.g. "BTC" for BTC_UPSIDE/USD or "USD" for USD/JPY. Not part of the core
@@ -105,7 +113,7 @@ class Position(BaseModel):
 
     @property
     def partial_triggers(self) -> list[PriceTrigger]:
-        """Off-chain partial TP/SL orders (documentId works with the CRUD)."""
+        """Off-chain partial TP/SL orders (entityId works with the CRUD)."""
         return [t for t in self.price_triggers if not t.is_global]
 
     # -- human units ---------------------------------------------------------

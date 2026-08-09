@@ -88,6 +88,14 @@ class AccountApi(ExecutingApi):
             },
         )
 
+    async def twap(self, twap_id: int) -> dict[str, Any] | None:
+        """One TWAP by its on-chain ``twapId`` (twap-app API), or ``None``
+        when the id is unknown (the API answers 404)."""
+        assert self._t is not None
+        return await self._t.json(
+            "GET", f"{self._cfg.twap_api_url}/twaps/{int(twap_id)}", allow_404=True
+        )
+
     async def allowance(self, spender: str | None = None) -> dict[str, Any]:
         """USDC allowance + balance (spender defaults to TradingStorage)."""
         return await self._txb.allowance(self.trader, spender)

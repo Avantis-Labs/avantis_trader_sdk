@@ -77,11 +77,27 @@ class DigestMismatchError(SigningError):
 
 
 class RelayError(AvantisError):
-    """Operator relayer rejected or failed a queued request."""
+    """Operator relayer rejected or failed a queued request.
 
-    def __init__(self, message: str, *, request_id: str | None = None) -> None:
+    ``code`` is the machine-readable failure code when the batched-market
+    stream terminated with an ``Error`` event: a bare Avantis contract error
+    name (``WrongSl``, ``HighSlippage``, ...) when execution decoded to a
+    specific revert, or a synthetic backend code (``NO_PRICE``,
+    ``SPREAD_UNAVAILABLE``, ``ATTEMPTS_EXHAUSTED``, ``ENQUEUE_FAILED``, ...).
+    Branch on it instead of parsing the message; treat unknown codes as
+    generic failures.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        request_id: str | None = None,
+        code: str | None = None,
+    ) -> None:
         super().__init__(message)
         self.request_id = request_id
+        self.code = code
 
 
 class RelayTimeoutError(RelayError):

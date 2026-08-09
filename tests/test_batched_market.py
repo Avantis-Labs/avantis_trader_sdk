@@ -1,6 +1,7 @@
 """BatchedMarketClient unit tests: SSE parsing (heartbeats, ids, comments),
-terminal mapping, the transport-only timeout Error -> status-replay fallback,
-and 4xx error mapping."""
+terminal mapping, non-terminal AttemptFailed events, machine-readable Error
+codes (STREAM_TIMEOUT -> status-replay fallback, others -> RelayError.code),
+unknown-event tolerance, and 4xx error mapping."""
 
 import json
 
@@ -189,6 +190,107 @@ async def test_enqueue_failure_error_raises_immediately(client):
     )
     with pytest.raises(RelayError, match="queue full"):
         await client.execute(0, ERC712, EIP7702)
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_attempt_failed_events_are_non_terminal(client):
+    """AttemptFailed reports one retryable attempt while the backend keeps
+    working the request — the stream must continue to the real terminal, and
+    the failures stay inspectable on the outcome."""
+    respx.post(f"{BASE}/market/execute-batched").mock(
+        return_value=_sse_response(
+            (0, "MarketOrderAccepted", {"trackingId": "trk-af"}),
+            (1, "AttemptFailed", {"attempt": 1, "code": "NO_PRICE", "message": "no fresh price", "willRetry": True}),
+            (2, "AttemptFailed", {"attempt": 2, "code": "SPREAD_BLOCKED", "message": "spread too wide", "willRetry": True}),
+            (3, "MarketOrderInitiated", {"orderId": 12, "transactionHash": "0xinit"}),
+            (4, "MarketOrderExecuted", {"orderId": 12, "transactionHash": "0xok"}),
+        )
+    )
+
+    outcome = await client.execute(0, ERC712, EIP7702)
+
+    assert outcome.terminal.type == "MarketOrderExecuted"
+    assert [e.data["code"] for e in outcome.attempt_failures] == [
+        "NO_PRICE",
+        "SPREAD_BLOCKED",
+    ]
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_unknown_event_types_are_ignored(client):
+    """The server adds non-terminal event types without a version bump; the
+    client must skip anything not on the terminal allow-list."""
+    respx.post(f"{BASE}/market/execute-batched").mock(
+        return_value=_sse_response(
+            (0, "MarketOrderAccepted", {"trackingId": "trk-unk"}),
+            (1, "SomeFutureDiagnostic", {"detail": "ignore me"}),
+            (2, "MarketOrderExecuted", {"orderId": 5, "transactionHash": "0xok"}),
+        )
+    )
+
+    outcome = await client.execute(0, ERC712, EIP7702)
+    assert outcome.terminal.type == "MarketOrderExecuted"
+    assert outcome.tx_hash == "0xok"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_terminal_error_carries_machine_code(client):
+    """Persisted terminal Errors now carry a machine-readable ``code`` (bare
+    contract error name or synthetic backend code) — surfaced on RelayError."""
+    respx.post(f"{BASE}/market/execute-batched").mock(
+        return_value=_sse_response(
+            (0, "MarketOrderAccepted", {"trackingId": "trk-code"}),
+            (1, "Error", {"status": "failed", "code": "WrongSl", "message": "execution reverted: WrongSl"}),
+        )
+    )
+    with pytest.raises(RelayError, match=r"\[WrongSl\]") as exc:
+        await client.execute(0, ERC712, EIP7702)
+    assert exc.value.code == "WrongSl"
+    assert exc.value.request_id == "trk-code"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_stream_timeout_code_falls_back_to_status_replay(client):
+    """code=STREAM_TIMEOUT means only this connection's view expired — the
+    client must recover via the status endpoint even though the payload no
+    longer matches the old 'timed out' message sniff exactly."""
+    respx.post(f"{BASE}/market/execute-batched").mock(
+        return_value=_sse_response(
+            (0, "MarketOrderAccepted", {"trackingId": "trk-st"}),
+            (None, "Error", {"code": "STREAM_TIMEOUT", "message": "Stream view expired", "trackingId": "trk-st"}),
+        )
+    )
+    respx.get(f"{BASE}/tracking-id/trk-st/status").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "events": [
+                    {"seq": 1, "type": "MarketOrderExecuted", "payload": {"orderId": 8, "transactionHash": "0xrec"}}
+                ]
+            },
+        )
+    )
+
+    outcome = await client.execute(0, ERC712, EIP7702)
+    assert outcome.tx_hash == "0xrec"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_enqueue_failed_code_raises_with_code(client):
+    respx.post(f"{BASE}/market/execute-batched").mock(
+        return_value=_sse_response(
+            (0, "MarketOrderAccepted", {"trackingId": "trk-eq"}),
+            (None, "Error", {"code": "ENQUEUE_FAILED", "message": "Could not schedule execution"}),
+        )
+    )
+    with pytest.raises(RelayError, match="Could not schedule") as exc:
+        await client.execute(0, ERC712, EIP7702)
+    assert exc.value.code == "ENQUEUE_FAILED"
 
 
 @pytest.mark.asyncio

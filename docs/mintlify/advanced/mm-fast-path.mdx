@@ -48,10 +48,11 @@ async with AsyncAvantis() as client:
 ```
 
 <Note>
-TP/SL updates (`UPDATE_SL`) are also fully local, but ride a different rail:
-the SDK encodes the operator entry point itself and relays it via the blitz
-relayer, so they settle by `request_id` instead of `tracking_id` (see
-[Settling](#settling)).
+Global TP/SL updates (`UpdateTpSlReq`) are also built and signed fully
+locally, but ride a different rail: the signed intent goes to the core API
+price-triggers endpoint (`PUT /price-triggers/global-...`), which executes
+the operator entry point itself. They settle by re-reading the position
+(what `trade.update_tp_sl(wait=True)` does), not by `tracking_id`.
 </Note>
 
 ## Builder surface
@@ -74,7 +75,7 @@ relayer, so they settle by `request_id` instead of `tracking_id` (see
 
 Payloads are `IntentPayload` objects identical to what the tx-builder would return, and go through the same digest-verified signer.
 
-Since the builder never touches the network, prices are always caller-supplied: coin/increase helpers take an explicit `open_price`/`wanted_price` (the tx-builder route would resolve these from the feed). Note `partial_tp_sl` only *builds* the TpSlReq; the signed order still has to be stored via the core API `/offchain-orders` (what `client.trade.partial_tp_sl` does), not submitted to the relayer. Likewise `twap_*` intents go to the TWAP API (what `client.trade.twap_*` does).
+Since the builder never touches the network, prices are always caller-supplied: coin/increase helpers take an explicit `open_price`/`wanted_price` (the tx-builder route would resolve these from the feed). Note `partial_tp_sl` and `update_tp_sl` only *build* intents; the signed payloads still have to be submitted to the core API `/price-triggers` (what `client.trade.partial_tp_sl` / `client.trade.update_tp_sl` do), not to the batched-market endpoint. Likewise `twap_*` intents go to the TWAP API (what `client.trade.twap_*` does).
 
 ## Settling
 
@@ -99,7 +100,7 @@ The terminal `MarketOrderExecuted` event carries the full fill — execution `pr
 
 `engine.batched_market.status(tracking_id, after_seq=n)` is the non-blocking single poll; every event carries a `seq`, so a crashed process can resume replay without missing or double-counting events.
 
-**Blitz relayer routes** (`UPDATE_SL`, passthrough actions) settle by `request_id`:
+**Blitz relayer routes** (passthrough actions: limit orders, margin, approvals, ...) settle by `request_id`:
 
 ```python
 from avantis_trader_sdk.errors import RelayError, RelayTimeoutError

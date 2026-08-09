@@ -93,8 +93,10 @@ The close intent binds the position's open timestamp. If you open and close in q
 
 Market orders route through the batched-market service, which streams the
 lifecycle back: `MarketOrderAccepted` → `MarketOrderInitiated` (on-chain
-order id + tx hash) → `MarketOrderExecuted`. With the default `wait=True`
-the receipt already reflects the executed fill:
+order id + tx hash) → `MarketOrderExecuted`, with zero or more non-terminal
+`AttemptFailed` events in between when an attempt hits a retryable condition
+(see the [batched-market reference](/api-reference/batched-market)). With
+the default `wait=True` the receipt already reflects the executed fill:
 
 ```python
 receipt = await client.trade.market_open("ETH/USD", "long", collateral=100, leverage=10)
@@ -105,7 +107,10 @@ print(receipt.tracking_id)   # lifecycle replay handle
 ```
 
 A fill the protocol declines (e.g. price moved beyond `slippage_percent`)
-raises `RelayError` instead of returning a receipt.
+raises `RelayError` instead of returning a receipt; on a terminal `Error`
+event the exception's `.code` carries the machine-readable reason (a
+contract error name like `WrongSl`, or a service code like
+`ATTEMPTS_EXHAUSTED`).
 
 With `wait=False` the call returns at `MarketOrderAccepted`. At that point
 `tx_hash` is still `None` and you settle later from the `tracking_id`:

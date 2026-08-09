@@ -37,7 +37,7 @@ Write methods return an `ExecutionReceipt`:
 
 | Field | Meaning |
 | --- | --- |
-| `route` | `batched-market`, `relayer-batch`, `relayer-passthrough`, `twap-api`, `rpc`, or `txbuilder-relay` |
+| `route` | `batched-market`, `price-triggers`, `relayer-passthrough`, `twap-api`, `rpc`, or `txbuilder-relay` |
 | `tx_hash` | On-chain hash once settled (may be `None` with `wait=False`) |
 | `request_id` | Relayer queue id (blitz relayer routes) |
 | `tracking_id` | Batched-market lifecycle id (status replay handle) |

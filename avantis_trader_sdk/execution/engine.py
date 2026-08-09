@@ -7,14 +7,14 @@ Routes:
                            intent-only is the MM fast path) -> POST
                            {batched-market}/market/execute-batched, lifecycle
                            streamed back as SSE
-- ``relayer-batch``        UPDATE_SL (excluded from the batched-market
-                           allow-list): executePositionUpdateBatched calldata
-                           encoded locally (price update from feed-v3)
-                           -> blitz POST /relays (type 2)
 - ``relayer-passthrough``  calldata wrapped in a type4 smart-account tx
                            -> blitz POST /relays (type 4)
 - ``rpc``                  normal signed transaction via the user's RPC
 - ``txbuilder-relay``      normal signed transaction via POST {tx-builder}/v2/relay
+
+Global TP/SL updates (UpdateTpSlReq) do not pass through here anymore: they
+are signed intents submitted to the core API price-triggers endpoint (see
+``TradeApi.update_tp_sl``), which executes the operator entry point itself.
 """
 
 from __future__ import annotations
@@ -22,45 +22,25 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from eth_abi import encode as abi_encode
-from eth_utils import keccak, to_bytes
-
 from ..config import AvantisConfig
 from ..eip7702 import Call, GelatoDelegationEncoder
 from ..eip7702.account import fresh_nonce
-from ..errors import ApiError, ConfigError, RelayError
+from ..errors import ConfigError, RelayError
 from ..signing import BaseSigner, sign_intent
 from ..transport import HttpTransport
 from ..txbuilder import TxBuilderClient
 from ..types import (
+    BATCHED_MARKET_INTENT_KINDS,
     BATCHED_MARKET_ORDER_TYPES,
-    INTENT_BATCH_ACTION,
     AggregatorOrderType,
     CallData,
     ExecutionMode,
     ExecutionReceipt,
     IntentPayload,
-    RelayAction,
 )
 from .batched_market import BatchedMarketClient
 from .relayer import RelayerClient
 from .rpc import JsonRpcClient
-
-# aggregator batch entry points (mirrors avantis-backend-monorepo relayBatched)
-_BATCH_ABI_ARGS = "(uint8,bytes,bytes,bytes[],uint8,(int256,uint256,int256,bool,int256,bool,int256))"
-_BATCH_SELECTORS = {
-    RelayAction.BATCH_MARKET_EXECUTION: keccak(
-        text=f"executeMarketOrderBatched{_BATCH_ABI_ARGS}"
-    )[:4],
-    RelayAction.BATCH_POSITION_UPDATE: keccak(
-        text=f"executePositionUpdateBatched{_BATCH_ABI_ARGS}"
-    )[:4],
-}
-_BATCH_GAS_LIMIT = 2_500_000
-# Pyth Core (Hermes) requires a 0.000015 ETH fee; Lazer uses 1 wei.
-_PYTH_CORE_FEE_WEI = 15_000_000_000_000
-_PRICE_SOURCING = {"core": 0, "pro": 1}  # HERMES / PRO(Lazer), from /v2/meta enums
-_ZERO_SPREAD_PARAMS = (0, 0, 0, False, 0, False, 0)
 
 
 class ExecutionEngine:
@@ -114,24 +94,6 @@ class ExecutionEngine:
             await self.chain_id()
         assert self._trading_router is not None
         return self._trading_router
-
-    async def _fresh_price_update(self, pair_index: int) -> tuple[bytes, int, int]:
-        """(priceUpdateData, sourcing, txValueWei) for a batched execution.
-
-        Prefers the Lazer ('pro') update (1 wei fee) and falls back to Pyth
-        Core ('core', 0.000015 ETH fee). Fetched from feed-v3, same source the
-        operator services use.
-        """
-        data = await self._transport.json(
-            "GET", f"{self.config.feed_url}/v2/pairs/{pair_index}/price-update-data"
-        )
-        for key in ("pro", "core"):
-            entry = (data or {}).get(key)
-            update = (entry or {}).get("priceUpdateData")
-            if update:
-                value = 1 if key == "pro" else _PYTH_CORE_FEE_WEI
-                return to_bytes(hexstr=update), _PRICE_SOURCING[key], value
-        raise ApiError(f"no price update data available for pairIndex={pair_index}")
 
     async def encoder(self) -> GelatoDelegationEncoder:
         if self._encoder is None:
@@ -206,7 +168,7 @@ class ExecutionEngine:
         calldata: CallData | None = None,
         wait: bool = True,
     ) -> ExecutionReceipt:
-        """Sign an intent and execute it through the right relay.
+        """Sign a market intent and execute it through the batched-market API.
 
         Market opens/closes/increases (the batched-market allow-list) go to
         ``POST {batched-market}/market/execute-batched``, which injects a
@@ -216,82 +178,42 @@ class ExecutionEngine:
         server then picks the execution mechanism); omit it to execute the
         signed intent directly — the market-maker fast path, with no
         tx-builder round-trip.
-
-        ``UPDATE_SL`` is excluded from that allow-list; for it the SDK still
-        encodes the operator entry point itself (executePositionUpdateBatched
-        with a feed-v3 price update) and broadcasts via the blitz type-2
-        relay. Blitz wallets are protocol operators.
         """
         signer = self._require_signer()
-        action = INTENT_BATCH_ACTION.get(payload.primary_type)
-        if action is None:
+        if (
+            payload.primary_type not in BATCHED_MARKET_INTENT_KINDS
+            or order_type not in BATCHED_MARKET_ORDER_TYPES
+        ):
             raise ConfigError(
-                f"{payload.primary_type} is not a relayer-batch intent. TWAP goes "
-                "through trade.twap_* (twap-app intents); partial TP/SL through "
-                "trade.partial_tp_sl (off-chain storage)."
+                f"{payload.primary_type} (order type {int(order_type)}) is not a "
+                "batched-market intent. TWAP goes through trade.twap_* (twap-app "
+                "intents); TP/SL through trade.update_tp_sl / trade.partial_tp_sl "
+                "(core-API price-triggers)."
             )
         signed = sign_intent(payload, signer)
 
-        if order_type in BATCHED_MARKET_ORDER_TYPES:
-            eip7702: dict[str, Any] | None = None
-            if calldata is not None:
-                calls = [Call.from_hex(calldata.to, calldata.data, calldata.value_wei)]
-                tx_params = await self._build_type4(calls)
-                eip7702 = _relay_request_params(tx_params)
-            outcome = await self.batched_market.execute(
-                int(order_type),
-                {
-                    "userIntent": payload.encoded_intent,
-                    "userSignature": signed.signature,
-                },
-                eip7702,
-                wait=wait,
-            )
-            return ExecutionReceipt(
-                route="batched-market",
-                tracking_id=outcome.tracking_id or None,
-                tx_hash=outcome.tx_hash,
-                order_id=outcome.order_id,
-                description=payload.intent,
-                raw=outcome.terminal.data if outcome.terminal else None,
-            )
-
-        price_update, sourcing, value = await self._fresh_price_update(payload.pair_index)
-
-        data = _BATCH_SELECTORS[action] + abi_encode(
-            ["uint8", "bytes", "bytes", "bytes[]", "uint8",
-             "(int256,uint256,int256,bool,int256,bool,int256)"],
-            [
-                int(order_type),
-                to_bytes(hexstr=signed.signature),
-                to_bytes(hexstr=payload.encoded_intent),
-                [price_update],
-                sourcing,
-                _ZERO_SPREAD_PARAMS,
-            ],
+        eip7702: dict[str, Any] | None = None
+        if calldata is not None:
+            calls = [Call.from_hex(calldata.to, calldata.data, calldata.value_wei)]
+            tx_params = await self._build_type4(calls)
+            eip7702 = _relay_request_params(tx_params)
+        outcome = await self.batched_market.execute(
+            int(order_type),
+            {
+                "userIntent": payload.encoded_intent,
+                "userSignature": signed.signature,
+            },
+            eip7702,
+            wait=wait,
         )
-        data_hex = "0x" + data.hex()
-        if self.config.builder_code:
-            data_hex += self.config.builder_code.removeprefix("0x")
-
-        tx_params = {
-            "to": await self.trading_router(),
-            "data": data_hex,
-            "value": str(value),
-            "gasLimit": str(_BATCH_GAS_LIMIT),
-            "chainId": await self.chain_id(),
-            "transactionType": 2,
-        }
-        wallet = self.config.trader_address or signer.address
-        request_id = await self.relayer.create(tx_params, wallet)
-        receipt = ExecutionReceipt(
-            route="relayer-batch", request_id=request_id, description=payload.intent
+        return ExecutionReceipt(
+            route="batched-market",
+            tracking_id=outcome.tracking_id or None,
+            tx_hash=outcome.tx_hash,
+            order_id=outcome.order_id,
+            description=payload.intent,
+            raw=outcome.terminal.data if outcome.terminal else None,
         )
-        if wait:
-            status = await self.relayer.wait(request_id)
-            receipt.tx_hash = status.tx_hash
-            receipt.raw = status.receipt
-        return receipt
 
     async def submit_passthrough(
         self, calldata: CallData, *, wait: bool = True

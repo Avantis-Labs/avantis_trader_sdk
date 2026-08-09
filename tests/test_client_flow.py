@@ -2,8 +2,9 @@
 
 Covers: meta bootstrap, intent fetch -> local sign (digest assert) ->
 dual-payload (EIP-712 + EIP-7702) market execution via the batched-market
-SSE endpoint; locally-encoded UPDATE_SL batch via the blitz relayer (type-2);
-type-4 passthrough for limit orders; positions read from the core API.
+SSE endpoint; global TP/SL via the core-API price-triggers endpoint (same
+path in direct mode); type-4 passthrough for limit orders; positions read
+from the core API.
 """
 
 import json
@@ -22,12 +23,6 @@ CORE = "https://core.test"
 FEED = "https://feed.test"
 DATA = "https://data.test"
 BATCHED = "https://batched.test"
-
-PRICE_UPDATE = {
-    "core": {"price": 1900.0, "priceUpdateData": "0x" + "11" * 8},
-    "pro": {"price": 1900.1, "priceUpdateData": "0x" + "22" * 8},
-}
-
 
 def _client() -> AsyncAvantis:
     return AsyncAvantis(
@@ -83,20 +78,6 @@ def _calldata_payload() -> dict:
         "value": "0x0",
         "chainId": 31337,
         "description": "Open long ETH/USD",
-    }
-
-
-def _tpsl_intent_payload() -> dict:
-    vector = next(v for v in VECTORS["vectors"] if v["kind"] == "UpdateTpSlReq")
-    return {
-        "intent": "UpdateTpSlReq",
-        "signerRule": "trader-or-delegate",
-        "domain": VECTORS["domain"],
-        "primaryType": "UpdateTpSlReq",
-        "types": INTENT_TYPES["UpdateTpSlReq"],
-        "message": vector["message"],
-        "digest": vector["digest"],
-        "encodedIntent": "0x" + "ab" * 64,
     }
 
 
@@ -212,62 +193,49 @@ async def test_market_open_coin_sends_required_leverage():
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_update_tp_sl_stays_on_blitz_type2_batch():
-    """UPDATE_SL is excluded from the batched-market allow-list: the SDK still
-    encodes executePositionUpdateBatched locally and relays via blitz."""
+async def test_update_tp_sl_uses_price_triggers_even_in_direct_mode():
+    """Global TP/SL always goes through the core-API price-triggers endpoint —
+    also with execution="direct" (v2 has no public updateTpAndSl entry point,
+    so there is nothing to broadcast). No relayer, feed or RPC route is
+    mocked: any attempt to use one would fail the test."""
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
     mock_data_api(DATA)
-    respx.post(f"{TXB}/v2/intents/tpsl-update").mock(
-        return_value=_ok(_tpsl_intent_payload())
+    position = {
+        "trader": TRADER,
+        "pairIndex": 1,
+        "index": 0,
+        "buy": True,
+        "collateral": "100000000",
+        "leverage": "100000000000",
+        "openPrice": "40000000000000",
+        "tp": "90000000000000",
+        "sl": "70000000000000",
+    }
+    respx.get(f"{CORE}/user-data").mock(
+        return_value=httpx.Response(200, json={"positions": [position]})
     )
-    respx.get(f"{FEED}/v2/pairs/1/price-update-data").mock(
-        return_value=httpx.Response(200, json=PRICE_UPDATE)
-    )
-    create_route = respx.post(f"{RELAYER}/relays").mock(
-        return_value=httpx.Response(200, json={"requestId": "req-123"})
-    )
-    status_route = respx.get(f"{RELAYER}/relays/req-123").mock(
-        side_effect=[
-            httpx.Response(200, json={"requestId": "req-123", "status": "Inflight", "receipt": None}),
-            httpx.Response(
-                200,
-                json={
-                    "requestId": "req-123",
-                    "status": "Finalised",
-                    "receipt": {"transactionHash": "0xtx", "status": "0x1"},
-                },
-            ),
-        ]
-    )
+    put_route = respx.put(
+        f"{CORE}/price-triggers/global-tp-{TRADER}-1-0"
+    ).mock(return_value=httpx.Response(200, json={"success": True}))
 
-    async with _client() as client:
+    async with AsyncAvantis(
+        network="testnet",
+        execution="direct",
+        rpc_url="https://unused-rpc.test",
+        private_key=TEST_KEY,
+        trader_address=TRADER,
+        tx_builder_url=TXB,
+        core_api_url=CORE,
+        data_api_url=DATA,
+    ) as client:
         receipt = await client.trade.update_tp_sl(
-            "ETH/USD", 0, take_profit=90000, stop_loss=70000
+            "ETH/USD", 0, take_profit=9500, stop_loss=7500, wait=False
         )
 
-    assert receipt.route == "relayer-batch"
-    assert receipt.request_id == "req-123"
-    assert receipt.tx_hash == "0xtx"
-    assert status_route.called
-
-    # blitz relay: SDK-encoded executePositionUpdateBatched, type-2, to the router
-    body = json.loads(create_route.calls[0].request.content)
-    assert body["wallet"] == TRADER
-    tx = body["txParams"]
-    assert tx["to"] == META["addresses"]["tradingRouter"]
-    assert tx["transactionType"] == 2
-    assert tx["chainId"] == 31337
-    assert tx["gasLimit"] == "2500000"
-    assert tx["value"] == "1"  # Lazer ('pro') price update -> 1 wei fee
-    from eth_utils import keccak
-
-    selector = keccak(
-        text="executePositionUpdateBatched(uint8,bytes,bytes,bytes[],uint8,"
-        "(int256,uint256,int256,bool,int256,bool,int256))"
-    )[:4]
-    assert tx["data"].startswith("0x" + selector.hex())
-    assert ("ab" * 64) in tx["data"]  # encodedIntent embedded
-    assert ("22" * 8) in tx["data"]  # pro price update embedded
+    assert receipt.route == "price-triggers"
+    body = json.loads(put_route.calls[0].request.content)
+    assert body["userIntent"].startswith("0x")
+    assert body["signedMessage"].startswith("0x")
 
 
 @pytest.mark.asyncio
@@ -500,12 +468,7 @@ async def test_relayer_reverted_receipt_raises():
 
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
     mock_data_api(DATA)
-    respx.post(f"{TXB}/v2/intents/tpsl-update").mock(
-        return_value=_ok(_tpsl_intent_payload())
-    )
-    respx.get(f"{FEED}/v2/pairs/1/price-update-data").mock(
-        return_value=httpx.Response(200, json=PRICE_UPDATE)
-    )
+    respx.post(f"{TXB}/v2/trade/open").mock(return_value=_ok(_calldata_payload()))
     respx.post(f"{RELAYER}/relays").mock(
         return_value=httpx.Response(200, json={"requestId": "req-err"})
     )
@@ -522,7 +485,9 @@ async def test_relayer_reverted_receipt_raises():
 
     async with _client() as client:
         with pytest.raises(RelayError, match="reverted"):
-            await client.trade.update_tp_sl("ETH/USD", 0, take_profit=90000)
+            await client.trade.limit_open(
+                "ETH/USD", "short", collateral=50, leverage=5, price=3000
+            )
 
 
 @pytest.mark.asyncio
@@ -532,12 +497,7 @@ async def test_relayer_failed_status_raises():
 
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
     mock_data_api(DATA)
-    respx.post(f"{TXB}/v2/intents/tpsl-update").mock(
-        return_value=_ok(_tpsl_intent_payload())
-    )
-    respx.get(f"{FEED}/v2/pairs/1/price-update-data").mock(
-        return_value=httpx.Response(200, json=PRICE_UPDATE)
-    )
+    respx.post(f"{TXB}/v2/trade/open").mock(return_value=_ok(_calldata_payload()))
     respx.post(f"{RELAYER}/relays").mock(
         return_value=httpx.Response(200, json={"requestId": "req-t"})
     )
@@ -549,7 +509,9 @@ async def test_relayer_failed_status_raises():
 
     async with _client() as client:
         with pytest.raises(RelayError, match="failed"):
-            await client.trade.update_tp_sl("ETH/USD", 0, take_profit=90000)
+            await client.trade.limit_open(
+                "ETH/USD", "short", collateral=50, leverage=5, price=3000
+            )
 
 
 @pytest.mark.asyncio
@@ -557,12 +519,7 @@ async def test_relayer_failed_status_raises():
 async def test_relayer_busy_503_retries_then_succeeds():
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
     mock_data_api(DATA)
-    respx.post(f"{TXB}/v2/intents/tpsl-update").mock(
-        return_value=_ok(_tpsl_intent_payload())
-    )
-    respx.get(f"{FEED}/v2/pairs/1/price-update-data").mock(
-        return_value=httpx.Response(200, json=PRICE_UPDATE)
-    )
+    respx.post(f"{TXB}/v2/trade/open").mock(return_value=_ok(_calldata_payload()))
     create_route = respx.post(f"{RELAYER}/relays").mock(
         side_effect=[
             httpx.Response(503, json={"message": "all wallets busy"}),
@@ -571,8 +528,8 @@ async def test_relayer_busy_503_retries_then_succeeds():
     )
 
     async with _client() as client:
-        receipt = await client.trade.update_tp_sl(
-            "ETH/USD", 0, take_profit=90000, wait=False
+        receipt = await client.trade.limit_open(
+            "ETH/USD", "short", collateral=50, leverage=5, price=3000, wait=False
         )
 
     assert receipt.request_id == "req-2"

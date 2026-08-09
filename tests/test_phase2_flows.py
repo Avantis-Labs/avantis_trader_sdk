@@ -69,9 +69,9 @@ def _vector_payload(kind: str, **extra) -> dict:
     }
 
 
-# documentId from the CancelOffchainOrder golden vector (conftest META uses
+# entityId from the CancelOffchainOrder golden vector (conftest META uses
 # the golden-vector domain: chainId 31337 + same router).
-DOCUMENT_ID = "665f1c2ab7a1b2c3d4e5f601"
+ENTITY_ID = "665f1c2ab7a1b2c3d4e5f601"
 
 
 @pytest.mark.asyncio
@@ -82,8 +82,8 @@ async def test_offchain_partial_tpsl_submit():
     respx.post(f"{TXB}/v2/intents/tpsl-partial").mock(
         return_value=_ok(_vector_payload("TpSlReq"))
     )
-    post_route = respx.post(f"{CORE}/offchain-orders").mock(
-        return_value=httpx.Response(200, json={"documentId": DOCUMENT_ID})
+    post_route = respx.post(f"{CORE}/price-triggers").mock(
+        return_value=httpx.Response(200, json={"entityId": ENTITY_ID})
     )
 
     async with _client() as client:
@@ -98,39 +98,50 @@ async def test_offchain_partial_tpsl_submit():
     assert body["signTimestamp"] == int(vec_msg["signTimestamp"])
     assert body["signedMessage"].startswith("0x") and len(body["signedMessage"]) == 132
     assert submission["orderType"] == int(vec_msg["orderType"])
-    # the stored order's documentId (needed for update/cancel) is surfaced
-    assert submission["documentId"] == DOCUMENT_ID
+    # the stored order's entityId (needed for update/cancel) is surfaced
+    assert submission["entityId"] == ENTITY_ID
 
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_offchain_partial_tpsl_update_puts_to_document():
+async def test_offchain_partial_tpsl_update_puts_to_entity():
+    """PUT /price-triggers/{entityId} replaces the order atomically and mints
+    a NEW id — the SDK adopts the response's newEntityId."""
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
     mock_data_api(DATA)
     respx.post(f"{TXB}/v2/intents/tpsl-partial").mock(
         return_value=_ok(_vector_payload("TpSlReq"))
     )
-    put_route = respx.put(f"{CORE}/offchain-orders/{DOCUMENT_ID}").mock(
-        return_value=httpx.Response(200, json={"documentId": DOCUMENT_ID})
+    new_id = "665f1c2ab7a1b2c3d4e5f9ff"
+    put_route = respx.put(f"{CORE}/price-triggers/{ENTITY_ID}").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "success": True,
+                "result": {"oldEntityId": ENTITY_ID, "newEntityId": new_id},
+            },
+        )
     )
 
     async with _client() as client:
         updated = await client.trade.update_partial_tp_sl(
-            DOCUMENT_ID, "ETH/USD", 0,
+            ENTITY_ID, "ETH/USD", 0,
             side="long", kind="tp", coin_exposure="0.5", price=4200,
         )
 
     assert put_route.called
     body = json.loads(put_route.calls[0].request.content)
     assert body["signedMessage"].startswith("0x") and len(body["signedMessage"]) == 132
-    assert updated["documentId"] == DOCUMENT_ID
+    assert updated["entityId"] == new_id
+    assert updated["oldEntityId"] == ENTITY_ID
 
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_offchain_partial_tpsl_cancel_signs_document_id():
-    """Cancel signs an EIP-712 CancelOffchainOrder over the documentId and
-    DELETEs with a JSON body — proven against the ethers golden vector."""
+async def test_offchain_partial_tpsl_cancel_signs_entity_id():
+    """Cancel signs an EIP-712 CancelOffchainOrder over the entityId and
+    DELETEs /price-triggers with a JSON body — proven against the ethers
+    golden vector."""
     from eth_account import Account
 
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
@@ -138,10 +149,10 @@ async def test_offchain_partial_tpsl_cancel_signs_document_id():
     respx.post(f"{TXB}/v2/intents/tpsl-partial").mock(
         return_value=_ok(_vector_payload("TpSlReq"))
     )
-    respx.post(f"{CORE}/offchain-orders").mock(
-        return_value=httpx.Response(200, json={"documentId": DOCUMENT_ID})
+    respx.post(f"{CORE}/price-triggers").mock(
+        return_value=httpx.Response(200, json={"entityId": ENTITY_ID})
     )
-    delete_route = respx.delete(f"{CORE}/offchain-orders").mock(
+    delete_route = respx.delete(f"{CORE}/price-triggers").mock(
         return_value=httpx.Response(200, json={})
     )
 
@@ -153,7 +164,7 @@ async def test_offchain_partial_tpsl_cancel_signs_document_id():
 
     assert delete_route.called
     body = json.loads(delete_route.calls[0].request.content)
-    assert body["documentId"] == DOCUMENT_ID
+    assert body["entityId"] == ENTITY_ID
     # the signature recovers to the signer over the golden-vector digest
     golden = next(
         v for v in VECTORS["vectors"] if v["kind"] == "CancelOffchainOrder"
@@ -164,6 +175,74 @@ async def test_offchain_partial_tpsl_cancel_signs_document_id():
     from avantis_trader_sdk.signing import LocalSigner
 
     assert recovered.lower() == LocalSigner(TEST_KEY).address.lower()
+
+
+def _tp_sl_position(tp_raw: str, sl_raw: str) -> dict:
+    return {
+        "trader": TRADER,
+        "pairIndex": 1,
+        "index": 0,
+        "buy": True,
+        "collateral": "100000000",
+        "leverage": "100000000000",
+        "openPrice": "40000000000000",
+        "tp": tp_raw,
+        "sl": sl_raw,
+    }
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_update_tp_sl_puts_signed_intent_to_price_triggers():
+    """Global TP/SL: fetch the position (None legs are copied from it), sign
+    UpdateTpSlReq locally, PUT it to /price-triggers/global-..., then poll
+    /user-data until the new levels are visible."""
+    respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
+    mock_data_api(DATA)
+    # 1st call: pre-update snapshot; 2nd+: the poll sees the applied levels.
+    user_data = respx.get(f"{CORE}/user-data")
+    user_data.side_effect = [
+        httpx.Response(
+            200,
+            json={"positions": [_tp_sl_position("50000000000000", "35000000000000")]},
+        ),
+        httpx.Response(
+            200,
+            json={"positions": [_tp_sl_position("60000000000000", "35000000000000")]},
+        ),
+    ]
+    entity_id = f"global-tp-{TRADER}-1-0"
+    put_route = respx.put(f"{CORE}/price-triggers/{entity_id}").mock(
+        return_value=httpx.Response(200, json={"success": True})
+    )
+
+    async with _client() as client:
+        receipt = await client.trade.update_tp_sl("ETH/USD", 0, take_profit=6000)
+
+    assert receipt.route == "price-triggers"
+    assert put_route.called
+    body = json.loads(put_route.calls[0].request.content)
+    assert body["userIntent"].startswith("0x")
+    assert body["signedMessage"].startswith("0x") and len(body["signedMessage"]) == 132
+    # the poll consumed the second /user-data response (levels applied)
+    assert len(user_data.calls) == 2
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_update_tp_sl_requires_an_open_position():
+    from avantis_trader_sdk.errors import ValidationError
+
+    respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
+    mock_data_api(DATA)
+    respx.get(f"{CORE}/user-data").mock(
+        return_value=httpx.Response(200, json={"positions": []})
+    )
+
+    async with _client() as client:
+        with pytest.raises(ValidationError) as exc:
+            await client.trade.update_tp_sl("ETH/USD", 0, stop_loss=35000)
+    assert exc.value.code == "NO_POSITION"
 
 
 @pytest.mark.asyncio

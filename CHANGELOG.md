@@ -45,6 +45,80 @@ Ground-up rewrite for Avantis v2. **Breaking: the 1.x API is removed.**
   (`int(0.0003 * 1e10)` truncates to `2999999`), so signed intents carry the
   exact raw values the caller specified.
 
+### Unreleased additions (2026-08-09) — price-triggers TP/SL + batched-market error codes
+
+Backend alignment (backend monorepo + avantis-ui-v2 as of 2026-08-09): the
+core API replaced `/offchain-orders` with `/price-triggers`, ids renamed
+`documentId` -> `entityId`, global TP/SL became a price-triggers mutation,
+and the batched-market stream gained `AttemptFailed` events and
+machine-readable error codes.
+
+- **Global TP/SL rerouted** (`trade.update_tp_sl`): the backend made the
+  position's on-chain TP/SL a price-triggers mutation (strategy-pattern
+  change, backend PR #665 / `docs/offchain-orders-integration.md`),
+  replacing the SDK's self-encoded `executePositionUpdateBatched` + blitz
+  type-2 relay. The SDK signs `UpdateTpSlReq` locally (byte-for-byte parity
+  with the backend's `update-tpsl-intent-encoding.ts`, verified against
+  ethers) and PUTs `{userIntent, signedMessage}` to
+  `{core}/price-triggers/global-{tp|sl}-{trader}-{pair}-{index}`; the
+  backend verifies intent/signature/position and executes the operator
+  entry point itself with a fresh signed price. Same path in relayer AND
+  direct mode. **Breaking semantics:** `None` now keeps a leg
+  (its current value is read from the position and re-signed), `0` clears it
+  (`take_profit=0` resets to the pair's max-gain cap — a position always has
+  a TP on-chain). A 2xx means accepted, not mined: `wait=True` (default)
+  polls `/user-data` until the new levels are visible
+  (`RelayTimeoutError` otherwise). Receipt `route` is `price-triggers`
+  (`relayer-batch` removed). Raises `ValidationError(NO_POSITION)` when the
+  position doesn't exist and `NOTHING_TO_UPDATE` when both legs are `None`.
+- **Partial TP/SL CRUD moved to `/price-triggers`** (same DTOs):
+  create `POST {core}/price-triggers`, update
+  `PUT {core}/price-triggers/{entityId}`, cancel `DELETE` with
+  `{entityId, signedMessage}`. **Breaking:** ids are `entityId` everywhere
+  (`update_partial_tp_sl(entity_id, ...)`; the returned dicts carry
+  `entityId`). An update now MINTS A NEW id (backend delete+insert): the
+  response's `{result: {oldEntityId, newEntityId}}` is parsed and the
+  returned dict's `entityId` is the replacement's id — adopt it. The
+  `CancelOffchainOrder` intent signs `entityId` (field renamed upstream;
+  old `documentId` signatures no longer verify — golden vector regenerated
+  with ethers + viem cross-check).
+- **Models**: `PriceTrigger.entity_id` (accepts legacy `documentId` payloads
+  via validation alias; `document_id` kept as a deprecated property).
+  **Breaking:** `Position.offchain_orders` removed (field deleted from the
+  API DTO); use `Position.price_triggers`.
+- **Batched-market stream semantics** (`execution/batched_market.py`):
+  non-terminal `AttemptFailed` events (`{attempt, code, message, willRetry}`,
+  surfaced as `BatchedMarketOutcome.attempt_failures`) are collected, and
+  unknown event types are ignored (server adds types without a version
+  bump). `Error` payloads now carry a machine-readable `code` (bare contract
+  error name like `WrongSl`, or synthetic codes `NO_PRICE`,
+  `SPREAD_BLOCKED`, `SPREAD_UNAVAILABLE`, `SUBMISSION_FAILED`,
+  `ATTEMPTS_EXHAUSTED`, `TX_NOT_EXECUTED`, `STREAM_TIMEOUT`,
+  `ENQUEUE_FAILED`, `RELAY_FAILED`, `TX_REVERTED`, `RELAY_TIMEOUT`):
+  `RelayError.code` exposes it — branch on the code, not the message.
+  `code == "STREAM_TIMEOUT"` (stream-view expiry, not the outcome) falls
+  back to status polling; the legacy message sniff is kept for older
+  deployments.
+- **Engine cleanup**: `submit_intent_batch` is batched-market only
+  (`BATCHED_MARKET_INTENT_KINDS` allow-list replaces `INTENT_BATCH_ACTION`;
+  `RelayAction` removed); the blitz `UPDATE_SL` branch, its feed-v3 price
+  fetch and local `executePositionUpdateBatched` encoding are gone.
+- **New:** `account.twap(twap_id)` — single TWAP by id
+  (`GET {twap}/twaps/{id}`), `None` on 404.
+
+### Unreleased additions (2026-08-07) — per-feature live check scripts
+
+- `scripts/checks/` — standalone live checks, one per feature (reads, streams,
+  limits, twap, market, tpsl, margin, delegate, referral, lp, cleanup), so a
+  flaky area (e.g. operator fills) doesn't block testing everything else the
+  way the monolithic e2e does. Shared harness with step accounting, non-zero
+  exit on failure, and per-run `.log` + `.http.jsonl` artifacts in `e2e_logs/`
+  (method, url, body, status, `x-request-id`). `scripts/check.py` runs one or
+  several (`--list`, `--all`); `cleanup.py` flattens leftovers from aborted
+  runs (`--dry-run`, protected positions via `--keep`). Position-dependent
+  checks accept `--use-existing` to skip the fill dependency and `--keep` to
+  leave the position open. See `scripts/checks/README.md`.
+
 ### Unreleased additions (2026-08-06) — Upside pairs
 
 Upside markets (the rebranded ZFP / zero-fee product) are separate pairs
