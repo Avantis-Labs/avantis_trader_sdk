@@ -7,11 +7,22 @@ ETH needed.
 The order type routes from the pair: trade an Upside market (e.g.
 "BTC_UPSIDE") and the SDK sends the PnL (Upside) order type automatically —
 see examples/19_upside_pairs.py.
+
+``on_event`` (optional) observes the order journey live while the SDK still
+settles the outcome: the accepted event, retryable AttemptFailed diagnostics
+(good debug logs — e.g. NO_PRICE, SPREAD_BLOCKED, or a contract error name),
+and the terminal event, which is delivered even when the call raises.
 """
 
 import asyncio
 
-from avantis_trader_sdk import AsyncAvantis
+from avantis_trader_sdk import AsyncAvantis, BatchedMarketEvent
+
+
+def journey(ev: BatchedMarketEvent) -> None:
+    # sync or async callables both work; exceptions propagate
+    code = ev.data.get("code")
+    print(f"  [{ev.seq}] {ev.type}" + (f" code={code}" if code else ""))
 
 
 async def main() -> None:
@@ -24,6 +35,7 @@ async def main() -> None:
             take_profit=4000,     # optional; omit for none
             stop_loss=2800,       # optional
             slippage_percent=1,
+            on_event=journey,     # optional: live lifecycle log
         )
         print("route:", receipt.route)
         print("tx:", receipt.tx_hash)

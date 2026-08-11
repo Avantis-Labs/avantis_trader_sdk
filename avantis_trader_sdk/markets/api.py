@@ -163,9 +163,10 @@ class MarketsApi:
         404 = mechanism matched but no spread computable — treat as
         "do not execute", never as zero spread.
 
-        Deployment note: live on testnet (risk-api-v2-testnet); mainnet still
-        serves the legacy engine until the v2 cutover, so use
-        :meth:`dynamic_spread` there in the meantime.
+        Deployment note: routed at ``{api_base_url}/risk/v2``; live on
+        testnet. The mainnet route exists but the engine is not serving yet
+        (5xx until the v2 cutover) — use :meth:`dynamic_spread` there in the
+        meantime.
         """
         info = await self.pair(pair)
 

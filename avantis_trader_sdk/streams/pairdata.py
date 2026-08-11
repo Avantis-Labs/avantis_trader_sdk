@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable, Callable
 from typing import Any
+from urllib.parse import urlparse
 
 Callback = Callable[[dict[str, Any]], Awaitable[None] | None]
 
@@ -16,6 +17,11 @@ Callback = Callable[[dict[str, Any]], Awaitable[None] | None]
 class PairDataStream:
     def __init__(self, data_api_url: str) -> None:
         self._url = data_api_url.rstrip("/")
+        # python-socketio discards the URL's path component, so the central
+        # routing prefix ({api_base_url}/data) must be re-applied via
+        # socketio_path for the handshake to reach the gateway route.
+        prefix = urlparse(self._url).path.strip("/")
+        self._socketio_path = f"{prefix}/socket.io" if prefix else "socket.io"
         self._sio: Any = None
 
     async def run(self, callback: Callback) -> None:
@@ -39,7 +45,11 @@ class PairDataStream:
             if asyncio.iscoroutine(result):
                 await result
 
-        await sio.connect(self._url, transports=["websocket", "polling"])
+        await sio.connect(
+            self._url,
+            transports=["websocket", "polling"],
+            socketio_path=self._socketio_path,
+        )
         await sio.wait()
 
     async def stop(self) -> None:

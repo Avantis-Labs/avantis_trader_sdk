@@ -28,6 +28,7 @@ from ..base_api import ExecutingApi
 from ..config import AvantisConfig
 from ..errors import ConfigError, RelayTimeoutError, ValidationError
 from ..execution import ExecutionEngine
+from ..execution.batched_market import BatchedMarketEventHook
 from ..execution.local_intents import LocalIntentBuilder
 from ..markets.models import PairInfo
 from ..signing import sign_intent
@@ -124,6 +125,7 @@ class TradeApi(ExecutingApi):
         slippage_percent: Num = 1,
         skip_validation: bool = False,
         wait: bool = True,
+        on_event: BatchedMarketEventHook | None = None,
     ) -> ExecutionReceipt:
         """Open a market position.
 
@@ -132,6 +134,12 @@ class TradeApi(ExecutingApi):
         the plain market type. ``open_price`` is the reference price the fill
         is validated against (± slippage_percent); resolved from the live
         feed when omitted.
+
+        ``on_event`` (relayer route only; the direct route has no lifecycle
+        stream) observes each batched-market event live — the accepted event,
+        retryable ``AttemptFailed`` diagnostics, and the terminal (also when
+        it raises) — while the call still settles normally. Sync or async
+        callable taking a ``BatchedMarketEvent``.
         """
         info = await self._resolve_pair(pair)
         upside = info.is_upside
@@ -159,7 +167,7 @@ class TradeApi(ExecutingApi):
                 else AggregatorOrderType.MARKET_OPEN
             )
             return await self._engine.submit_intent_batch(
-                intent, agg, calldata=calldata, wait=wait
+                intent, agg, calldata=calldata, wait=wait, on_event=on_event
             )
         return await self._engine.submit_direct(
             await self._calldata("/v2/trade/open", params), wait=wait
@@ -181,14 +189,16 @@ class TradeApi(ExecutingApi):
         stop_loss: Num | None = None,
         skip_validation: bool = False,
         wait: bool = True,
+        on_event: BatchedMarketEventHook | None = None,
     ) -> ExecutionReceipt:
         """Open sized in coin units (fill leverage floats within [min, max] bounds).
 
-        Upside pairs route automatically as PnL (Upside) orders, like
-        :meth:`market_open`. ``leverage`` is the target/reference leverage
-        (contract-required); min/max default to the pair envelope when
-        omitted. ``open_price`` is the reference price the fill is validated
-        against (± slippage_percent); resolved from the live feed when omitted.
+        Upside pairs route automatically as PnL (Upside) orders, and
+        ``on_event`` observes the order lifecycle, like :meth:`market_open`.
+        ``leverage`` is the target/reference leverage (contract-required);
+        min/max default to the pair envelope when omitted. ``open_price`` is
+        the reference price the fill is validated against
+        (± slippage_percent); resolved from the live feed when omitted.
         """
         info = await self._resolve_pair(pair)
         upside = info.is_upside
@@ -218,7 +228,7 @@ class TradeApi(ExecutingApi):
                 else AggregatorOrderType.MARKET_OPEN_WITH_COIN_EXPOSURE
             )
             return await self._engine.submit_intent_batch(
-                intent, agg, calldata=calldata, wait=wait
+                intent, agg, calldata=calldata, wait=wait, on_event=on_event
             )
         return await self._engine.submit_direct(
             await self._calldata("/v2/trade/open-coin", params), wait=wait
@@ -277,10 +287,12 @@ class TradeApi(ExecutingApi):
         expected_price: Num | None = None,
         open_timestamp: int | None = None,
         wait: bool = True,
+        on_event: BatchedMarketEventHook | None = None,
     ) -> ExecutionReceipt:
         """Close a position partially or fully (pass the full collateral for a full close).
 
-        Positions on Upside pairs close with the PnL close type automatically.
+        Positions on Upside pairs close with the PnL close type automatically;
+        ``on_event`` observes the order lifecycle, like :meth:`market_open`.
         """
         info = await self._resolve_pair(pair)
         params: dict[str, Any] = {
@@ -301,7 +313,7 @@ class TradeApi(ExecutingApi):
                 else AggregatorOrderType.MARKET_CLOSE
             )
             return await self._engine.submit_intent_batch(
-                intent, agg, calldata=calldata, wait=wait
+                intent, agg, calldata=calldata, wait=wait, on_event=on_event
             )
         return await self._engine.submit_direct(
             await self._calldata("/v2/trade/close", params), wait=wait
@@ -316,8 +328,10 @@ class TradeApi(ExecutingApi):
         expected_price: Num | None = None,
         open_timestamp: int | None = None,
         wait: bool = True,
+        on_event: BatchedMarketEventHook | None = None,
     ) -> ExecutionReceipt:
-        """Close sized in coin units. Upside pairs route as PnL automatically."""
+        """Close sized in coin units. Upside pairs route as PnL automatically;
+        ``on_event`` observes the order lifecycle, like :meth:`market_open`."""
         info = await self._resolve_pair(pair)
         params: dict[str, Any] = {
             "pairIndex": info.index,
@@ -337,7 +351,7 @@ class TradeApi(ExecutingApi):
                 else AggregatorOrderType.MARKET_CLOSE_WITH_COIN_EXPOSURE
             )
             return await self._engine.submit_intent_batch(
-                intent, agg, calldata=calldata, wait=wait
+                intent, agg, calldata=calldata, wait=wait, on_event=on_event
             )
         return await self._engine.submit_direct(
             await self._calldata("/v2/trade/close-coin", params), wait=wait
@@ -408,6 +422,7 @@ class TradeApi(ExecutingApi):
         open_price: Num | None = None,
         slippage_percent: Num = 1,
         wait: bool = True,
+        on_event: BatchedMarketEventHook | None = None,
     ) -> ExecutionReceipt:
         params: dict[str, Any] = {
             "pairIndex": (await self._resolve_pair(pair)).index,
@@ -423,7 +438,11 @@ class TradeApi(ExecutingApi):
                 "/v2/intents/increase", "/v2/position/increase", params
             )
             return await self._engine.submit_intent_batch(
-                intent, AggregatorOrderType.INCREASE_SIZE, calldata=calldata, wait=wait
+                intent,
+                AggregatorOrderType.INCREASE_SIZE,
+                calldata=calldata,
+                wait=wait,
+                on_event=on_event,
             )
         return await self._engine.submit_direct(
             await self._calldata("/v2/position/increase", params), wait=wait
@@ -442,6 +461,7 @@ class TradeApi(ExecutingApi):
         open_price: Num | None = None,
         slippage_percent: Num = 1,
         wait: bool = True,
+        on_event: BatchedMarketEventHook | None = None,
     ) -> ExecutionReceipt:
         """Increase sized in coin units (``leverage`` = reference leverage for
         the added collateral; fill floats within [min, max])."""
@@ -466,6 +486,7 @@ class TradeApi(ExecutingApi):
                 AggregatorOrderType.INCREASE_SIZE_WITH_COIN_EXPOSURE,
                 calldata=calldata,
                 wait=wait,
+                on_event=on_event,
             )
         return await self._engine.submit_direct(
             await self._calldata("/v2/position/increase-coin", params), wait=wait

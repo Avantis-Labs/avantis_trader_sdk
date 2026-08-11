@@ -20,7 +20,7 @@ export AVANTIS_TRADER_ADDRESS=0x...   # wallet address (only when using an API k
 | `AVANTIS_EXECUTION` | `relayer` | `relayer` (gasless, default) or `direct` (self-broadcast). |
 | `AVANTIS_RPC_URL` | (none) | Base RPC. Required for `direct` execution, and for relayer mode **only when signing with your wallet key directly** (reads the EIP-7702 authorization nonce). Not needed with a delegate/API key. |
 
-Centrally-routed services (core, TWAP, batched-market, relayer) derive from a single base URL: `https://prod-api.avantisfi.com` on mainnet, `https://staging-api.avantisfi.com` on testnet. Override it with `AVANTIS_API_BASE_URL`. Per-service endpoint overrides (rarely needed) win over the derivation: `AVANTIS_TX_BUILDER_URL`, `AVANTIS_RELAYER_URL`, `AVANTIS_CORE_API_URL`, `AVANTIS_TWAP_API_URL`, `AVANTIS_BATCHED_MARKET_URL`, `AVANTIS_DATA_API_URL`, `AVANTIS_HISTORY_API_URL`, `AVANTIS_RISK_API_URL`, `AVANTIS_FEED_URL`.
+Centrally-routed services (core, TWAP, batched-market, relayer, data, risk-engine v2) derive from a single base URL: `https://prod-api.avantisfi.com` on mainnet, `https://staging-api.avantisfi.com` on testnet. Override it with `AVANTIS_API_BASE_URL`. Per-service endpoint overrides (rarely needed) win over the derivation: `AVANTIS_TX_BUILDER_URL`, `AVANTIS_RELAYER_URL`, `AVANTIS_CORE_API_URL`, `AVANTIS_TWAP_API_URL`, `AVANTIS_BATCHED_MARKET_URL`, `AVANTIS_DATA_API_URL`, `AVANTIS_RISK_V2_API_URL`, `AVANTIS_HISTORY_API_URL`, `AVANTIS_RISK_API_URL`, `AVANTIS_FEED_URL`.
 
 ## Constructor overrides
 

@@ -38,7 +38,7 @@ from ..types import (
     ExecutionReceipt,
     IntentPayload,
 )
-from .batched_market import BatchedMarketClient
+from .batched_market import BatchedMarketClient, BatchedMarketEventHook
 from .relayer import RelayerClient
 from .rpc import JsonRpcClient
 
@@ -167,6 +167,7 @@ class ExecutionEngine:
         *,
         calldata: CallData | None = None,
         wait: bool = True,
+        on_event: BatchedMarketEventHook | None = None,
     ) -> ExecutionReceipt:
         """Sign a market intent and execute it through the batched-market API.
 
@@ -178,6 +179,11 @@ class ExecutionEngine:
         server then picks the execution mechanism); omit it to execute the
         signed intent directly — the market-maker fast path, with no
         tx-builder round-trip.
+
+        ``on_event`` observes every streamed lifecycle event (``AttemptFailed``
+        diagnostics, the terminal — also when it raises) while the SDK settles
+        the outcome; see
+        :data:`~avantis_trader_sdk.execution.batched_market.BatchedMarketEventHook`.
         """
         signer = self._require_signer()
         if (
@@ -205,6 +211,7 @@ class ExecutionEngine:
             },
             eip7702,
             wait=wait,
+            on_event=on_event,
         )
         return ExecutionReceipt(
             route="batched-market",

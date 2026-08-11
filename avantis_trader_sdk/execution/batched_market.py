@@ -56,13 +56,19 @@ outcome — only this connection's view of it timed out (the server also emits
 it without an ``id:`` line; it is not persisted). This client falls back to
 status polling for it; every other ``Error`` is a real terminal failure and
 raises :class:`RelayError` carrying the ``code``.
+
+Observing the journey: pass ``on_event=`` to :meth:`BatchedMarketClient.execute`
+or :meth:`BatchedMarketClient.wait` to be called with every lifecycle event as
+it arrives — the terminal outcome still settles through this client's logic
+(return value or typed raise). See :data:`BatchedMarketEventHook`.
 """
 
 from __future__ import annotations
 
 import asyncio
+import inspect
 import json as jsonlib
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -93,6 +99,33 @@ class BatchedMarketEvent:
     type: str
     data: dict[str, Any]
     seq: int | None = None
+
+
+BatchedMarketEventHook = Callable[[BatchedMarketEvent], Any]
+"""Observer for the order journey while the SDK settles the outcome.
+
+Called once per lifecycle event, in stream order: ``MarketOrderAccepted``,
+any non-terminal ``AttemptFailed`` diagnostics, unknown informational types
+the server may add, the initiation event, and the terminal event — the
+terminal is delivered even when it makes the call raise (``RelayError`` on
+``MarketOrderCanceled`` / ``Error``), so a journey log is complete on
+failures. A connection-scoped ``Error`` with ``code == "STREAM_TIMEOUT"`` is
+also delivered (useful to log the fallback to status polling) although it is
+not the request's outcome.
+
+Sync and async callables both work (an awaitable return value is awaited on
+the client's event loop). Exceptions propagate and abort the *local* wait —
+the order itself keeps executing server-side; recover with
+:meth:`BatchedMarketClient.wait` on the trackingId.
+"""
+
+
+async def _emit(hook: BatchedMarketEventHook | None, ev: BatchedMarketEvent) -> None:
+    if hook is None:
+        return
+    result = hook(ev)
+    if inspect.isawaitable(result):
+        await result
 
 
 @dataclass
@@ -153,6 +186,7 @@ class BatchedMarketClient:
         eip7702: dict[str, Any] | None = None,
         *,
         wait: bool = True,
+        on_event: BatchedMarketEventHook | None = None,
     ) -> BatchedMarketOutcome:
         """Submit a signed order and follow its lifecycle stream.
 
@@ -164,6 +198,9 @@ class BatchedMarketClient:
         (trackingId minted); settle later with :meth:`wait`.
         Raises :class:`RelayError` on ``MarketOrderCanceled`` / terminal
         ``Error``, :class:`ApiError` on a 4xx/5xx rejection.
+
+        ``on_event`` observes every lifecycle event live while this method
+        still settles the outcome — see :data:`BatchedMarketEventHook`.
         """
         body: dict[str, Any] = {"orderType": int(order_type), "erc712": erc712}
         if eip7702 is not None:
@@ -180,6 +217,7 @@ class BatchedMarketClient:
                     raise await _http_error(resp, url)
                 async for ev in _iter_sse(resp):
                     events.append(ev)
+                    await _emit(on_event, ev)
                     if ev.type == ACCEPTED:
                         tracking_id = str(ev.data.get("trackingId") or "") or tracking_id
                         if not wait:
@@ -219,7 +257,9 @@ class BatchedMarketClient:
             raise ApiError(
                 "batched-market stream ended before MarketOrderAccepted", url=url
             )
-        return await self.wait(tracking_id, after_seq=_last_seq(events), events=events)
+        return await self.wait(
+            tracking_id, after_seq=_last_seq(events), events=events, on_event=on_event
+        )
 
     # ------------------------------------------------------------------ status
 
@@ -245,8 +285,13 @@ class BatchedMarketClient:
         after_seq: int | None = None,
         events: list[BatchedMarketEvent] | None = None,
         timeout_s: float | None = None,
+        on_event: BatchedMarketEventHook | None = None,
     ) -> BatchedMarketOutcome:
-        """Poll the status replay until a terminal event lands."""
+        """Poll the status replay until a terminal event lands.
+
+        ``on_event`` observes each newly replayed event (never the already-seen
+        ``events`` seed) — see :data:`BatchedMarketEventHook`.
+        """
         collected = list(events or [])
         seen_seq = after_seq
         deadline = asyncio.get_event_loop().time() + (
@@ -255,6 +300,7 @@ class BatchedMarketClient:
         while asyncio.get_event_loop().time() < deadline:
             for ev in await self.status(tracking_id, after_seq=seen_seq):
                 collected.append(ev)
+                await _emit(on_event, ev)
                 if ev.seq is not None:
                     seen_seq = ev.seq
                 if ev.type in TERMINAL:

@@ -12,8 +12,9 @@ Environment variables:
                              delegate/API key — the normal setup.
 - ``AVANTIS_NETWORK``        "testnet" (default) | "mainnet"
 - ``AVANTIS_API_BASE_URL``   central-routing host (prod-api / staging-api);
-                             /core, /twap, /batched-market and /blitz are
-                             derived from it unless individually overridden
+                             /core, /twap, /batched-market, /blitz, /data and
+                             /risk/v2 are derived from it unless individually
+                             overridden
 - ``AVANTIS_TX_BUILDER_URL`` / ``AVANTIS_RELAYER_URL`` / ``AVANTIS_DATA_API_URL``
   / ``AVANTIS_CORE_API_URL`` / ``AVANTIS_TWAP_API_URL``
   / ``AVANTIS_BATCHED_MARKET_URL`` / ``AVANTIS_HISTORY_API_URL``
@@ -39,12 +40,8 @@ class NetworkProfile:
     name: str
     api_base_url: str
     tx_builder_url: str
-    data_api_url: str
     history_api_url: str
-    risk_api_url: str
-    # risk-engine v2 (spread-module): POST /spread + GET /orderbook/snapshots.
-    # Separate host from the legacy risk-engine until the mainnet cutover.
-    risk_v2_api_url: str
+    risk_api_url: str  # LEGACY risk-engine (dynamic_spread) — standalone host
     feed_url: str
     # Centrally-routed services (avantis-cd services/infra-http-routes):
     # derived from api_base_url when left empty.
@@ -52,17 +49,25 @@ class NetworkProfile:
     core_api_url: str = ""  # core backend      -> {api_base_url}/core
     twap_api_url: str = ""  # twap-app          -> {api_base_url}/twap
     batched_market_url: str = ""  # batched-market-api -> {api_base_url}/batched-market
+    data_api_url: str = ""  # data-service-api  -> {api_base_url}/data
+    # risk-engine v2 (spread-module): POST /spread + GET /orderbook/snapshots.
+    risk_v2_api_url: str = ""  # risk-engine-v2-api -> {api_base_url}/risk/v2
     hermes_ws_url: str = "wss://hermes.pyth.network/ws"
     pusher_key: str | None = None
     pusher_cluster: str = "us2"
 
 
-# Central-routing path prefixes (HTTPRoute rules rewrite the prefix to "/").
+# Central-routing path prefixes (HTTPRoute `central-routes` on the public
+# envoy gateway; rules rewrite the prefix to "/" before the backend). The
+# gateway also routes /ws (iris websocket app), which the SDK does not
+# consume.
 _CENTRAL_ROUTES = {
     "core_api_url": "/core",
     "twap_api_url": "/twap",
     "batched_market_url": "/batched-market",
     "relayer_url": "/blitz",
+    "data_api_url": "/data",
+    "risk_v2_api_url": "/risk/v2",
 }
 
 TESTNET = NetworkProfile(
@@ -71,13 +76,10 @@ TESTNET = NetworkProfile(
     # staging-public-api.avantisfi.com instead.
     api_base_url="https://staging-api.avantisfi.com",
     tx_builder_url="https://tx-builder-testnet.avantisfi.com",
-    data_api_url="https://testnet-data.avantisfi.com",
     history_api_url="https://testnet-api.avantisfi.com",
     # risk-api-testnet.avantisfi.com is cluster-internal; -public is the
     # reachable ingress (avantis-cd/services/risk-engine/testnet-public).
     risk_api_url="https://risk-api-testnet-public.avantisfi.com",
-    # risk-engine-v2-api (avantis-cd/services/risk-engine-v2-api/testnet).
-    risk_v2_api_url="https://risk-api-v2-testnet.avantisfi.com",
     feed_url="https://feed-v3.avantisfi.com",
     pusher_key="f86bc7e9919fc938694a",
     pusher_cluster="mt1",
@@ -87,14 +89,11 @@ MAINNET = NetworkProfile(
     name="mainnet",
     api_base_url="https://prod-api.avantisfi.com",
     tx_builder_url="https://tx-builder.avantisfi.com",
-    data_api_url="https://data.avantisfi.com",
     history_api_url="https://api.avantisfi.com",
     risk_api_url="https://risk-api.avantisfi.com",
-    # The v2 spread engine is not deployed on mainnet yet (avantis-cd only
-    # defines services/risk-engine-v2-api/testnet); at the v2 cutover it takes
-    # over risk-api.avantisfi.com. Until then POST /spread 404s on mainnet —
-    # use dynamic_spread() (legacy GET) there.
-    risk_v2_api_url="https://risk-api.avantisfi.com",
+    # NB: prod-api routes /risk/v2 but the mainnet v2 spread engine is not
+    # serving yet (5xx until the cutover) — use markets.dynamic_spread()
+    # (legacy engine above) on mainnet in the meantime.
     feed_url="https://feed-v3.avantisfi.com",
 )
 

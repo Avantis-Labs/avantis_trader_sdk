@@ -1,5 +1,5 @@
-"""Central-routing config: /core, /twap, /batched-market and /blitz derive
-from api_base_url unless individually overridden."""
+"""Central-routing config: /core, /twap, /batched-market, /blitz, /data and
+/risk/v2 derive from api_base_url unless individually overridden."""
 
 from avantis_trader_sdk.config import AvantisConfig
 
@@ -11,6 +11,8 @@ def test_testnet_derives_centrally_routed_urls(monkeypatch):
         "AVANTIS_TWAP_API_URL",
         "AVANTIS_BATCHED_MARKET_URL",
         "AVANTIS_RELAYER_URL",
+        "AVANTIS_DATA_API_URL",
+        "AVANTIS_RISK_V2_API_URL",
     ):
         monkeypatch.delenv(var, raising=False)
     cfg = AvantisConfig.load(network="testnet")
@@ -19,6 +21,8 @@ def test_testnet_derives_centrally_routed_urls(monkeypatch):
     assert cfg.twap_api_url == "https://staging-api.avantisfi.com/twap"
     assert cfg.batched_market_url == "https://staging-api.avantisfi.com/batched-market"
     assert cfg.relayer_url == "https://staging-api.avantisfi.com/blitz"
+    assert cfg.data_api_url == "https://staging-api.avantisfi.com/data"
+    assert cfg.risk_v2_api_url == "https://staging-api.avantisfi.com/risk/v2"
 
 
 def test_mainnet_uses_prod_api(monkeypatch):
@@ -27,6 +31,8 @@ def test_mainnet_uses_prod_api(monkeypatch):
     assert cfg.api_base_url == "https://prod-api.avantisfi.com"
     assert cfg.core_api_url == "https://prod-api.avantisfi.com/core"
     assert cfg.batched_market_url == "https://prod-api.avantisfi.com/batched-market"
+    assert cfg.data_api_url == "https://prod-api.avantisfi.com/data"
+    assert cfg.risk_v2_api_url == "https://prod-api.avantisfi.com/risk/v2"
 
 
 def test_base_url_override_propagates():
@@ -35,6 +41,8 @@ def test_base_url_override_propagates():
     assert cfg.twap_api_url == "https://my-proxy.test/twap"
     assert cfg.batched_market_url == "https://my-proxy.test/batched-market"
     assert cfg.relayer_url == "https://my-proxy.test/blitz"
+    assert cfg.data_api_url == "https://my-proxy.test/data"
+    assert cfg.risk_v2_api_url == "https://my-proxy.test/risk/v2"
 
 
 def test_individual_override_beats_derivation():

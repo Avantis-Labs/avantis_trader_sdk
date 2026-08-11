@@ -1,7 +1,9 @@
 """BatchedMarketClient unit tests: SSE parsing (heartbeats, ids, comments),
 terminal mapping, non-terminal AttemptFailed events, machine-readable Error
 codes (STREAM_TIMEOUT -> status-replay fallback, others -> RelayError.code),
-unknown-event tolerance, and 4xx error mapping."""
+unknown-event tolerance, 4xx error mapping, and the on_event lifecycle hook
+(live journey while the client settles; sync + async; complete on failure
+and across the stream-timeout fallback)."""
 
 import json
 
@@ -291,6 +293,138 @@ async def test_enqueue_failed_code_raises_with_code(client):
     with pytest.raises(RelayError, match="Could not schedule") as exc:
         await client.execute(0, ERC712, EIP7702)
     assert exc.value.code == "ENQUEUE_FAILED"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_on_event_streams_journey_while_waiting(client):
+    """wait=True + on_event: the hook sees every lifecycle event live (the
+    accepted event, AttemptFailed diagnostics, the terminal) while execute()
+    still settles and returns the outcome — the MM journey-log use case."""
+    respx.post(f"{BASE}/market/execute-batched").mock(
+        return_value=_sse_response(
+            (0, "MarketOrderAccepted", {"trackingId": "trk-j"}),
+            (1, "AttemptFailed", {"attempt": 1, "code": "NO_PRICE", "message": "no fresh price", "willRetry": True}),
+            (2, "MarketOrderInitiated", {"orderId": 21, "transactionHash": "0xinit"}),
+            (3, "MarketOrderExecuted", {"orderId": 21, "transactionHash": "0xok"}),
+        )
+    )
+    seen = []
+
+    outcome = await client.execute(0, ERC712, EIP7702, on_event=seen.append)
+
+    assert [ev.type for ev in seen] == [
+        "MarketOrderAccepted",
+        "AttemptFailed",
+        "MarketOrderInitiated",
+        "MarketOrderExecuted",
+    ]
+    assert seen == outcome.events  # the hook saw exactly the recorded journey
+    assert outcome.terminal.type == "MarketOrderExecuted"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_on_event_async_hook_is_awaited(client):
+    respx.post(f"{BASE}/market/execute-batched").mock(
+        return_value=_sse_response(
+            (0, "MarketOrderAccepted", {"trackingId": "trk-async"}),
+            (1, "MarketOrderExecuted", {"orderId": 2, "transactionHash": "0xok"}),
+        )
+    )
+    seen = []
+
+    async def hook(ev):
+        seen.append(ev.type)
+
+    await client.execute(0, ERC712, on_event=hook)
+    assert seen == ["MarketOrderAccepted", "MarketOrderExecuted"]
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_on_event_sees_terminal_before_raise(client):
+    """Failure terminals are delivered to the hook BEFORE the typed raise, so
+    a journey log is complete even when the call fails."""
+    respx.post(f"{BASE}/market/execute-batched").mock(
+        return_value=_sse_response(
+            (0, "MarketOrderAccepted", {"trackingId": "trk-fail"}),
+            (1, "AttemptFailed", {"attempt": 1, "code": "HighSlippage", "message": "reverted", "willRetry": True}),
+            (2, "MarketOrderCanceled", {"orderId": 3}),
+        )
+    )
+    seen = []
+
+    with pytest.raises(RelayError, match="canceled"):
+        await client.execute(0, ERC712, on_event=seen.append)
+
+    assert [ev.type for ev in seen] == [
+        "MarketOrderAccepted",
+        "AttemptFailed",
+        "MarketOrderCanceled",
+    ]
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_on_event_covers_stream_timeout_fallback(client):
+    """When the stream view expires the hook also sees the (non-terminal)
+    STREAM_TIMEOUT Error and then each event recovered via status polling —
+    every event exactly once."""
+    respx.post(f"{BASE}/market/execute-batched").mock(
+        return_value=_sse_response(
+            (0, "MarketOrderAccepted", {"trackingId": "trk-to"}),
+            (None, "Error", {"code": "STREAM_TIMEOUT", "message": "Stream view expired", "trackingId": "trk-to"}),
+        )
+    )
+    respx.get(f"{BASE}/tracking-id/trk-to/status").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "events": [
+                    {"seq": 1, "type": "MarketOrderInitiated", "payload": {"orderId": 6, "transactionHash": "0xi"}},
+                    {"seq": 2, "type": "MarketOrderExecuted", "payload": {"orderId": 6, "transactionHash": "0xok"}},
+                ]
+            },
+        )
+    )
+    seen = []
+
+    outcome = await client.execute(0, ERC712, on_event=seen.append)
+
+    assert [ev.type for ev in seen] == [
+        "MarketOrderAccepted",
+        "Error",  # the connection-scoped STREAM_TIMEOUT, logged, not terminal
+        "MarketOrderInitiated",
+        "MarketOrderExecuted",
+    ]
+    assert outcome.tx_hash == "0xok"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_wait_on_event_delivers_only_newly_replayed_events(client):
+    """Standalone wait() (the wait=False settle path) emits replayed events to
+    the hook, but never re-delivers the pre-seeded ones."""
+    respx.get(f"{BASE}/tracking-id/trk-w/status").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "events": [
+                    {"seq": 1, "type": "MarketOrderExecuted", "payload": {"orderId": 4, "transactionHash": "0xok"}}
+                ]
+            },
+        )
+    )
+    from avantis_trader_sdk.execution.batched_market import BatchedMarketEvent
+
+    seed = [BatchedMarketEvent(type="MarketOrderAccepted", data={"trackingId": "trk-w"}, seq=0)]
+    seen = []
+
+    outcome = await client.wait("trk-w", after_seq=0, events=seed, on_event=seen.append)
+
+    assert [ev.type for ev in seen] == ["MarketOrderExecuted"]
+    assert [ev.type for ev in outcome.events] == ["MarketOrderAccepted", "MarketOrderExecuted"]
 
 
 @pytest.mark.asyncio

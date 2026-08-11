@@ -70,7 +70,7 @@ print(spread["spreadPct"], spread["spreadMechanism"])   # percent, descaled
 `spreadPct` is the quoted value (the with-flow estimate when the flow mechanism is active, otherwise the without-flow spread). A `404` means the engine matched a mechanism but could not compute a spread (for example a stale orderbook) — treat it as "do not execute", not as zero spread.
 
 <Note>
-The v2 spread engine is live on testnet. Mainnet serves the legacy engine until the v2 cutover — use `client.markets.dynamic_spread(...)` (same arguments, response key `dynamicSpreadPct`) there in the meantime.
+The v2 spread engine is live on testnet. On mainnet the endpoint is routed but the engine is not serving yet (requests error until the v2 cutover) — use `client.markets.dynamic_spread(...)` (same arguments, response key `dynamicSpreadPct`) there in the meantime.
 </Note>
 
 Related risk reads: `client.markets.open_interests()` (per-pair long/short OI including pending amounts) and `client.markets.orderbook_snapshots()` (cumulative bid/ask coin liquidity per orderbook source).

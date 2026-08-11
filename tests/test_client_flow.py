@@ -440,6 +440,41 @@ async def test_positions_read():
 
 @pytest.mark.asyncio
 @respx.mock
+async def test_market_open_on_event_observes_lifecycle():
+    """on_event plumbs from trade.market_open through the engine to the
+    batched-market stream: the hook sees the journey (incl. AttemptFailed)
+    live while wait=True still settles the receipt."""
+    respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
+    mock_data_api(DATA)
+    respx.post(f"{TXB}/v2/intents/open").mock(return_value=_ok(_open_intent_payload()))
+    respx.post(f"{TXB}/v2/trade/open").mock(return_value=_ok(_calldata_payload()))
+    respx.post(f"{BATCHED}/market/execute-batched").mock(
+        return_value=_sse(
+            (0, "MarketOrderAccepted", {"trackingId": "trk-ev"}),
+            (1, "AttemptFailed", {"attempt": 1, "code": "NO_PRICE", "message": "no fresh price", "willRetry": True}),
+            (2, "MarketOrderInitiated", {"orderId": 11, "transactionHash": "0xinit"}),
+            (3, "MarketOrderExecuted", {"orderId": 11, "transactionHash": "0xtx"}),
+        )
+    )
+    seen = []
+
+    async with _client() as client:
+        receipt = await client.trade.market_open(
+            "ETH/USD", "long", collateral=100, leverage=10, on_event=seen.append
+        )
+
+    assert receipt.tx_hash == "0xtx"
+    assert [ev.type for ev in seen] == [
+        "MarketOrderAccepted",
+        "AttemptFailed",
+        "MarketOrderInitiated",
+        "MarketOrderExecuted",
+    ]
+    assert seen[1].data["code"] == "NO_PRICE"
+
+
+@pytest.mark.asyncio
+@respx.mock
 async def test_batched_market_canceled_raises():
     """MarketOrderCanceled terminal (tx succeeded, fill declined) is a RelayError."""
     from avantis_trader_sdk.errors import RelayError

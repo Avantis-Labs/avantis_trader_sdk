@@ -31,7 +31,8 @@ Sync facade: `Avantis()` (same surface, blocking).
 
 ### Execution routing (execution/engine.py) — central routing base URL
 Service URLs derive from api_base_url (prod-api/staging-api.avantisfi.com):
-/core, /twap, /batched-market, /blitz.
+/core, /twap, /batched-market, /blitz, /data, /risk/v2 (the gateway also
+routes /ws = iris, not consumed by the SDK).
 - relayer mode + market open/close/increase (10 types) -> batched-market
   POST /market/execute-batched with a signed EIP-712 intent + an OPTIONAL
   pre-signed EIP-7702 type-4 tx (high-level flows send both for the

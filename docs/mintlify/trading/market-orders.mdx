@@ -26,6 +26,7 @@ receipt = await client.trade.market_open(
 | `slippage_percent` | `1` | Max slippage (`1` = 1%) |
 | `skip_validation` | `False` | Skip the API's pre-trade validation |
 | `wait` | `True` | Poll the relayer until settled |
+| `on_event` | `None` | Callable observing each lifecycle event live ([below](#track-the-order-lifecycle)) |
 
 <Info>
 **Upside markets route automatically.** Upside pairs (formerly "zero-fee"/ZFP)
@@ -112,6 +113,41 @@ event the exception's `.code` carries the machine-readable reason (a
 contract error name like `WrongSl`, or a service code like
 `ATTEMPTS_EXHAUSTED`).
 
+### Watch the journey while the SDK settles
+
+Want the SDK's settle logic **and** live visibility of the journey — e.g. to
+log `AttemptFailed` diagnostics for later debugging? Pass `on_event=` (all
+market open/close/increase methods take it). The hook is called once per
+lifecycle event, in stream order, while the call still blocks until settled:
+
+```python
+from avantis_trader_sdk import BatchedMarketEvent
+
+def journey(ev: BatchedMarketEvent) -> None:          # async def works too
+    log.info("order event seq=%s %s %s", ev.seq, ev.type, ev.data)
+
+receipt = await client.trade.market_open(
+    "ETH/USD", "long", collateral=100, leverage=10, on_event=journey
+)
+```
+
+The hook sees everything the SDK sees: `MarketOrderAccepted`, each retryable
+`AttemptFailed` (`{attempt, code, message, willRetry}`), unknown
+informational types the server may add, the initiation event, and the
+terminal — **including when the terminal makes the call raise**, so a
+journey log is complete on failures. If the stream view times out, the hook
+also sees the connection-scoped `STREAM_TIMEOUT` `Error` and then each event
+recovered via status polling, every event exactly once.
+
+Notes:
+
+- Relayer route only (the direct RPC route has no lifecycle stream).
+- Sync and async callables both work; keep the hook fast — it runs inline on
+  the client's event loop.
+- Exceptions from the hook propagate and abort the local wait; the order
+  keeps executing server-side (settle with
+  `client.engine.batched_market.wait(tracking_id)`).
+
 With `wait=False` the call returns at `MarketOrderAccepted`. At that point
 `tx_hash` is still `None` and you settle later from the `tracking_id`:
 
@@ -127,7 +163,8 @@ for ev in outcome.events:                     # full persisted lifecycle
 
 `client.engine.batched_market.status(tracking_id, after_seq=n)` is the
 non-blocking single poll. Every event carries a `seq`, so you can resume
-replay after a crash without missing or double-processing events.
+replay after a crash without missing or double-processing events. `wait()`
+also takes `on_event=` and delivers each newly replayed event to it live.
 
 ## The executed fill payload
 

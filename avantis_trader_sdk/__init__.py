@@ -25,6 +25,7 @@ from .errors import (
     SigningError,
     ValidationError,
 )
+from .execution import BatchedMarketEvent
 from .signing import BaseSigner, LocalSigner, sign_intent
 from .types import (
     ExecutionMode,
@@ -49,6 +50,7 @@ __all__ = [
     "sign_intent",
     "ExecutionMode",
     "ExecutionReceipt",
+    "BatchedMarketEvent",
     "IntentPayload",
     "Side",
     "OrderType",

@@ -100,6 +100,8 @@ The terminal `MarketOrderExecuted` event carries the full fill — execution `pr
 
 `engine.batched_market.status(tracking_id, after_seq=n)` is the non-blocking single poll; every event carries a `seq`, so a crashed process can resume replay without missing or double-counting events.
 
+Prefer the SDK's settle logic but want the journey as it happens — e.g. `AttemptFailed` diagnostics as debug logs? Pass `on_event=` to `submit_intent_batch` (with `wait=True`) or to `batched_market.wait(...)`: the hook fires per lifecycle event, terminal included even when the call raises, while settlement still returns/raises through the SDK. See [Track the order lifecycle](/trading/market-orders#track-the-order-lifecycle).
+
 **Blitz relayer routes** (passthrough actions: limit orders, margin, approvals, ...) settle by `request_id`:
 
 ```python

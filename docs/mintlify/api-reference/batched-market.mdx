@@ -263,6 +263,14 @@ from avantis_trader_sdk.types import AggregatorOrderType
 # High-level (signs the intent + optional 7702 leg, streams, settles):
 receipt = await client.trade.market_open("ETH/USD", "long", collateral=100, leverage=10)
 
+# Same, but observe the journey live while the SDK settles (on_event fires
+# per streamed event: accepted, AttemptFailed diagnostics, the terminal —
+# also when it raises):
+receipt = await client.trade.market_open(
+    "ETH/USD", "long", collateral=100, leverage=10,
+    on_event=lambda ev: log.info("order %s seq=%s %s", ev.type, ev.seq, ev.data),
+)
+
 # MM fast path (local intent, intent-only POST, settle off the hot path):
 builder = await client.local_intents()
 payload = builder.open_trade_coin(...)                # microseconds, no I/O
@@ -271,5 +279,10 @@ receipt = await client.engine.submit_intent_batch(
 )
 outcome = await client.engine.batched_market.wait(receipt.tracking_id)  # replay by seq
 ```
+
+`on_event` is available on every layer of the path — `trade.market_*` /
+`increase_position*`, `engine.submit_intent_batch`, and
+`BatchedMarketClient.execute` / `.wait` — sync or async callables; see
+[Track the order lifecycle](/trading/market-orders#track-the-order-lifecycle).
 
 See [MM fast path](/advanced/mm-fast-path) for the full zero-I/O signing loop.

@@ -11,7 +11,10 @@ With ``wait=False`` the SDK returns at ``MarketOrderAccepted``, but an
 accepted order can still fail (declined fill, revert), so YOU own the
 settlement check. Reconcile off the hot path with
 ``engine.batched_market.wait(tracking_id)`` (or ``.status()`` for a single,
-seq-resumable poll).
+seq-resumable poll). Prefer keeping ``wait=True`` and still seeing the order
+journey (AttemptFailed diagnostics etc.) live? Pass ``on_event=`` — the SDK
+settles as usual and calls your hook per lifecycle event; it also works on
+``wait()`` below.
 
 Beyond ``open_trade``/``close_trade`` the builder covers the whole intent
 surface: ``open_trade_coin``/``close_trade_coin`` (coin-sized, pair with
@@ -61,12 +64,15 @@ async def main() -> None:
         await stream.run(on_price)
 
         # --- off the hot path: settle every accepted order ---
+        # on_event logs the replayed journey live (AttemptFailed diagnostics
+        # included) while wait() still settles the outcome
         for tracking_id in accepted:
             try:
-                outcome = await engine.batched_market.wait(tracking_id)
+                outcome = await engine.batched_market.wait(
+                    tracking_id,
+                    on_event=lambda ev: print(f"    seq={ev.seq} {ev.type}"),
+                )
                 print("executed:", outcome.tx_hash)
-                for ev in outcome.events:
-                    print(f"    seq={ev.seq} {ev.type}")
             except RelayError as exc:
                 # MarketOrderCanceled: the protocol declined the fill
                 # (e.g. price moved beyond slippage); nothing landed on-chain

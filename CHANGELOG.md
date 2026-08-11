@@ -105,6 +105,34 @@ machine-readable error codes.
   fetch and local `executePositionUpdateBatched` encoding are gone.
 - **New:** `account.twap(twap_id)` — single TWAP by id
   (`GET {twap}/twaps/{id}`), `None` on 404.
+- **New: `on_event=` lifecycle hook on the batched-market path** — keep
+  `wait=True` (the SDK still settles: terminal mapping, STREAM_TIMEOUT
+  status-replay fallback, typed raises) and observe the order journey live.
+  The hook (sync or async callable taking a `BatchedMarketEvent`; exported at
+  package root) is called once per streamed event in order: accepted,
+  non-terminal `AttemptFailed` diagnostics, unknown informational types,
+  initiation, and the terminal — delivered even when the call raises, so a
+  journey log is complete on failures; the connection-scoped
+  `STREAM_TIMEOUT` `Error` and the events replayed by the polling fallback
+  are delivered too (each event exactly once). Plumbed through
+  `trade.market_open[_coin]` / `market_close[_coin]` /
+  `increase_position[_coin]` (relayer route only — the direct route has no
+  lifecycle stream), `engine.submit_intent_batch`, and
+  `BatchedMarketClient.execute` / `.wait` (so `wait=False` + settle-later
+  gets the same journey). Hook exceptions propagate and abort the local
+  wait; the order keeps executing server-side (recover via
+  `wait(tracking_id)`).
+- **Central routing expanded** (gateway `central-routes` update):
+  `data_api_url` and `risk_v2_api_url` now derive from `api_base_url` —
+  `{base}/data` (data-service) and `{base}/risk/v2` (risk-engine v2) —
+  replacing the standalone `testnet-data`/`data` and `risk-api-v2-testnet`
+  defaults (old hosts still respond; `AVANTIS_DATA_API_URL` /
+  `AVANTIS_RISK_V2_API_URL` overrides unchanged). `PairDataStream` now
+  re-applies the URL's path prefix via `socketio_path`, so the Socket.IO
+  handshake works through the `/data` prefix. NB: prod-api routes `/risk/v2`
+  but the mainnet v2 spread engine is not serving yet (5xx until the
+  cutover) — keep using `markets.dynamic_spread()` on mainnet. The gateway
+  also routes `/ws` (iris websocket app), which the SDK does not consume.
 
 ### Unreleased additions (2026-08-07) — per-feature live check scripts
 
