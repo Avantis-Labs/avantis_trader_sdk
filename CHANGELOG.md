@@ -357,6 +357,22 @@ batched-market execution, twap-app, off-chain order CRUD).
 - Lazer SSE stream: feed-v3 sends `timestampUs` as a string — price updates no
   longer crash the callback loop.
 
+### Fixes from live testnet E2E (2026-08-11)
+
+- Testnet profile now uses the testnet feed app
+  (`feed-v3-testnet.avantisfi.com`): the fork's price aggregator only verifies
+  price updates signed by that deployment, and `markets.price` /
+  `price_update_data` / `candles` were reading mainnet data.
+- `update_margin` now fetches signed price-update bytes from the configured
+  feed app and passes `priceUpdateData` + `priceSourcing` to the tx-builder
+  (like the web app), instead of relying on the tx-builder's server-side feed
+  fallback.
+- `default_gas_limit` raised 1M -> 2M: relayer-mode passthrough runs without
+  an RPC to estimate gas, and `updateMargin` (oracle fulfill + full position
+  accounting) burns just over 1M — margin deposits/withdrawals ran out of gas
+  a few opcodes short of completion and reverted. 2M matches the backend's
+  own budget for the same call class; the blitz relayer caps relays at 3M.
+
 ### Docs
 
 - Complete Mintlify docs site (docs/mintlify): 20 pages covering the full SDK

@@ -26,7 +26,7 @@ from typing import Any
 from ..account.models import Position, UserData
 from ..base_api import ExecutingApi
 from ..config import AvantisConfig
-from ..errors import ConfigError, RelayTimeoutError, ValidationError
+from ..errors import ApiError, ConfigError, RelayTimeoutError, ValidationError
 from ..execution import ExecutionEngine
 from ..execution.batched_market import BatchedMarketEventHook
 from ..execution.local_intents import LocalIntentBuilder
@@ -393,6 +393,34 @@ class TradeApi(ExecutingApi):
 
     # ------------------------------------------------------------------ position updates
 
+    async def _fresh_price_update(self, pair_index: int) -> dict[str, Any]:
+        """Signed oracle bytes for calldata that executes against a fresh price.
+
+        ``updateMargin`` calldata embeds price-update bytes that the on-chain
+        aggregator verifies, and the signature must come from the feed app of
+        THIS environment (``config.feed_url``) — e.g. the testnet fork rejects
+        mainnet-signed updates. Fetching and passing them explicitly keeps the
+        tx-builder's server-side feed fallback out of the loop. Prefers the
+        pro (Lazer) leg, like the UI. Returns ``{}`` when the feed has no
+        update — the tx-builder then sources the bytes itself.
+        """
+        assert self._t is not None
+        try:
+            data = await self._t.json(
+                "GET", f"{self._cfg.feed_url}/v2/pairs/{pair_index}/price-update-data"
+            )
+        except ApiError:
+            return {}
+        if not isinstance(data, dict):
+            return {}
+        leg = data.get("pro") or data.get("core")
+        if not isinstance(leg, dict) or not leg.get("priceUpdateData"):
+            return {}
+        return {
+            "priceUpdateData": leg["priceUpdateData"],
+            "priceSourcing": 1 if data.get("pro") else 0,
+        }
+
     async def update_margin(
         self,
         pair: PairRef,
@@ -402,13 +430,20 @@ class TradeApi(ExecutingApi):
         *,
         wait: bool = True,
     ) -> ExecutionReceipt:
-        """Deposit or withdraw collateral on an open position."""
+        """Deposit or withdraw collateral on an open position.
+
+        Executes atomically against a fresh oracle price: the SDK attaches
+        signed price-update bytes from the configured feed app (see
+        :meth:`_fresh_price_update`).
+        """
+        info = await self._resolve_pair(pair)
         params: dict[str, Any] = {
-            "pairIndex": (await self._resolve_pair(pair)).index,
+            "pairIndex": info.index,
             "trader": self.trader,
             "tradeIndex": trade_index,
             "action": MarginAction(action).value,
             "collateralUsdc": amount,
+            **(await self._fresh_price_update(info.index)),
         }
         return await self._passthrough_or_direct("/v2/margin/update", params, wait)
 

@@ -80,7 +80,10 @@ TESTNET = NetworkProfile(
     # risk-api-testnet.avantisfi.com is cluster-internal; -public is the
     # reachable ingress (avantis-cd/services/risk-engine/testnet-public).
     risk_api_url="https://risk-api-testnet-public.avantisfi.com",
-    feed_url="https://feed-v3.avantisfi.com",
+    # Testnet feed app (feed-v3, tenderly-testnet namespace). Its signed price
+    # updates are the ones the fork's price aggregator verifies — messages
+    # from the mainnet feed (feed-v3.avantisfi.com) revert on-chain there.
+    feed_url="https://feed-v3-testnet.avantisfi.com",
     pusher_key="f86bc7e9919fc938694a",
     pusher_cluster="mt1",
 )
@@ -148,7 +151,11 @@ class AvantisConfig:
     # EIP-7702 / relayer plumbing
     delegation_address: str = DEFAULT_DELEGATION_ADDRESS
     builder_code: str | None = None  # optional 0x-hex 32-byte calldata suffix
-    default_gas_limit: int = 1_000_000
+    # Fallback when no RPC is available to estimate (the normal relayer setup).
+    # updateMargin burns >1M gas (oracle fulfill + full position accounting;
+    # the backend budgets 2M for the same call class), and the blitz relayer
+    # caps relays at 3M.
+    default_gas_limit: int = 2_000_000
 
     # behavior
     timeout_s: float = 30.0
