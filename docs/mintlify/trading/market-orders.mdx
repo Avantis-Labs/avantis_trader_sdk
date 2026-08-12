@@ -1,0 +1,198 @@
+---
+title: Market Orders
+description: "Open and close positions at the current price."
+---
+
+## Open
+
+```python
+receipt = await client.trade.market_open(
+    "ETH/USD", "long",
+    collateral=100,          # USDC
+    leverage=10,
+    take_profit=4200,        # optional, price
+    stop_loss=2900,          # optional, price
+)
+```
+
+| Parameter | Default | Notes |
+| --- | --- | --- |
+| `pair` | required | Symbol (`"ETH/USD"`, `"BTC_UPSIDE"`) or pair index |
+| `side` | required | `"long"` or `"short"` |
+| `collateral` | required | USDC |
+| `leverage` | required | Multiplier (`10` = 10x) |
+| `take_profit` / `stop_loss` | `None` | Trigger prices |
+| `open_price` | `None` | Reference price the fill is validated against (± `slippage_percent`); resolved from the live feed when omitted |
+| `slippage_percent` | `1` | Max slippage (`1` = 1%) |
+| `skip_validation` | `False` | Skip the API's pre-trade validation |
+| `wait` | `True` | Poll the relayer until settled |
+| `on_event` | `None` | Callable observing each lifecycle event live ([below](#track-the-order-lifecycle)) |
+
+<Info>
+**Upside markets route automatically.** Upside pairs (formerly "zero-fee"/ZFP)
+are separate markets suffixed `_UPSIDE` — e.g. `BTC_UPSIDE/USD` next to
+`BTC/USD`. Opening one sends the PnL (Upside) order type by itself: no
+open/close fee, a tiered profit share on gains instead. There is no flag to
+pass — the pair determines the order type (the contract rejects any
+mismatch). Upside pairs are market-only: no limit/stop opens and no TWAP.
+See [Markets](/data/markets#upside-markets) for discovering them.
+</Info>
+
+## Open sized in coin units
+
+`market_open_coin` targets a coin exposure (e.g. 0.5 ETH) instead of a leverage-derived notional. The fill leverage floats within `[min_leverage, max_leverage]`.
+
+```python
+await client.trade.market_open_coin(
+    "ETH/USD", "long",
+    collateral=100,
+    coin_exposure=0.5,       # ETH
+    leverage=10,             # reference leverage, required by the contract
+    min_leverage=5, max_leverage=20,
+)
+```
+
+<Warning>
+`leverage` is required on coin-sized opens even though the fill leverage floats; the contract struct demands it. `min`/`max` default to the pair's envelope when omitted.
+</Warning>
+
+`market_open_coin` also accepts `open_price`, with the same semantics as `market_open`.
+
+## Close
+
+Close by collateral (partial or full) or by coin exposure:
+
+```python
+pos = (await client.account.positions()).positions[0]
+
+# full close: pass the entire collateral
+await client.trade.market_close(
+    pos.pair_index, pos.index,
+    collateral_to_close=float(pos.collateral),
+)
+
+# or close 0.25 ETH worth
+await client.trade.market_close_coin(pos.pair_index, pos.index, coin_exposure=0.25)
+```
+
+| Parameter | Default | Notes |
+| --- | --- | --- |
+| `trade_index` | required | `Position.index` from [positions](/account/positions) |
+| `collateral_to_close` / `coin_exposure` | required | Partial amounts allowed |
+| `expected_price` | `None` | Resolved from the live feed when omitted |
+| `open_timestamp` | `None` | Binds the close to a specific open (see below) |
+
+Closes route from the pair too: a position on an Upside pair closes with the
+PnL close type automatically (`Position.is_upside` is informational — you
+don't pass it anywhere).
+
+<Warning>
+The close intent binds the position's open timestamp. If you open and close in quick succession and hit a `PositionMismatch`-style simulation failure, pass `open_timestamp=pos.opened_at` explicitly, or re-fetch positions first.
+</Warning>
+
+## Track the order lifecycle
+
+Market orders route through the batched-market service, which streams the
+lifecycle back: `MarketOrderAccepted` → `MarketOrderInitiated` (on-chain
+order id + tx hash) → `MarketOrderExecuted`, with zero or more non-terminal
+`AttemptFailed` events in between when an attempt hits a retryable condition
+(see the [batched-market reference](/api-reference/batched-market)). With
+the default `wait=True` the receipt already reflects the executed fill:
+
+```python
+receipt = await client.trade.market_open("ETH/USD", "long", collateral=100, leverage=10)
+print(receipt.route)         # "batched-market"
+print(receipt.tx_hash)       # execution transaction
+print(receipt.order_id)      # on-chain order id
+print(receipt.tracking_id)   # lifecycle replay handle
+```
+
+A fill the protocol declines (e.g. price moved beyond `slippage_percent`)
+raises `RelayError` instead of returning a receipt; on a terminal `Error`
+event the exception's `.code` carries the machine-readable reason (a
+contract error name like `WrongSl`, or a service code like
+`ATTEMPTS_EXHAUSTED`).
+
+### Watch the journey while the SDK settles
+
+Want the SDK's settle logic **and** live visibility of the journey — e.g. to
+log `AttemptFailed` diagnostics for later debugging? Pass `on_event=` (all
+market open/close/increase methods take it). The hook is called once per
+lifecycle event, in stream order, while the call still blocks until settled:
+
+```python
+from avantis_trader_sdk import BatchedMarketEvent
+
+def journey(ev: BatchedMarketEvent) -> None:          # async def works too
+    log.info("order event seq=%s %s %s", ev.seq, ev.type, ev.data)
+
+receipt = await client.trade.market_open(
+    "ETH/USD", "long", collateral=100, leverage=10, on_event=journey
+)
+```
+
+The hook sees everything the SDK sees: `MarketOrderAccepted`, each retryable
+`AttemptFailed` (`{attempt, code, message, willRetry}`), unknown
+informational types the server may add, the initiation event, and the
+terminal — **including when the terminal makes the call raise**, so a
+journey log is complete on failures. If the stream view times out, the hook
+also sees the connection-scoped `STREAM_TIMEOUT` `Error` and then each event
+recovered via status polling, every event exactly once.
+
+Notes:
+
+- Relayer route only (the direct RPC route has no lifecycle stream).
+- Sync and async callables both work; keep the hook fast — it runs inline on
+  the client's event loop.
+- Exceptions from the hook propagate and abort the local wait; the order
+  keeps executing server-side (settle with
+  `client.engine.batched_market.wait(tracking_id)`).
+
+With `wait=False` the call returns at `MarketOrderAccepted`. At that point
+`tx_hash` is still `None` and you settle later from the `tracking_id`:
+
+```python
+accepted = await client.trade.market_close(pos.pair_index, pos.index,
+                                           collateral_to_close=50, wait=False)
+
+outcome = await client.engine.batched_market.wait(accepted.tracking_id)
+print(outcome.tx_hash)                        # settled
+for ev in outcome.events:                     # full persisted lifecycle
+    print(ev.seq, ev.type, ev.data)
+```
+
+`client.engine.batched_market.status(tracking_id, after_seq=n)` is the
+non-blocking single poll. Every event carries a `seq`, so you can resume
+replay after a crash without missing or double-processing events. `wait()`
+also takes `on_event=` and delivers each newly replayed event to it live.
+
+## The executed fill payload
+
+The terminal `MarketOrderExecuted` event carries the **final trade as it
+executed on-chain** — no follow-up positions query is needed to learn the
+fill. It's available as `outcome.terminal.data` (and as `receipt.raw` with
+the default `wait=True`):
+
+| Field | Meaning |
+| --- | --- |
+| `orderId`, `transactionHash` | On-chain order id and execution transaction |
+| `open` | `true` for an open fill, `false` for a close |
+| `price` | Execution price (1e10) |
+| `positionSizeUSDC` | Filled notional in USDC (1e6) |
+| `percentProfit` | Realized PnL as a percent (1e10; meaningful on closes) |
+| `usdcSentToTrader` | USDC returned to the trader (1e6; closes) |
+| `isPnl`, `coinExposure`, `isCoinExposureFixed` | Upside (PnL-type) flag, base-asset exposure (1e10), coin-sized flag |
+| `t` | The stored trade tuple: `trader`, `pairIndex`, `index`, `initialPosToken` (final position collateral, 1e6), `positionSizeUSDC` (1e6), `openPrice` (1e10), `buy`, `leverage` (1e10), `tp` / `sl` (1e10), `timestamp` |
+
+Every numeric field is a **string in raw on-chain units** (several exceed
+float precision); convert with `from_usdc` / `from_1e10` from
+`avantis_trader_sdk.types`.
+
+Size increases terminate with `PositionSizeIncreased` instead, which is
+deliberately a different shape: there is no fill `price` /
+`percentProfit` / `usdcSentToTrader`; it reports `coinExposureAdded` plus
+`t` = the **blended resulting position** (open price, leverage and
+collateral recomputed on-chain across the old and new size).
+
+For position-level confirmation, `client.account.positions()` reflects the
+fill after execution; see [Core concepts](/concepts#receipts-and-fills).

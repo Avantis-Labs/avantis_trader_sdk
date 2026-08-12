@@ -1,0 +1,68 @@
+---
+title: Configuration
+description: "Environment variables, constructor overrides, networks, and signers."
+---
+
+The SDK resolves configuration in priority order: **constructor arguments > environment variables > network profile defaults**. Most users set two env vars and nothing else.
+
+```bash
+export AVANTIS_PRIVATE_KEY=0x...      # signing key (API key or wallet key)
+export AVANTIS_TRADER_ADDRESS=0x...   # wallet address (only when using an API key)
+```
+
+## Environment variables
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `AVANTIS_PRIVATE_KEY` | (none) | Signing key. An API/agent key from the [Avantis API Key Generator](https://delegate.avantisfi.com/), or your wallet key. |
+| `AVANTIS_TRADER_ADDRESS` | (none) | Your wallet (holds USDC and positions). Set only when the key above is a delegate/API key. |
+| `AVANTIS_NETWORK` | `mainnet` | `mainnet` or `testnet`. |
+| `AVANTIS_EXECUTION` | `relayer` | `relayer` (gasless, default) or `direct` (self-broadcast). |
+| `AVANTIS_RPC_URL` | (none) | Base RPC. Required for `direct` execution, and for relayer mode **only when signing with your wallet key directly** (reads the EIP-7702 authorization nonce). Not needed with a delegate/API key. |
+
+Centrally-routed services (core, TWAP, batched-market, relayer, data, risk-engine v2) derive from a single base URL: `https://prod-api.avantisfi.com` on mainnet, `https://staging-api.avantisfi.com` on testnet. Override it with `AVANTIS_API_BASE_URL`. Per-service endpoint overrides (rarely needed) win over the derivation: `AVANTIS_TX_BUILDER_URL`, `AVANTIS_RELAYER_URL`, `AVANTIS_CORE_API_URL`, `AVANTIS_TWAP_API_URL`, `AVANTIS_BATCHED_MARKET_URL`, `AVANTIS_DATA_API_URL`, `AVANTIS_RISK_V2_API_URL`, `AVANTIS_HISTORY_API_URL`, `AVANTIS_RISK_API_URL`, `AVANTIS_FEED_URL`.
+
+## Constructor overrides
+
+Anything the env can set, the constructor can override:
+
+```python
+from avantis_trader_sdk import AsyncAvantis
+
+client = AsyncAvantis(
+    private_key="0x...",
+    trader_address="0x...",
+    network="mainnet",
+    execution="direct",
+    rpc_url="https://mainnet.base.org",
+)
+```
+
+Other useful options: `timeout_s` (default 30), `relay_poll_timeout_s` (default 60, how long `wait=True` polls the relayer), `builder_code` (optional 32-byte calldata suffix for partners).
+
+## Sync client
+
+`Avantis` mirrors the async surface with blocking calls. Same namespaces, same methods:
+
+```python
+from avantis_trader_sdk import Avantis
+
+client = Avantis()
+client.trade.market_open("ETH/USD", "long", collateral=100, leverage=10)
+client.close()
+```
+
+## Custom signers
+
+By default the SDK builds a `LocalSigner` from `private_key`. Pass any `BaseSigner` instead, e.g. AWS KMS (install with `pip install 'avantis-trader-sdk[kms]'`):
+
+```python
+from avantis_trader_sdk.signing import KmsSigner
+
+client = AsyncAvantis(signer=KmsSigner("alias/avantis-agent", region_name="us-east-1"))
+```
+
+<Note>
+Streams (Socket.IO pair data) need an extra: `pip install 'avantis-trader-sdk[streams]'`.
+Python 3.10+ is required.
+</Note>

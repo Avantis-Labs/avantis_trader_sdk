@@ -1,0 +1,258 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Avantis Python SDK",
+  "colors": {
+    "primary": "#7D17FF",
+    "light": "#B84FF3",
+    "dark": "#6412CC"
+  },
+  "favicon": "/favicon.svg",
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
+  },
+  "banner": {
+    "content": "Avantis v2 is live as of **August 12, 2026**. Migrating from v1? Read the [migration guide](/migration/overview).",
+    "dismissible": true
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Python SDK",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "index",
+              "quickstart",
+              "configuration",
+              "concepts"
+            ]
+          },
+          {
+            "group": "Migrating from v1",
+            "pages": [
+              "migration/overview",
+              "migration/sdk-migration",
+              "migration/direct-integrators"
+            ]
+          },
+          {
+            "group": "Trading",
+            "pages": [
+              "trading/market-orders",
+              "trading/limit-orders",
+              "trading/tp-sl",
+              "trading/margin-and-size",
+              "trading/twap"
+            ]
+          },
+          {
+            "group": "Account & Portfolio",
+            "pages": [
+              "account/positions",
+              "account/portfolio",
+              "account/delegates",
+              "account/approvals"
+            ]
+          },
+          {
+            "group": "Data & Compute",
+            "pages": [
+              "data/markets",
+              "data/prices-and-streams",
+              "data/compute"
+            ]
+          },
+          {
+            "group": "Earn & Grow",
+            "pages": [
+              "more/lp-vault",
+              "more/referrals"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "advanced/execution-modes",
+              "advanced/mm-fast-path",
+              "advanced/security",
+              "advanced/errors"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "api-reference/overview"
+            ]
+          },
+          {
+            "group": "Meta",
+            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
+            "pages": [
+              "GET /v2/meta",
+              "GET /v2/pairs",
+              "GET /health",
+              "GET /ready",
+              "GET /metrics",
+              "GET /addresses",
+              "GET /v2/pairs/{index}"
+            ]
+          },
+          {
+            "group": "Trading",
+            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
+            "pages": [
+              "POST /v2/trade/open",
+              "POST /v2/trade/open-coin",
+              "POST /v2/trade/close",
+              "POST /v2/trade/close-coin",
+              "POST /v2/limit/update",
+              "POST /v2/limit/cancel",
+              "POST /v2/margin/update",
+              "POST /v2/position/increase",
+              "POST /v2/position/increase-coin"
+            ]
+          },
+          {
+            "group": "Delegate",
+            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
+            "pages": [
+              "POST /v2/delegate/set",
+              "POST /v2/delegate/remove"
+            ]
+          },
+          {
+            "group": "Token",
+            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
+            "pages": [
+              "POST /v2/token/approve"
+            ]
+          },
+          {
+            "group": "Intents",
+            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
+            "pages": [
+              "POST /v2/intents/open",
+              "POST /v2/intents/open-coin",
+              "POST /v2/intents/close",
+              "POST /v2/intents/close-coin",
+              "POST /v2/intents/increase",
+              "POST /v2/intents/increase-coin",
+              "POST /v2/intents/tpsl-update",
+              "POST /v2/intents/tpsl-partial",
+              "POST /v2/intents/offchain-cancel",
+              "POST /v2/intents/twap-open",
+              "POST /v2/intents/twap-close",
+              "POST /v2/intents/twap-cancel",
+              "POST /v2/intents/referral-register-code",
+              "POST /v2/intents/referral-set-code",
+              "POST /v2/intents/delegate-set"
+            ]
+          },
+          {
+            "group": "Batched Market",
+            "pages": [
+              "api-reference/batched-market"
+            ]
+          },
+          {
+            "group": "Relay",
+            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
+            "pages": [
+              "POST /v2/relay",
+              "GET /v2/relay/{hash}"
+            ]
+          },
+          {
+            "group": "TWAP",
+            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
+            "pages": [
+              "POST /v2/twap/open",
+              "POST /v2/twap/close",
+              "POST /v2/twap/cancel"
+            ]
+          },
+          {
+            "group": "Referral",
+            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
+            "pages": [
+              "POST /v2/referral/register-code",
+              "POST /v2/referral/set-code",
+              "POST /v2/referral/request-special-code",
+              "POST /v2/referral/cancel-request",
+              "POST /v2/referral/relinquish-code",
+              "POST /v2/referral/set-code-by-owner",
+              "POST /v2/referral/transfer-ownership",
+              "POST /v2/referral/accept-ownership",
+              "POST /v2/referral/claim-rebate"
+            ]
+          },
+          {
+            "group": "LP",
+            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
+            "pages": [
+              "POST /v2/lp/deposit",
+              "POST /v2/lp/mint",
+              "POST /v2/lp/withdraw",
+              "POST /v2/lp/redeem",
+              "GET /v2/lp/state"
+            ]
+          },
+          {
+            "group": "Misc",
+            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
+            "pages": [
+              "POST /v2/misc/claim-keeper-rewards",
+              "POST /v2/misc/add-to-buffer",
+              "POST /v2/misc/builder-code/register",
+              "POST /v2/misc/builder-code/modify"
+            ]
+          },
+          {
+            "group": "Reads",
+            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
+            "pages": [
+              "GET /v2/nonce",
+              "GET /v2/positions",
+              "GET /v2/delegation",
+              "GET /v2/allowance"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "Examples",
+        "href": "https://github.com/Avantis-Labs/avantis_trader_sdk/tree/main/examples"
+      }
+    ]
+  },
+  "contextual": {
+    "options": [
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "perplexity",
+      "mcp",
+      "cursor",
+      "vscode"
+    ]
+  },
+  "footer": {
+    "socials": {
+      "x": "https://x.com/avantisfi",
+      "github": "https://github.com/Avantis-Labs"
+    }
+  }
+}

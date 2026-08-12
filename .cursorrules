@@ -1,142 +1,74 @@
-# Avantis Trader SDK - Cursor Rules
+# Avantis Trader SDK v2 - Cursor Rules
 
 ## About This SDK
-This is the official Python SDK for Avantis Protocol - a perpetual trading platform on Base (Ethereum L2).
-- Chain: Base Mainnet (8453)
-- Collateral: USDC (6 decimals)
-- Prices: 10 decimals internally, human-readable in SDK
+Official Python SDK for Avantis v2 - perpetuals on Base (8453). API-first
+(HyperLiquid-style): NO ABIs, NO web3. Payloads come from the tx-builder API;
+the SDK signs locally and submits via the Avantis relayer (default, gasless)
+or the user's own RPC (direct mode).
+
+User-facing docs live in docs/mintlify/ (source of truth; mirrored to the
+avantis-python-sdk repo — see docs/mintlify/README.md for the sync). For
+endpoint/unit/gotcha details, the docstrings in the modules below are the
+reference.
 
 ## Core Patterns
 
-### Always Use Async
-All SDK methods are async. Always use `async/await`:
+### Async-first
 ```python
-async def main():
-    trader_client = TraderClient("https://mainnet.base.org")
-    # All calls must be awaited
-    balance = await trader_client.get_usdc_balance(trader)
+from avantis_trader_sdk import AsyncAvantis
+async with AsyncAvantis() as client:          # env: AVANTIS_PRIVATE_KEY, AVANTIS_TRADER_ADDRESS
+    await client.trade.market_open("ETH/USD", "long", collateral=100, leverage=10)
 ```
+Sync facade: `Avantis()` (same surface, blocking).
 
-### Transaction Flow
-1. Build transaction with `build_*_tx` methods
-2. Sign and send with `sign_and_get_receipt()`
-```python
-tx = await trader_client.trade.build_trade_open_tx(...)
-receipt = await trader_client.sign_and_get_receipt(tx)
-```
+### Namespaces
+- client.trade    - opens/closes/limits/margin/increase/tpsl/twap/rfq
+- client.account  - positions, allowance, delegation, approvals, claims
+- client.markets  - pair catalog, prices, dynamic spread, candles
+- client.info     - history, portfolio, referral stats, vault APY
+- client.referral / client.lp - actions (caller-scoped; trader key only)
+- avantis_trader_sdk.compute  - pure UI-parity math (PnL, liq, validation)
 
-### Signer Setup
-Always set a signer before signing transactions:
-```python
-trader_client.set_local_signer("0xPRIVATE_KEY")
-# or
-trader_client.set_aws_kms_signer("kms-key-id")
-```
+### Execution routing (execution/engine.py) — central routing base URL
+Service URLs derive from api_base_url (prod-api/staging-api.avantisfi.com):
+/core, /twap, /batched-market, /blitz, /data, /risk/v2 (the gateway also
+routes /ws = iris, not consumed by the SDK).
+- relayer mode + market open/close/increase (10 types) -> batched-market
+  POST /market/execute-batched with a signed EIP-712 intent + an OPTIONAL
+  pre-signed EIP-7702 type-4 tx (high-level flows send both for the
+  server-side mechanism switch; intent-only is the MM fast path); lifecycle
+  streamed back as SSE (incl. non-terminal AttemptFailed events; Error
+  payloads carry a machine `code`), replayable via
+  GET /tracking-id/{id}/status (execution/batched_market.py)
+- global TP/SL (UpdateTpSlReq) -> signed intent PUT to the core API
+  /price-triggers/global-{tp|sl}-{trader}-{pair}-{index} (userIntent +
+  signedMessage); the backend executes executePositionUpdateBatched itself.
+  Same path in relayer AND direct mode (no public contract entry point).
+- relayer mode + everything else -> type-4 passthrough via blitz (SDK-built
+  EIP-7702 smart-account tx via eip7702/account.py)
+- TWAP open/close/cancel -> signed intents POSTed to the twap-app API
+  (no relayer; responds {twapId, transactionHash} synchronously)
+- direct mode -> EIP-1559 tx via rpc_url
 
-## Common Imports
-```python
-from avantis_trader_sdk import TraderClient, FeedClient
-from avantis_trader_sdk.types import (
-    TradeInput,
-    TradeInputOrderType,
-    MarginUpdateType,
-)
-```
+## Critical Invariants (do not break)
 
-## Important Rules
+1. Every signed intent MUST pass the digest assert (signing/intents.py).
+   Golden vectors in tests/vectors/vectors.json prove all 17 intent kinds -
+   tests/test_golden_vectors.py and test_local_intents.py must stay green.
+2. EIP-7702 encoding (eip7702/account.py) is byte-for-byte compatible with
+   @gelatocloud/gasless - tests/test_eip7702.py guards this.
+3. intents_schema.py mirrors contracts SignatureHelpers.sol verbatim - never
+   "normalize" field names (`_t`, `_deadline` vs `trader`, `nonce`).
+4. deadline/deadlineMs = MILLISECONDS; delegate expiry = SECONDS.
+5. Human units at the API boundary (100 = 100 USDC); send numbers as strings.
+6. Referral/approve/claims/LP are msg.sender-scoped: blocked in delegate mode
+   (delegatable=False guard in base_api.py).
+7. TP/SL update is intent-only in v2; both global and partial TP/SL go
+   through core API /price-triggers (ids are `entityId`; partial updates
+   mint a NEW entityId, global ids are deterministic and stable).
 
-### USDC Allowance
-Always check and approve USDC before opening trades:
-```python
-allowance = await trader_client.get_usdc_allowance_for_trading(trader)
-if allowance < amount:
-    await trader_client.approve_usdc_for_trading(amount)
-```
-
-### Pair Indexes
-Use pair indexes, not names, for trading:
-```python
-pair_index = await trader_client.pairs_cache.get_pair_index("ETH/USD")
-# Common: 0=BTC/USD, 1=ETH/USD
-```
-
-### Take Profit Required
-TP cannot be 0 - it's required. SL can be 0 (no stop loss).
-
-### Trade Indexes
-Each pair has independent trade indexes (0, 1, 2...). Get from `get_trades()`.
-
-### Delegate Trading
-For delegate methods, use `_delegate` suffix:
-- `build_trade_open_tx_delegate()`
-- `build_trade_close_tx_delegate()`
-- `build_trade_tp_sl_update_tx_delegate()`
-- `build_trade_margin_update_tx_delegate()`
-
-Note: Main wallet must set USDC allowance, not the delegate.
-
-## File Structure
-- `avantis_trader_sdk/client.py` - TraderClient main class
-- `avantis_trader_sdk/feed/feed_client.py` - FeedClient for prices
-- `avantis_trader_sdk/rpc/trade.py` - Trading operations
-- `avantis_trader_sdk/rpc/pairs_cache.py` - Pair info and caching
-- `avantis_trader_sdk/types.py` - All Pydantic models and enums
-- `examples/` - Working examples for all operations
-
-## When Modifying This SDK
-- Use Pydantic models for data validation
-- Keep methods async
-- Follow existing patterns in `rpc/` modules
-- Add examples for new features
-- Update `docs/source/changelog.rst` for changes
-- Run `scripts/release.py` for releases
-
-## Quick Reference
-
-### Open Trade
-```python
-trade_input = TradeInput(
-    trader=trader,
-    pair_index=1,
-    collateral_in_trade=100,
-    is_long=True,
-    leverage=25,
-    tp=4000,
-    sl=2800,
-)
-tx = await trader_client.trade.build_trade_open_tx(
-    trade_input, TradeInputOrderType.MARKET, slippage_percentage=1
-)
-```
-
-### Get Trades
-```python
-trades, pending_orders = await trader_client.trade.get_trades(trader)
-```
-
-### Close Trade
-```python
-tx = await trader_client.trade.build_trade_close_tx(
-    pair_index=trade.trade.pair_index,
-    trade_index=trade.trade.trade_index,
-    collateral_to_close=trade.trade.collateral_in_trade,
-    trader=trader,
-)
-```
-
-### Update TP/SL
-```python
-tx = await trader_client.trade.build_trade_tp_sl_update_tx(
-    pair_index, trade_index, take_profit_price=4500, stop_loss_price=2900, trader=trader
-)
-```
-
-### Real-time Prices
-```python
-feed_client = FeedClient()
-await feed_client.listen_for_lazer_price_updates(
-    lazer_feed_ids=[0, 1],  # BTC, ETH
-    callback=lambda data: print(data.price_feeds),
-)
-```
-
+## When Modifying
+- Keep methods async; pydantic v2 models; typed errors from errors.py.
+- Add an example for new features; update CHANGELOG.md and docs/mintlify/
+  (then re-sync the avantis-python-sdk mirror).
+- Run: pytest && ruff check --fix && mypy avantis_trader_sdk

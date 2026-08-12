@@ -1,366 +1,233 @@
-import json
-from pathlib import Path
-from web3 import Web3, AsyncWeb3
-from .config import CONTRACT_ADDRESSES
-from .rpc.pairs_cache import PairsCache
-from .rpc.asset_parameters import AssetParametersRPC
-from .rpc.category_parameters import CategoryParametersRPC
-from .rpc.blended import BlendedRPC
-from .rpc.fee_parameters import FeeParametersRPC
-from .rpc.trading_parameters import TradingParametersRPC
-from .rpc.snapshot import SnapshotRPC
-from .rpc.trade import TradeRPC
-from .utils import decoder
-from .feed.feed_client import FeedClient
+"""Avantis v2 client.
 
-from .signers.base import BaseSigner
-from .signers.local_signer import LocalSigner
-from .signers.kms_signer import KMSSigner
+Default experience:
+
+    from avantis_trader_sdk import AsyncAvantis
+
+    client = AsyncAvantis()          # reads AVANTIS_* env vars
+    await client.trade.market_open("ETH/USD", "long", collateral=100, leverage=10)
+
+A synchronous facade is available as ``Avantis`` for scripts.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import threading
+from functools import cached_property
+from typing import Any
+
+from .config import AvantisConfig
+from .execution import ExecutionEngine
+from .signing import BaseSigner, LocalSigner
+from .transport import HttpTransport
+from .txbuilder import TxBuilderClient
+from .types import ExecutionMode
 
 
-class TraderClient:
-    """
-    This class provides methods to interact with the Avantis smart contracts.
-    """
+class AsyncAvantis:
+    """Async-first Avantis v2 client."""
 
-    def __init__(
-        self,
-        provider_url,
-        l1_provider_url="https://eth.llamarpc.com",
-        signer: BaseSigner = None,
-        feed_client: FeedClient = None,
-    ):
-        """
-        Constructor for the TraderClient class.
-
-        Args:
-            provider_url: The URL of the Ethereum node provider.
-            l1_provider_url (optional): The URL of the L1 Ethereum node provider.
-            signer (optional): The signer to use for signing transactions.
-        """
-        if l1_provider_url != "https://eth.llamarpc.com":
-            print(
-                " ⚠️ Warning: l1_provider_url is deprecated and will be removed in the future."
-            )
-
-        self.web3 = Web3(
-            Web3.HTTPProvider(provider_url, request_kwargs={"timeout": 60})
-        )
-        self.async_web3 = AsyncWeb3(
-            AsyncWeb3.AsyncHTTPProvider(provider_url, request_kwargs={"timeout": 60})
-        )
-
-        self.contracts = self.load_contracts()
-        self.chain_id = self.web3.eth.chain_id
-
-        self.utils = {
-            "decoder": lambda *args, **kwargs: decoder(self.web3, *args, **kwargs)
-        }
-
-        self.pairs_cache = PairsCache(self)
-        self.asset_parameters = AssetParametersRPC(self)
-        self.category_parameters = CategoryParametersRPC(self)
-        self.blended = BlendedRPC(self)
-        self.fee_parameters = FeeParametersRPC(self)
-        self.trading_parameters = TradingParametersRPC(self)
-        self.snapshot = SnapshotRPC(self)
-        self.feed_client = feed_client or FeedClient()
-        self.trade = TradeRPC(self, self.feed_client)
-
+    def __init__(self, signer: BaseSigner | None = None, **config_overrides: Any) -> None:
+        self.config = AvantisConfig.load(**config_overrides)
+        if signer is None and self.config.private_key:
+            signer = LocalSigner(self.config.private_key)
         self.signer = signer
 
-    def load_contract(self, name):
-        """
-        Loads the contract ABI and address from the local filesystem.
+        self.transport = HttpTransport(timeout_s=self.config.timeout_s)
+        self.txb = TxBuilderClient(self.transport, self.config.tx_builder_url)
+        self.engine = ExecutionEngine(self.config, self.signer, self.transport, self.txb)
 
-        Args:
-            name: The name of the contract.
+        self._meta: dict[str, Any] | None = None
+        self._meta_lock = asyncio.Lock()
 
-        Returns:
-            A Contract object.
-        """
-        abi_path = Path(__file__).parent / "abis" / f"{name}.sol" / f"{name}.json"
-        with open(abi_path) as abi_file:
-            abi = json.load(abi_file)
-        address = CONTRACT_ADDRESSES[name]
-        return self.async_web3.eth.contract(address=address, abi=abi["abi"])
+    # ------------------------------------------------------------------ bootstrap
 
-    def load_contracts(self):
-        """
-        Loads all the contracts mentioned in the config from the local filesystem.
+    async def meta(self) -> dict[str, Any]:
+        """Cached /v2/meta bootstrap (addresses, domains, enums, units, defaults)."""
+        if self._meta is None:
+            async with self._meta_lock:
+                if self._meta is None:
+                    self._meta = await self.txb.meta()
+        return self._meta
 
-        Returns:
-            A dictionary containing the contract names as keys and the Contract objects as values.
-        """
-        return {name: self.load_contract(name) for name in CONTRACT_ADDRESSES.keys()}
+    async def chain_id(self) -> int:
+        return int((await self.meta())["chainId"])
 
-    async def read_contract(self, contract_name, function_name, *args, decode=True):
-        """
-        Calls a read-only function of a contract.
+    # ------------------------------------------------------------------ namespaces
 
-        Args:
-            contract_name: The name of the contract.
-            function_name: The name of the function.
-            args: The arguments to the function.
+    @cached_property
+    def trade(self):
+        from .trading import TradeApi
 
-        Returns:
-            The result of the function call.
-        """
-        contract = self.contracts.get(contract_name)
-        if not contract:
-            raise ValueError(f"Contract {contract_name} not found")
-
-        raw_data = await contract.functions[function_name](*args).call()
-
-        if decode:
-            return self.utils["decoder"](contract, function_name, raw_data)
-
-        return raw_data
-
-    async def write_contract(self, contract_name, function_name, *args, **kwargs):
-        """
-        Calls a write function of a contract.
-
-        Args:
-            contract_name: The name of the contract.
-            function_name: The name of the function.
-            args: The arguments to the function.
-
-        Returns:
-            The transaction hash or the transaction object if signer is None.
-        """
-        contract = self.contracts.get(contract_name)
-        if not contract:
-            raise ValueError(f"Contract {contract_name} not found")
-
-        if self.has_signer() and "from" not in kwargs:
-            kwargs["from"] = self.get_signer().get_ethereum_address()
-
-        if "chainId" not in kwargs:
-            kwargs["chainId"] = self.chain_id
-
-        if "nonce" not in kwargs:
-            kwargs["nonce"] = await self.get_transaction_count(kwargs["from"])
-
-        transaction = await contract.functions[function_name](*args).build_transaction(
-            kwargs
+        return TradeApi(
+            self.config, self.engine, self.txb, self.transport, self.markets.pair
         )
 
-        if not self.has_signer():
-            return transaction
+    @cached_property
+    def account(self):
+        from .account import AccountApi
 
-        receipt = await self.sign_and_get_receipt(transaction)
-        return receipt
-
-    def set_signer(self, signer: BaseSigner):
-        """
-        Sets the signer.
-        """
-        self.signer = signer
-
-    def get_signer(self):
-        """
-        Gets the signer.
-        """
-        return self.signer
-
-    def remove_signer(self):
-        """
-        Removes the signer.
-        """
-        self.signer = None
-
-    def has_signer(self):
-        """
-        Checks if the signer is set.
-        """
-        return self.signer is not None
-
-    def set_local_signer(self, private_key):
-        """
-        Sets the local signer.
-        """
-        self.signer = LocalSigner(private_key, self.async_web3)
-
-    def set_aws_kms_signer(self, kms_key_id, region_name="us-east-1"):
-        """
-        Sets the AWS KMS signer.
-        """
-        self.signer = KMSSigner(self.async_web3, kms_key_id, region_name)
-
-    async def sign_transaction(self, transaction):
-        """
-        Signs a transaction.
-
-        Args:
-            transaction: The transaction object.
-
-        Returns:
-            The signed transaction object.
-        """
-        if not self.has_signer():
-            raise ValueError(
-                "No signer is set. Please set a signer using `set_signer`."
-            )
-        return await self.signer.sign_transaction(transaction)
-
-    async def send_and_get_transaction_hash(self, signed_txn):
-        """
-        Gets the transaction hash.
-
-        Args:
-            signed_txn: The signed transaction object.
-
-        Returns:
-            The transaction hash.
-        """
-        return await self.async_web3.eth.send_raw_transaction(signed_txn.rawTransaction)
-
-    async def wait_for_transaction_receipt(self, tx_hash):
-        """
-        Waits for the transaction to be mined.
-
-        Args:
-            tx_hash: The transaction hash.
-
-        Returns:
-            The transaction receipt.
-        """
-        return await self.async_web3.eth.wait_for_transaction_receipt(tx_hash)
-
-    async def sign_and_get_receipt(self, transaction):
-        """
-        Signs a transaction and waits for it to be mined.
-
-        Args:
-            transaction: The transaction object.
-
-        Returns:
-            The transaction receipt.
-        """
-        gas_estimate = await self.get_gas_estimate(transaction)
-        transaction["gas"] = gas_estimate
-        signed_txn = await self.sign_transaction(transaction)
-        tx_hash = await self.send_and_get_transaction_hash(signed_txn)
-        return await self.wait_for_transaction_receipt(tx_hash)
-
-    async def get_transaction_count(self, address=None):
-        """
-        Gets the transaction count.
-
-        Args:
-            address (optional): The address.
-
-        Returns:
-            The transaction count.
-        """
-        if address is None:
-            address = self.get_signer().get_ethereum_address()
-        return await self.async_web3.eth.get_transaction_count(address)
-
-    async def get_gas_price(self):
-        """
-        Gets the gas price.
-
-        Returns:
-            The gas price.
-        """
-        return await self.async_web3.eth.gas_price
-
-    async def get_chain_id(self):
-        """
-        Gets the chain id.
-
-        Returns:
-            The chain id.
-        """
-        return await self.async_web3.eth.chain_id
-
-    async def get_balance(self, address=None):
-        """
-        Gets the balance.
-
-        Args:
-            address (optional): The address.
-
-        Returns:
-            The balance.
-        """
-        if address is None:
-            address = self.get_signer().get_ethereum_address()
-        balance = await self.async_web3.eth.get_balance(address)
-        return balance / 10**18
-
-    async def get_usdc_balance(self, address=None):
-        """
-        Gets the USDC balance.
-
-        Args:
-            address (optional): The address.
-
-        Returns:
-            The USDC balance.
-        """
-        if address is None:
-            address = self.get_signer().get_ethereum_address()
-        balance = await self.read_contract("USDC", "balanceOf", address, decode=False)
-        return balance / 10**6
-
-    async def get_usdc_allowance_for_trading(self, address=None):
-        """
-        Gets the USDC allowance for the Trading Storage contract.
-
-        Args:
-            address (optional): The address.
-
-        Returns:
-            The USDC allowance.
-        """
-        if address is None:
-            address = self.get_signer().get_ethereum_address()
-
-        trading_storage_address = self.contracts["TradingStorage"].address
-
-        allowance = await self.read_contract(
-            "USDC", "allowance", address, trading_storage_address, decode=False
-        )
-        return allowance / 10**6
-
-    async def approve_usdc_for_trading(self, amount=100000):
-        """
-        Approves the USDC amount for the Trading Storage contract.
-
-        Args:
-            amount (optional): The amount to approve. Defaults to $100,000.
-
-        Returns:
-            The transaction hash.
-        """
-        trading_storage_address = self.contracts["TradingStorage"].address
-        return await self.write_contract(
-            "USDC", "approve", trading_storage_address, int(amount * 10**6)
+        return AccountApi(
+            self.config, self.engine, self.txb, self.transport, self.meta, self.markets.pairs
         )
 
-    async def get_gas_estimate(self, transaction):
-        """
-        Gets the gas estimate.
+    @cached_property
+    def markets(self):
+        from .markets import MarketsApi
 
-        Args:
-            transaction: The transaction object.
+        return MarketsApi(self.config, self.transport)
 
-        Returns:
-            The gas estimate.
-        """
-        return await self.async_web3.eth.estimate_gas(transaction)
+    @cached_property
+    def info(self):
+        from .info import InfoApi
 
-    async def get_transaction_hex(self, transaction):
-        """
-        Gets the transaction hex.
+        return InfoApi(self.config, self.transport)
 
-        Args:
-            transaction: The transaction object.
+    @cached_property
+    def referral(self):
+        from .info.referral import ReferralApi
 
-        Returns:
-            The transaction hex.
-        """
-        return transaction.hex()
+        return ReferralApi(self.config, self.engine, self.txb, self.transport)
+
+    @cached_property
+    def lp(self):
+        from .info.lp import LpApi
+
+        return LpApi(self.config, self.engine, self.txb, self.transport)
+
+    # ------------------------------------------------------------------ streams
+
+    def lazer_price_stream(self, lazer_feed_ids: list[int]):
+        """SSE price stream (feed-v3 / Pyth Lazer). Feed ids from pair snapshot
+        ``lazer_feed.feed_id``."""
+        from .streams import LazerPriceStream
+
+        return LazerPriceStream(self.config.feed_url, lazer_feed_ids)
+
+    def hermes_price_stream(self, pyth_feed_ids: list[str]):
+        """Pyth Hermes WebSocket stream (0x-hex feed ids from ``feed.feed_id``)."""
+        from .streams import HermesPriceStream
+
+        return HermesPriceStream(self.config.hermes_ws_url, pyth_feed_ids)
+
+    def pair_data_stream(self):
+        """Socket.IO RES:DATA pair/OI/funding snapshot stream."""
+        from .streams import PairDataStream
+
+        return PairDataStream(self.config.data_api_url)
+
+    def order_event_stream(self, trader: str | None = None):
+        """Pusher order-execution events for a trader (needs pusher_key config)."""
+        from .errors import ConfigError
+        from .streams import OrderEventStream
+
+        if not self.config.pusher_key:
+            raise ConfigError("order_event_stream requires pusher_key in config")
+        addr = trader or self.config.trader_address
+        if addr is None and self.signer is not None:
+            addr = self.signer.address
+        if addr is None:
+            raise ConfigError("order_event_stream requires a trader address")
+        return OrderEventStream(
+            self.config.pusher_key, addr, cluster=self.config.pusher_cluster
+        )
+
+    # ------------------------------------------------------------------ MM fast path
+
+    async def local_intents(self):
+        """Local intent builder (no per-order HTTP round-trips). See
+        execution/local_intents.py; combine with sign_intent + the relayer."""
+        from .execution.local_intents import LocalIntentBuilder
+
+        return LocalIntentBuilder.from_meta(await self.meta())
+
+    # ------------------------------------------------------------------ lifecycle
+
+    async def aclose(self) -> None:
+        await self.engine.aclose()
+        await self.transport.aclose()
+
+    async def __aenter__(self) -> AsyncAvantis:
+        return self
+
+    async def __aexit__(self, *exc: Any) -> None:
+        await self.aclose()
+
+
+class Avantis:
+    """Synchronous facade over AsyncAvantis (runs a private event loop thread)."""
+
+    def __init__(self, signer: BaseSigner | None = None, **config_overrides: Any) -> None:
+        self._loop = asyncio.new_event_loop()
+        self._thread = threading.Thread(target=self._loop.run_forever, daemon=True)
+        self._thread.start()
+        self._async = self._run(self._create(signer, config_overrides))
+
+    @staticmethod
+    async def _create(signer: BaseSigner | None, overrides: dict[str, Any]) -> AsyncAvantis:
+        return AsyncAvantis(signer=signer, **overrides)
+
+    def _run(self, coro):
+        return asyncio.run_coroutine_threadsafe(coro, self._loop).result()
+
+    # namespace proxies -------------------------------------------------------
+
+    @property
+    def config(self) -> AvantisConfig:
+        return self._async.config
+
+    @property
+    def trade(self):
+        return _SyncProxy(self, self._async.trade)
+
+    @property
+    def account(self):
+        return _SyncProxy(self, self._async.account)
+
+    @property
+    def markets(self):
+        return _SyncProxy(self, self._async.markets)
+
+    @property
+    def info(self):
+        return _SyncProxy(self, self._async.info)
+
+    @property
+    def referral(self):
+        return _SyncProxy(self, self._async.referral)
+
+    @property
+    def lp(self):
+        return _SyncProxy(self, self._async.lp)
+
+    def meta(self) -> dict[str, Any]:
+        return self._run(self._async.meta())
+
+    def close(self) -> None:
+        self._run(self._async.aclose())
+        self._loop.call_soon_threadsafe(self._loop.stop)
+        self._thread.join(timeout=5)
+
+
+class _SyncProxy:
+    def __init__(self, sync_client: Avantis, target: Any) -> None:
+        self._sync = sync_client
+        self._target = target
+
+    def __getattr__(self, name: str) -> Any:
+        attr = getattr(self._target, name)
+        if callable(attr):
+
+            def call(*args: Any, **kwargs: Any) -> Any:
+                result = attr(*args, **kwargs)
+                if asyncio.iscoroutine(result):
+                    return self._sync._run(result)
+                return result
+
+            return call
+        return attr
+
+
+# re-export for convenience
+__all__ = ["AsyncAvantis", "Avantis", "ExecutionMode"]

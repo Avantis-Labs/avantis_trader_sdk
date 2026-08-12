@@ -1,0 +1,103 @@
+---
+title: Take Profit & Stop Loss
+description: "Full-position TP/SL on-chain, partial TP/SL as off-chain trigger orders."
+---
+
+Avantis v2 has two distinct TP/SL mechanisms. Pick by whether you want to close the whole position or part of it:
+
+| | `update_tp_sl` (global) | `partial_tp_sl` |
+| --- | --- | --- |
+| Closes | Entire position | A slice (coin exposure) |
+| Stored | On-chain | Off-chain, with the Avantis operator |
+| Route | Signed intent to the core API price-triggers endpoint (same path in direct mode) | Signed order stored via core API |
+| Change | Re-set the levels | `update_partial_tp_sl(entity_id, ...)` |
+| Remove | Set the level to `0` | `cancel_partial_tp_sl(order)` |
+| On positions | `price_triggers` entries with `is_global=True` (deterministic `global-*` ids) | `price_triggers` entries with `is_global=False` (stored-order `entityId`) |
+
+## Full-position TP/SL
+
+```python
+pos = (await client.account.positions()).positions[0]
+
+await client.trade.update_tp_sl(
+    pos.pair_index, pos.index,
+    take_profit=4200,
+    stop_loss=2900,     # None keeps a level, 0 clears it
+)
+```
+
+`None` keeps a leg unchanged (the SDK copies its current value from the
+position — the signed intent always carries both legs). `stop_loss=0` truly
+removes the SL. A position always has a TP on-chain, so `take_profit=0`
+*resets* it to the pair's max-gain cap (typically +2500%) instead of removing
+it.
+
+<Note>
+v2 removed the public `updateTpAndSl` contract entry point, so this is
+intent-only: the SDK signs an `UpdateTpSlReq` and submits it to the core API,
+which executes it through the Avantis operator. The same path is used in
+relayer and `execution="direct"` mode. A success response means the update was
+accepted; with `wait=True` (default) the SDK polls the position until the new
+levels are visible.
+</Note>
+
+You can also set TP/SL at open time; see [market orders](/trading/market-orders).
+
+## Partial TP/SL (trigger orders)
+
+Signs a trigger order and stores it with the operator, who executes it on-chain when the price hits. Keep the returned dict: its `entityId` is your handle for updating and cancelling.
+
+```python
+order = await client.trade.partial_tp_sl(
+    pos.pair_index, pos.index,
+    side=pos.side,               # side of the POSITION being trimmed
+    kind="take_profit",          # or "stop_loss" (shorthands: "tp" / "sl")
+    coin_exposure=0.25,          # amount to close, in coin units
+    trigger="fixed",             # "fixed" (price) or "percentage"
+    price=3900,                  # required for trigger="fixed"
+)
+```
+
+| Parameter | Notes |
+| --- | --- |
+| `trigger` | `"fixed"` uses `price`; `"percentage"` uses `percentage` |
+| `percentage` | Gain/loss percent for percentage triggers |
+| `open_timestamp` | Bind to a specific open when the position was just modified |
+
+Existing triggers appear on `Position.price_triggers` when you fetch
+[positions](/account/positions): partial orders carry `is_global=False` and a
+stored-order `entityId`; the global TP/SL shows up as `is_global=True`
+entries with deterministic `global-tp-*` / `global-sl-*` ids. Passing a
+global id to `update_partial_tp_sl` / `cancel_partial_tp_sl` raises a
+`ValidationError` — manage those levels with `update_tp_sl`.
+
+## Update a partial TP/SL
+
+Replaces the stored order in place (atomic edit) with a freshly signed one. Pass the **full** new order, not a diff:
+
+```python
+order = await client.trade.update_partial_tp_sl(
+    order["entityId"],
+    pos.pair_index, pos.index,
+    side=pos.side,
+    kind="take_profit",
+    coin_exposure=0.25,
+    trigger="fixed",
+    price=4100,                  # the new trigger price
+)
+```
+
+<Warning>
+An update mints a **new** `entityId` (the backend deletes the old order and
+stores the replacement atomically). Always adopt the returned dict's
+`entityId` — the one you passed in is gone.
+</Warning>
+
+## Cancel a partial TP/SL
+
+```python
+await client.trade.cancel_partial_tp_sl(order)          # dict with entityId
+await client.trade.cancel_partial_tp_sl("665f1c2a...")  # or the entityId itself
+```
+
+The cancel signs an EIP-712 `CancelOffchainOrder` message over the order's `entityId` as proof of ownership. The trader key or an active delegate key both work.

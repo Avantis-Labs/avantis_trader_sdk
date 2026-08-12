@@ -1,92 +1,137 @@
-# Avantis Trader SDK
+# Avantis Trader SDK v2
 
-Python SDK for trading on [Avantis](https://avantisfi.com/) - a perpetual trading platform on Base.
-
-## Installation
-
-```bash
-pip install avantis-trader-sdk
-```
-
-## Quick Start
+Python SDK for [Avantis](https://www.avantisfi.com) v2, leveraged perpetuals
+on Base. API-first: no ABIs, no web3, no RPC required. The
+SDK signs locally and everything else comes from Avantis services.
 
 ```python
 import asyncio
-from avantis_trader_sdk import TraderClient
-from avantis_trader_sdk.types import TradeInput, TradeInputOrderType
+from avantis_trader_sdk import AsyncAvantis
 
 async def main():
-    # Initialize client
-    trader_client = TraderClient("https://mainnet.base.org")
-    trader_client.set_local_signer("0xYOUR_PRIVATE_KEY")
-    
-    trader = trader_client.get_signer().get_ethereum_address()
-    
-    # Check and approve USDC allowance
-    allowance = await trader_client.get_usdc_allowance_for_trading(trader)
-    if allowance < 100:
-        await trader_client.approve_usdc_for_trading(100)
-    
-    # Open a 10x long ETH position with $100 collateral
-    trade_input = TradeInput(
-        trader=trader,
-        pair_index=1,  # ETH/USD
-        collateral_in_trade=100,
-        is_long=True,
-        leverage=10,
-        tp=5000,  # take profit
-        sl=2500,  # stop loss
-    )
-    
-    tx = await trader_client.trade.build_trade_open_tx(
-        trade_input, TradeInputOrderType.MARKET, slippage_percentage=1
-    )
-    receipt = await trader_client.sign_and_get_receipt(tx)
-    print("Trade opened!", receipt.transactionHash.hex())
+    async with AsyncAvantis() as client:              # reads AVANTIS_* env vars
+        await client.trade.market_open("ETH/USD", "long", collateral=100, leverage=10)
+        positions = await client.account.positions()
+        print(positions.positions)
 
 asyncio.run(main())
 ```
 
-## Get Open Trades
-
-```python
-trades, pending_orders = await trader_client.trade.get_trades(trader)
-
-for trade in trades:
-    print(f"Pair: {trade.trade.pair_index}, Leverage: {trade.trade.leverage}x")
-    print(f"Entry: {trade.trade.open_price}, Liq: {trade.liquidation_price}")
-```
-
-## Close a Trade
-
-```python
-trade = trades[0]
-close_tx = await trader_client.trade.build_trade_close_tx(
-    pair_index=trade.trade.pair_index,
-    trade_index=trade.trade.trade_index,
-    collateral_to_close=trade.trade.collateral_in_trade,
-    trader=trader,
-)
-await trader_client.sign_and_get_receipt(close_tx)
-```
-
-## AI-Assisted Development
-
-Building with AI tools? We provide optimized documentation:
-
-- [AGENT.md](./AGENT.md) - Comprehensive guide for AI agents. Copy to your project or paste into AI chat.
-- [.cursorrules](./.cursorrules) - Auto-loaded by Cursor IDE.
+## Install
 
 ```bash
-curl -o AGENT.md https://raw.githubusercontent.com/Avantis-Labs/avantis_trader_sdk/main/AGENT.md
+pip install avantis-trader-sdk            # core
+pip install "avantis-trader-sdk[kms]"     # + AWS KMS signing
+pip install "avantis-trader-sdk[streams]" # + Socket.IO pair-data stream
 ```
 
-## Resources
+Python 3.10+.
 
-- [Documentation](https://sdk.avantisfi.com/)
-- [Examples](https://github.com/Avantis-Labs/avantis_trader_sdk/tree/main/examples)
-- [Avantis Docs](https://docs.avantisfi.com/)
+## Upgrading from v1 (0.8.x)
 
-## License
+v2 is a ground-up, **breaking** rewrite for the Avantis v2 protocol (live
+August 12, 2026) — the v1 `TraderClient` API is removed. Follow the
+[migration guide](https://sdk.avantisfi.com/migration/sdk-migration). Avantis
+v1 is superseded on-chain by the upgrade, so staying on the old SDK is only a
+stopgap — pin `avantis-trader-sdk<2` if you need time to migrate.
 
-MIT
+## Setup (default: gasless API key)
+
+1. Create an **API key** with the
+   [Avantis API Key Generator](https://delegate.avantisfi.com/).
+   One wallet signature registers it
+   as a trading delegate for your account (it can trade, but can never move
+   funds to itself; payouts always go to your wallet).
+2. Approve USDC once (prompted on the UI).
+3. Configure:
+
+```bash
+export AVANTIS_PRIVATE_KEY=0x...      # the API key
+export AVANTIS_TRADER_ADDRESS=0x...   # your wallet
+```
+
+(Or copy
+[`.env.example`](https://github.com/Avantis-Labs/avantis_trader_sdk/blob/main/.env.example)
+to `.env`; it documents every supported variable, including the optional
+ones.)
+
+That's it. Every action is now a signed message relayed by Avantis. No gas,
+no RPC, no ETH.
+
+## Execution modes
+
+Two independent axes; any combination works:
+
+| | signer = API key (delegate) | signer = trader key |
+|---|---|---|
+| **relayer** (default, gasless) | sign intents, Avantis submits | same |
+| **direct** (own RPC + ETH) | `delegatedAction`-wrapped txs | plain txs |
+
+```bash
+export AVANTIS_EXECUTION=direct       # opt into self-broadcasting
+export AVANTIS_RPC_URL=https://...    # your Base RPC
+```
+
+Market makers can additionally use the **local intent builder**
+(`client.local_intents()`) to build and sign orders with zero HTTP
+round-trips on the hot path; see `examples/13_mm_fast_path.py`.
+
+## What's covered
+
+- **Trading**: market/limit opens (incl. coin-sized orders and Upside
+  markets with automatic PnL-order routing), partial/full closes, margin
+  updates, position increases, TP/SL updates, partial TP/SL trigger orders,
+  TWAP.
+- **Account**: positions with liq price/rollover/funding, limit orders, TWAPs,
+  balances, allowances, delegation management, USDC approvals, rebate and
+  keeper-reward claims, builder codes.
+- **Markets**: full 100+ pair catalog (funding rates, spreads, OI and caps,
+  fees, leverage envelopes, market hours), live prices, dynamic spread,
+  OHLCV candles.
+- **Info**: trade/order history with full fee breakdowns, portfolio analytics
+  (PnL, win rate, volume, fees), referral stats, vault APY.
+- **Compute** (pure functions, UI parity): net PnL incl. Upside profit-share
+  tiers and loss protection, liquidation price, skew-adjusted open fees,
+  maker/taker classification, OI headroom, TP/SL bounds, pre-trade validation.
+- **Streams**: Lazer SSE + Pyth Hermes prices, pair-data updates, order
+  execution events.
+- **LP**: vault deposit/withdraw (ERC-4626), previews, utilization, APY.
+- **Referral**: codes (incl. gasless registration), tiers, rebates.
+
+## Correctness guarantees
+
+- Every EIP-712 intent is **digest-verified locally** against the API before
+  submission, so encoding drift fails loudly instead of reverting on-chain.
+- The signing implementation is tested against **golden vectors computed by
+  the actual on-chain hashing library** (all 17 intent types).
+- The EIP-7702 relayer envelope is byte-for-byte compatible with the Avantis
+  web app's implementation.
+
+## Examples
+
+See
+[`examples/`](https://github.com/Avantis-Labs/avantis_trader_sdk/tree/main/examples):
+one runnable script per flow, from `01_configure_and_meta.py` to
+`19_upside_pairs.py`.
+
+## Errors
+
+All failures raise typed exceptions from `avantis_trader_sdk.errors`:
+`ValidationError` (pre-trade checks, human-readable), `RelayError`,
+`DigestMismatchError`, `DelegationError`, `RateLimitedError`, `RpcError`, etc.
+
+## Security model
+
+The API/delegate key can trade on your account but **cannot** withdraw funds,
+approve USDC, or add other delegates. Worst case for a leaked key is
+malicious trading until you revoke it (`client.account.revoke_delegate`) or
+it expires. Keep expiries short (90 days recommended) and never commit keys.
+
+## Development
+
+```bash
+pip install -e ".[dev]"
+pytest            # 150+ tests incl. golden vectors and EIP-7702 parity
+ruff check .
+mypy avantis_trader_sdk
+```

@@ -1,581 +1,234 @@
-from pydantic import (
-    BaseModel,
-    Field,
-    AliasChoices,
-    conint,
-    field_validator,
-    ValidationError,
-    model_validator,
+"""Core enums and shared models for the Avantis v2 SDK.
+
+Unit conventions (see docs/v2/RESEARCH.md §2):
+- All SDK-facing amounts are HUMAN units: 100 = 100 USDC, 10 = 10x leverage,
+  prices are plain decimals. The tx-builder API performs 1e6/1e10 scaling.
+- Raw on-chain values (from the core API or intent messages) are decimal
+  strings; models expose helpers to convert.
+"""
+
+from __future__ import annotations
+
+from decimal import Decimal
+from enum import Enum, IntEnum
+from typing import Any, Literal
+
+from pydantic import BaseModel, ConfigDict, Field
+
+# ---------------------------------------------------------------------------
+# Scales
+# ---------------------------------------------------------------------------
+
+USDC_SCALE = Decimal(10) ** 6
+PRECISION_10 = Decimal(10) ** 10  # prices, leverage, slippage %, coin exposure
+
+
+def from_usdc(raw: int | str) -> Decimal:
+    return Decimal(raw) / USDC_SCALE
+
+
+def from_1e10(raw: int | str) -> Decimal:
+    return Decimal(raw) / PRECISION_10
+
+
+Num = int | float | str | Decimal
+"""Human-unit numeric input. Strings are preferred for exact decimals."""
+
+
+def to_api_num(value: Num) -> str:
+    """Serialize a human-unit number for the API (string to avoid float artifacts)."""
+    if isinstance(value, float):
+        # Repr of a float is its shortest exact decimal representation.
+        return repr(value)
+    return str(value)
+
+
+# ---------------------------------------------------------------------------
+# Enums
+# ---------------------------------------------------------------------------
+
+
+class ExecutionMode(str, Enum):
+    RELAYER = "relayer"
+    DIRECT = "direct"
+
+
+class Side(str, Enum):
+    LONG = "long"
+    SHORT = "short"
+
+    @property
+    def is_long(self) -> bool:
+        return self is Side.LONG
+
+
+class OrderType(str, Enum):
+    """Open order types (v2 enum: limit=2/MOMENTUM, stop_limit=1/REVERSAL)."""
+
+    MARKET = "market"
+    STOP_LIMIT = "stop_limit"
+    LIMIT = "limit"
+    MARKET_PNL = "market_pnl"
+
+
+class MarginAction(str, Enum):
+    DEPOSIT = "deposit"
+    WITHDRAW = "withdraw"
+
+
+class TriggerType(str, Enum):
+    FIXED = "fixed"
+    PERCENTAGE = "percentage"
+
+
+class AggregatorOrderType(IntEnum):
+    """Order types understood by the operator relayer batch endpoints.
+
+    Mirrors avantis-ui-v2 lib/relayerEip712.ts.
+    """
+
+    MARKET_OPEN = 0
+    MARKET_CLOSE = 1
+    LIMIT_OPEN = 2
+    LIMIT_CLOSE = 3
+    UPDATE_MARGIN = 4
+    UPDATE_SL = 5
+    MARKET_OPEN_PNL = 6
+    MARKET_CLOSE_PNL = 7
+    LIMIT_CLOSE_PNL = 8
+    INCREASE_SIZE = 9
+    DECREASE_SIZE = 10
+    LIMIT_PARTIAL_CLOSE = 11
+    MARKET_OPEN_WITH_COIN_EXPOSURE = 12
+    MARKET_OPEN_PNL_WITH_COIN_EXPOSURE = 13
+    INCREASE_SIZE_WITH_COIN_EXPOSURE = 14
+    MARKET_CLOSE_WITH_COIN_EXPOSURE = 15
+    MARKET_CLOSE_PNL_WITH_COIN_EXPOSURE = 16
+
+
+# Intent kinds the batched-market endpoint consumes. TWAP/RFQ initiation and
+# TP/SL use different transports (twap-app intents / core-API price-triggers),
+# and delegate/referral sigs are relayed as *WithSig calldata.
+BATCHED_MARKET_INTENT_KINDS: frozenset[str] = frozenset(
+    {
+        "OpenTradeReq",
+        "OpenTradeCoinExposureReq",
+        "CloseTradeReq",
+        "CloseTradeCoinExposureReq",
+        "IncreasePositionSizeReq",
+        "IncreasePositionSizeWithCoinExposureReq",
+    }
 )
-from enum import Enum
-from typing import Dict, Optional, List, Union
-import time
-import re
+
+# The batched-market endpoint's allow-list (avantis-backend-monorepo
+# src/market-app/batched-market/batched-order-types.ts). Membership routes an
+# intent to POST /market/execute-batched. UPDATE_SL is not relayed by the SDK
+# at all anymore — global TP/SL goes through the core API price-triggers
+# endpoint (TradeApi.update_tp_sl).
+BATCHED_MARKET_ORDER_TYPES: frozenset[AggregatorOrderType] = frozenset(
+    {
+        AggregatorOrderType.MARKET_OPEN,
+        AggregatorOrderType.MARKET_OPEN_PNL,
+        AggregatorOrderType.MARKET_OPEN_WITH_COIN_EXPOSURE,
+        AggregatorOrderType.MARKET_OPEN_PNL_WITH_COIN_EXPOSURE,
+        AggregatorOrderType.MARKET_CLOSE,
+        AggregatorOrderType.MARKET_CLOSE_PNL,
+        AggregatorOrderType.MARKET_CLOSE_WITH_COIN_EXPOSURE,
+        AggregatorOrderType.MARKET_CLOSE_PNL_WITH_COIN_EXPOSURE,
+        AggregatorOrderType.INCREASE_SIZE,
+        AggregatorOrderType.INCREASE_SIZE_WITH_COIN_EXPOSURE,
+    }
+)
 
 
-class PairInfoFeed(BaseModel):
-    max_open_deviation_percentage: float = Field(..., alias="maxOpenDeviationP")
-    max_close_deviation_percentage: float = Field(..., alias="maxCloseDeviationP")
-
-    feed_id: str = Field(..., alias="feedId")
-
-    @field_validator(
-        "max_open_deviation_percentage", "max_close_deviation_percentage", mode="before"
-    )
-    def convert_max_deviation(cls, v):
-        return v / 10**10
-
-    class Config:
-        populate_by_name = True
+# ---------------------------------------------------------------------------
+# tx-builder payload models
+# ---------------------------------------------------------------------------
 
 
-class PairInfoBackupFeed(BaseModel):
-    max_deviation_percentage: float = Field(..., alias="maxDeviationP")
-    feed_id: str = Field(..., alias="feedId")
+class CallData(BaseModel):
+    """Direct-route transaction payload from the tx-builder API."""
 
-    @field_validator("max_deviation_percentage", mode="before")
-    def convert_max_deviation(cls, v):
-        return v / 10**10
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
-    class Config:
-        populate_by_name = True
-
-
-class PairInfoLeverages(BaseModel):
-    min_leverage: float = Field(..., alias="minLeverage")
-    max_leverage: float = Field(..., alias="maxLeverage")
-    pnl_min_leverage: float = Field(..., alias="pnlMinLeverage")
-    pnl_max_leverage: float = Field(..., alias="pnlMaxLeverage")
-
-    @field_validator(
-        "min_leverage",
-        "max_leverage",
-        "pnl_min_leverage",
-        "pnl_max_leverage",
-        mode="before",
-    )
-    def convert_max_deviation(cls, v):
-        return v / 10**10
-
-
-class PairInfoValues(BaseModel):
-    max_gain_percentage: float = Field(..., alias="maxGainP")
-    max_sl_percentage: float = Field(..., alias="maxSlP")
-    max_long_oi_percentage: float = Field(..., alias="maxLongOiP")
-    max_short_oi_percentage: float = Field(..., alias="maxShortOiP")
-    group_open_interest_percentage: float = Field(
-        ..., alias="groupOpenInterestPecentage"
-    )
-    max_wallet_oi_percentage: float = Field(..., alias="maxWalletOI")
-    is_usdc_aligned: bool = Field(..., alias="isUSDCAligned")
-
-
-class PairInfo(BaseModel):
-    feed: PairInfoFeed
-    backup_feed: PairInfoBackupFeed = Field(..., alias="backupFeed")
-    constant_spread_bps: float = Field(..., alias="spreadP")
-    constant_pnl_spread_bps: float = Field(..., alias="pnlSpreadP")
-    leverages: PairInfoLeverages = Field(..., alias="leverages")
-    price_impact_parameter: float = Field(..., alias="priceImpactMultiplier")
-    skew_impact_parameter: float = Field(..., alias="skewImpactMultiplier")
-    group_index: int = Field(..., alias="groupIndex")
-    fee_index: int = Field(..., alias="feeIndex")
-    values: PairInfoValues = Field(..., alias="values")
-
-    @field_validator("price_impact_parameter", "skew_impact_parameter", mode="before")
-    def convert_to_float_10(cls, v):
-        return v / 10**10
-
-    @field_validator("constant_spread_bps", "constant_pnl_spread_bps", mode="before")
-    def convert_to_float_10_bps(cls, v):
-        return v / 10**10 * 100
-
-    class Config:
-        populate_by_name = True
-
-
-class PairData(BaseModel):
-    from_: str = Field(..., alias="from")
     to: str
-    num_tiers: int = Field(..., alias="numTiers")
-    tier_thresholds: Dict[str, float] = Field(..., alias="tierThresholds")
-    tier_timers: Dict[str, float] = Field(..., alias="timer")
-
-    @field_validator("tier_thresholds", "tier_timers", mode="before")
-    def convert_tuple_to_dict(cls, v):
-        if isinstance(v, tuple):
-            return {str(i): j for i, j in enumerate(v)}
-        return v
-
-
-class PairInfoWithData(PairInfo, PairData):
-    class Config:
-        populate_by_name = True
-        from_attributes = True
-
-
-class PairInfoFeed(BaseModel):
-    from_: str = Field(..., alias="from")
-    to: str
-    feed: PairInfoFeed
-    backup_feed: PairInfoBackupFeed = Field(..., alias="backupFeed")
-
-    class Config:
-        populate_by_name = True
-
-
-class OpenInterest(BaseModel):
-    long: Dict[str, float]
-
-    short: Dict[str, float]
-
-
-class OpenInterestLimits(BaseModel):
-    limits: Dict[str, float]
-
-
-class Utilization(BaseModel):
-    utilization: Dict[str, float]
-
-
-class Skew(BaseModel):
-    skew: Dict[str, float]
-
-
-class MarginFee(BaseModel):
-    hourly_base_fee_parameter: Dict[str, float]
-    hourly_margin_fee_long_bps: Dict[str, float]
-    hourly_margin_fee_short_bps: Dict[str, float]
-
-
-class MarginFeeSingle(BaseModel):
-    hourly_base_fee_parameter: float
-    hourly_margin_fee_long_bps: float
-    hourly_margin_fee_short_bps: float
-
-
-class DepthSingle(BaseModel):
-    above: float
-    below: float
-
-
-class PairInfoExtended(PairInfoWithData):
-    asset_open_interest_limit: float
-    asset_open_interest: Dict[str, float]
-    asset_utilization: float
-    asset_skew: float
-    blended_utilization: float
-    blended_skew: float
-    margin_fee: MarginFeeSingle
-    one_percent_depth: DepthSingle
-    new_1k_long_opening_fee_bps: float  # Opening fee for new $1,000 long position
-    new_1k_short_opening_fee_bps: float  # Opening fee for new $1,000 short position
-    new_1k_long_opening_spread_bps: float  # Opening spread for new $1,000 long position
-    new_1k_short_opening_spread_bps: (
-        float  # Opening spread for new $1,000 short position
-    )
-    price_impact_spread_long_bps: float
-    price_impact_spread_short_bps: float
-    skew_impact_spread_long_bps: float
-    skew_impact_spread_short_bps: float
-
-    class Config:
-        populate_by_name = True
-
-
-class PairSpread(BaseModel):
-    spread: Dict[str, float]
-
-
-class PriceFeedResponse(BaseModel):
-    id: str
-    price: Optional[Union[Dict[str, str], Dict[str, float]]] = None
-    ema_price: Optional[Union[Dict[str, str], Dict[str, float]]] = None
-    pair: Optional[str] = None
-    metadata: Optional[Union[Dict[str, str], Dict[str, float]]] = None
-    converted_price: float = 0.0
-    converted_ema_price: float = 0.0
-
-    @model_validator(mode="before")
-    def convert_price(cls, values):
-        price_info = values.get("price")
-        if price_info:
-            values["converted_price"] = float(price_info["price"]) / 10 ** -int(
-                price_info["expo"]
-            )
-
-        ema_price_info = values.get("ema_price")
-        if ema_price_info:
-            values["converted_ema_price"] = float(ema_price_info["price"]) / 10 ** -int(
-                ema_price_info["expo"]
-            )
-
-        return values
-
-
-class PriceFeesUpdateBinary(BaseModel):
-    encoding: str
-    data: List[str]
-
-
-class PriceFeedUpdatesResponse(BaseModel):
-    binary: PriceFeesUpdateBinary
-    parsed: List[PriceFeedResponse]
-
-
-class Spread(BaseModel):
-    long: Optional[Dict[str, float]] = None
-    short: Optional[Dict[str, float]] = None
-
-    @model_validator(mode="before")
-    def check_at_least_one(cls, values):
-        if not values.get("long") and not values.get("short"):
-            raise ValueError('At least one of "long" or "short" must be present.')
-        return values
-
-
-class Depth(BaseModel):
-    above: Optional[Dict[str, float]] = None
-    below: Optional[Dict[str, float]] = None
-
-    @model_validator(mode="before")
-    def check_at_least_one(cls, values):
-        if not values.get("above") and not values.get("below"):
-            raise ValueError('At least one of "above" or "below" must be present.')
-        return values
-
-
-class Fee(BaseModel):
-    long: Optional[Dict[str, float]] = None
-    short: Optional[Dict[str, float]] = None
-
-    @model_validator(mode="before")
-    def check_at_least_one(cls, values):
-        if not values.get("long") and not values.get("short"):
-            raise ValueError('At least one of "long" or "short" must be present.')
-        return values
-
-
-class TradeInput(BaseModel):
-    trader: str = "0x1234567890123456789012345678901234567890"
-    pairIndex: int = Field(..., alias="pair_index")
-    index: int = Field(0, alias="trade_index")
-    initialPosToken: Optional[int] = Field(None, alias="open_collateral")
-    positionSizeUSDC: Optional[int] = Field(None, alias="collateral_in_trade")
-    openPrice: int = Field(0, alias="open_price")
-    buy: bool = Field(..., alias="is_long")
-    leverage: int
-    tp: Optional[int] = 0
-    sl: Optional[int] = 0
-    timestamp: Optional[int] = 0
-
-    @field_validator("trader")
-    def validate_eth_address(cls, v):
-        if not re.match(r"^0x[a-fA-F0-9]{40}$", v):
-            raise ValueError("Invalid Ethereum address")
-        return v
-
-    @field_validator("tp")
-    def validate_tp(cls, v, values):
-        if values.data.get("openPrice") not in [0, None] and v in [0, None]:
-            raise ValueError("tp is required when openPrice is provided and is not 0")
-        return v
-
-    @field_validator("openPrice", "tp", "sl", "leverage", mode="before")
-    def convert_to_float_10(cls, v):
-        if v is None:
-            return 0
-        return int(v * 10**10)
-
-    @model_validator(mode="before")
-    def assign_and_validate_collateral_and_position_size_usdc(cls, values):
-        collateral_in_trade = values.pop("position_size_usdc", None)
-        if collateral_in_trade is not None:
-            values["positionSizeUSDC"] = collateral_in_trade
-
-        initialPosToken = values.get("initialPosToken") or values.get("open_collateral")
-        positionSizeUSDC = values.get("positionSizeUSDC") or values.get(
-            "collateral_in_trade"
-        )
-
-        if initialPosToken is None and positionSizeUSDC is None:
-            raise ValueError(
-                "Either 'open_collateral' or 'collateral_in_trade' must be provided."
-            )
-
-        if initialPosToken is not None and positionSizeUSDC is None:
-            values["positionSizeUSDC"] = 0
-        elif positionSizeUSDC is not None and initialPosToken is None:
-            values["initialPosToken"] = 0
-
-        return values
-
-    @field_validator("initialPosToken", "positionSizeUSDC", mode="before")
-    def convert_to_float_6(cls, v):
-        return int(v * 10**6)
-
-    @field_validator("timestamp", mode="before")
-    def set_default_timestamp(cls, v):
-        if v is None:
-            return int(time.time())
-        return v
-
-    class Config:
-        populate_by_name = True
-
-
-class TradeInputOrderType(Enum):
-    MARKET = 0
-    STOP_LIMIT = 1
-    LIMIT = 2
-    MARKET_ZERO_FEE = 3
-
-
-class TradeResponse(BaseModel):
-    trader: str
-    pair_index: int = Field(..., alias="pairIndex")
-    trade_index: int = Field(0, alias="index")
-    open_collateral: float = Field(
-        None, validation_alias=AliasChoices("collateral", "initialPosToken")
-    )
-    collateral_in_trade: Optional[float] = Field(None, alias="positionSizeUSDC")
-    open_price: float = Field(0, alias="openPrice")
-    is_long: bool = Field(..., alias="buy")
-    leverage: float
-    tp: float
-    sl: float
-    timestamp: int = Field(..., validation_alias=AliasChoices("timestamp", "openedAt"))
-
-    @field_validator("trader")
-    def validate_eth_address(cls, v):
-        if not re.match(r"^0x[a-fA-F0-9]{40}$", v):
-            raise ValueError("Invalid Ethereum address")
-        return v
-
-    @field_validator("open_price", "tp", "sl", "leverage", mode="before")
-    def convert_to_float_10(cls, v):
-        if v is None:
-            return 0
-        return int(v) / 10**10
-
-    @field_validator("open_collateral", "collateral_in_trade", mode="before")
-    def convert_to_float_6(cls, v):
-        if v is None:
-            return None
-        return int(v) / 10**6
-
-    @model_validator(mode="after")
-    def set_collateral_in_trade(self):
-        if self.collateral_in_trade is None:
-            self.collateral_in_trade = self.open_collateral
-        return self
-
-    class Config:
-        populate_by_name = True
-
-
-class TradeInfo(BaseModel):
-    loss_protection_percentage: float = Field(..., alias="lossProtectionPercentage")
-
-    class Config:
-        populate_by_name = True
-
-
-class TradeExtendedResponse(BaseModel):
-    trade: Optional[TradeResponse] = None
-    additional_info: Optional[TradeInfo] = None
-    margin_fee: float = Field(
-        0, validation_alias=AliasChoices("margin_fee", "rolloverFee")
-    )
-    liquidation_price: float = Field(
-        ..., validation_alias=AliasChoices("liquidation_price", "liquidationPrice")
-    )
-    is_zfp: bool = Field(False, validation_alias=AliasChoices("is_zfp", "isPnl"))
-
-    @field_validator("margin_fee", mode="before")
-    def convert_to_float_6(cls, v):
-        if v is None:
-            return 0
-        return int(v) / 10**6
-
-    @field_validator("liquidation_price", mode="before")
-    def convert_to_float_10(cls, v):
-        return int(v) / 10**10
-
-    @model_validator(mode="before")
-    def build_from_flat(cls, values):
-        if "trade" not in values and "trader" in values:
-            trade_fields = [
-                "trader",
-                "pairIndex",
-                "index",
-                "initialPosToken",
-                "collateral",
-                "positionSizeUSDC",
-                "openPrice",
-                "buy",
-                "leverage",
-                "tp",
-                "sl",
-                "timestamp",
-                "openedAt",
-            ]
-            trade_data = {k: values.get(k) for k in trade_fields if k in values}
-            values["trade"] = trade_data
-
-            info_data = {
-                "lossProtectionPercentage": values.get("lossProtectionPercentage", 0),
-            }
-            values["additional_info"] = info_data
-
-        return values
-
-    class Config:
-        populate_by_name = True
-
-
-class PendingLimitOrderResponse(BaseModel):
-    trader: str
-    pair_index: int = Field(..., alias="pairIndex")
-    trade_index: int = Field(0, alias="index")
-    open_collateral: float = Field(
-        ..., validation_alias=AliasChoices("collateral", "positionSize")
-    )
-    buy: bool
-    leverage: int
-    tp: float
-    sl: float
-    price: float
-    slippage_percentage: float = Field(..., alias="slippageP")
-    block: int
-    execution_fee: float = Field(0, alias="executionFee")
-
-    @field_validator("trader")
-    def validate_eth_address(cls, v):
-        if not re.match(r"^0x[a-fA-F0-9]{40}$", v):
-            raise ValueError("Invalid Ethereum address")
-        return v
-
-    @field_validator(
-        "price", "tp", "sl", "leverage", "slippage_percentage", mode="before"
-    )
-    def convert_to_float_10(cls, v):
-        return int(v) / 10**10
-
-    @field_validator("open_collateral", "execution_fee", mode="before")
-    def convert_to_float_6(cls, v):
-        if v is None:
-            return 0
-        return int(v) / 10**6
-
-    class Config:
-        populate_by_name = True
-
-
-class PendingLimitOrderExtendedResponse(PendingLimitOrderResponse):
-    liquidation_price: float = Field(
-        ..., validation_alias=AliasChoices("liquidation_price", "liquidationPrice")
-    )
-
-    @field_validator("liquidation_price", mode="before")
-    def convert_liq_to_float_10(cls, v):
-        return int(v) / 10**10
-
-
-class MarginUpdateType(Enum):
-    DEPOSIT = 0
-    WITHDRAW = 1
-
-
-class PriceSourcing(Enum):
-    """Price sourcing options for contract calls."""
-
-    HERMES = 0  # Pyth Hermes (legacy)
-    PRO = 1  # Pyth Pro / Lazer
-
-
-class LazerPriceFeed(BaseModel):
-    """Single price feed from Pyth Lazer SSE stream."""
-
-    price_feed_id: int = Field(..., alias="priceFeedId")
-    price: str
-    best_bid_price: Optional[str] = Field(None, alias="bestBidPrice")
-    best_ask_price: Optional[str] = Field(None, alias="bestAskPrice")
-    publisher_count: Optional[int] = Field(None, alias="publisherCount")
-    exponent: int
-    confidence: Optional[int] = None
+    from_: str = Field(alias="from")
+    data: str
+    value: str = "0x0"
+    chain_id: int = Field(alias="chainId")
+    description: str | None = None
+    meta: dict[str, Any] | None = None
 
     @property
-    def converted_price(self) -> float:
-        return int(self.price) / 10**-self.exponent
-
-    class Config:
-        populate_by_name = True
+    def value_wei(self) -> int:
+        return int(self.value, 16) if self.value.startswith("0x") else int(self.value)
 
 
-class LazerPriceFeedResponse(BaseModel):
-    """Response from Pyth Lazer SSE stream."""
+class IntentPayload(BaseModel):
+    """EIP-712 intent payload from the tx-builder API (relayer route)."""
 
-    timestamp_us: str = Field(..., alias="timestampUs")
-    price_feeds: List[LazerPriceFeed] = Field(..., alias="priceFeeds")
+    model_config = ConfigDict(extra="allow")
+
+    intent: str
+    signer_rule: Literal["trader-or-delegate", "trader-only"] = Field(alias="signerRule")
+    domain: dict[str, Any]
+    primary_type: str = Field(alias="primaryType")
+    types: dict[str, list[dict[str, str]]]
+    message: dict[str, Any]
+    digest: str
+    encoded_intent: str = Field(alias="encodedIntent")
+    meta: dict[str, Any] | None = None
 
     @property
-    def timestamp_ms(self) -> int:
-        return int(self.timestamp_us) // 1000
-
-    class Config:
-        populate_by_name = True
-
-
-class FeedV3CorePriceData(BaseModel):
-    """Core price data from feed-v3 API (Pyth Hermes)."""
-
-    price_update_data: str = Field(..., alias="priceUpdateData")
-    price: float
-    publish_timestamp_ms: int = Field(..., alias="publishTimestampMs")
-
-    class Config:
-        populate_by_name = True
+    def pair_index(self) -> int:
+        """Best-effort pairIndex extraction for the relayer batch payload."""
+        msg = self.message
+        for key in ("pairIndex", "_pairIndex"):
+            if key in msg:
+                return int(msg[key])
+        inner = msg.get("_t") or msg.get("_updateInfo") or {}
+        if "pairIndex" in inner:
+            return int(inner["pairIndex"])
+        raise KeyError(f"pairIndex not found in intent message for {self.intent}")
 
 
-class FeedV3ProPriceData(BaseModel):
-    """Pro price data from feed-v3 API (Pyth Pro/Lazer)."""
+class SignedIntent(BaseModel):
+    """An intent payload plus the local signature over its digest."""
 
-    price_update_data: str = Field(..., alias="priceUpdateData")
-    price: float
-    publish_timestamp_ms: int = Field(..., alias="publishTimestampMs")
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    class Config:
-        populate_by_name = True
-
-
-class FeedV3PriceResponse(BaseModel):
-    """Response from feed-v3 API containing both core and pro price data."""
-
-    core: FeedV3CorePriceData
-    pro: Optional[FeedV3ProPriceData] = None
-
-    class Config:
-        populate_by_name = True
+    payload: IntentPayload
+    signature: str  # 0x-hex 65-byte r||s||v
+    signer: str  # address that produced the signature
 
 
-class LossProtectionInfo(BaseModel):
-    percentage: float
-    amount: float
+# ---------------------------------------------------------------------------
+# Execution results
+# ---------------------------------------------------------------------------
 
 
-class SnapshotOpenInterest(BaseModel):
-    long: float
-    short: float
+class RelayStatus(BaseModel):
+    settled: bool
+    success: bool | None = None
+    tx_hash: str | None = None
+    error_message: str | None = None
+    receipt: dict[str, Any] | None = None
 
 
-class SnapshotGroup(BaseModel):
-    group_open_interest_limit: float
-    group_open_interest: SnapshotOpenInterest
-    group_utilization: float
-    group_skew: float
-    pairs: Dict[str, PairInfoExtended]
+class ExecutionReceipt(BaseModel):
+    """Uniform result of submitting an action through any route."""
 
-
-class Snapshot(BaseModel):
-    groups: Dict[conint(ge=0), SnapshotGroup]
+    route: Literal[
+        "batched-market",
+        "price-triggers",
+        "relayer-passthrough",
+        "twap-api",
+        "rpc",
+        "txbuilder-relay",
+    ]
+    tx_hash: str | None = None
+    request_id: str | None = None
+    tracking_id: str | None = None  # batched-market lifecycle id (status replay)
+    order_id: int | None = None  # on-chain order id from the initiation event
+    description: str | None = None
+    raw: dict[str, Any] | None = None

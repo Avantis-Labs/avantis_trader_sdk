@@ -1,0 +1,124 @@
+---
+title: Market-Maker Fast Path
+description: "Build and sign orders locally, submit with the fewest possible round-trips."
+---
+
+Normal SDK calls fetch the order's EIP-712 intent from the tx-builder API. For market makers, `local_intents()` removes that: the `LocalIntentBuilder` mirrors the on-chain EIP-712 schemas (proven byte-for-byte by the golden-vector test suite), so intents are built and signed in **microseconds with no I/O**.
+
+The [batched-market service](/api-reference/batched-market)'s EIP-7702 leg is **optional**: a signed intent alone executes. The hot path is therefore **local build + sign → batched-market POST**, with zero API round-trips before submission. (High-level SDK calls like `trade.market_open` still attach a pre-signed EIP-7702 transaction alongside the intent, letting the server pick the execution mechanism; pass `calldata=` to `submit_intent_batch` if you want that from the fast path too.)
+
+The example below sizes the order in coin units (exactly 0.5 ETH), the usual
+shape for market-making flow; the fill leverage floats within
+`[min_leverage, max_leverage]`. For a USDC-sized open, use
+`builder.open_trade(...)` with `/v2/trade/open` and
+`AggregatorOrderType.MARKET_OPEN` instead.
+
+```python
+from avantis_trader_sdk import AsyncAvantis
+from avantis_trader_sdk.types import AggregatorOrderType
+
+async with AsyncAvantis() as client:
+    builder = await client.local_intents()      # one-time meta bootstrap
+    engine = client.engine
+    eth = await client.markets.pair("ETH/USD")
+    lev = eth.leverages                          # the pair's leverage envelope
+
+    async def on_price(update) -> None:
+        payload = builder.open_trade_coin(      # microseconds, no I/O
+            trader=client.trade.trader,
+            pair_index=eth.index,
+            is_long=True,
+            collateral_usdc=100,
+            coin_exposure=0.5,                  # target exactly 0.5 ETH
+            leverage=10,                        # reference leverage, contract-required
+            min_leverage=lev.min_leverage,      # fill leverage floats in this range
+            max_leverage=lev.max_leverage,
+            open_price=update.price,
+            slippage_percent=0.3,
+        )
+        receipt = await engine.submit_intent_batch(  # no calldata leg needed
+            payload,
+            AggregatorOrderType.MARKET_OPEN_WITH_COIN_EXPOSURE,
+            wait=False,
+        )
+        print("accepted:", receipt.tracking_id)
+
+    stream = client.lazer_price_stream([eth.lazer_feed.feed_id])
+    await stream.run(on_price)
+```
+
+<Note>
+Global TP/SL updates (`UpdateTpSlReq`) are also built and signed fully
+locally, but ride a different rail: the signed intent goes to the core API
+price-triggers endpoint (`PUT /price-triggers/global-...`), which executes
+the operator entry point itself. They settle by re-reading the position
+(what `trade.update_tp_sl(wait=True)` does), not by `tracking_id`.
+</Note>
+
+## Builder surface
+
+| Method | Intent |
+| --- | --- |
+| `builder.open_trade(...)` | Market open |
+| `builder.open_trade_coin(...)` | Market open sized in coin units |
+| `builder.close_trade(...)` | Market close |
+| `builder.close_trade_coin(...)` | Market close sized in coin units |
+| `builder.increase_position(...)` | Increase position size |
+| `builder.increase_position_coin(...)` | Increase sized in coin units |
+| `builder.update_tp_sl(...)` | TP/SL update |
+| `builder.partial_tp_sl(...)` | Partial TP/SL trigger (stored off-chain, see below) |
+| `builder.twap_open(...)` / `builder.twap_close(...)` / `builder.twap_cancel(...)` | TWAP open / close / cancel |
+| `builder.cancel_offchain_order(...)` | Cancel a stored partial TP/SL |
+| `builder.delegate_req(...)` | Delegate registration |
+| `builder.register_code(...)` / `builder.set_referral_code(...)` | Referral (referral domain; trader key only) |
+| `builder.build(kind, message)` | Any intent kind, raw |
+
+Payloads are `IntentPayload` objects identical to what the tx-builder would return, and go through the same digest-verified signer.
+
+Since the builder never touches the network, prices are always caller-supplied: coin/increase helpers take an explicit `open_price`/`wanted_price` (the tx-builder route would resolve these from the feed). Note `partial_tp_sl` and `update_tp_sl` only *build* intents; the signed payloads still have to be submitted to the core API `/price-triggers` (what `client.trade.partial_tp_sl` / `client.trade.update_tp_sl` do), not to the batched-market endpoint. Likewise `twap_*` intents go to the TWAP API (what `client.trade.twap_*` does).
+
+## Settling
+
+`wait=False` returns as soon as the order is accepted, but an accepted order can still **fail** (declined fill, on-chain revert). You own the settlement check, off the hot path.
+
+**Market orders (batched-market route)** settle by `tracking_id`:
+
+```python
+from avantis_trader_sdk.errors import RelayError
+
+try:
+    outcome = await engine.batched_market.wait(receipt.tracking_id)
+    print("executed:", outcome.tx_hash)
+    fill = outcome.terminal.data     # the final trade as executed on-chain
+    print(fill["price"], fill["t"]["initialPosToken"], fill["t"]["leverage"])
+except RelayError as exc:
+    # MarketOrderCanceled: the protocol declined the fill (e.g. slippage)
+    ...
+```
+
+The terminal `MarketOrderExecuted` event carries the full fill — execution `price`, `positionSizeUSDC`, `percentProfit`, `usdcSentToTrader`, and the stored trade tuple `t` with the final collateral (`initialPosToken`), leverage, open price and TP/SL — so reconciliation needs **no follow-up positions query**. Numerics are strings in raw on-chain units (1e6 USDC / 1e10 prices-leverage); see the [payload reference](/trading/market-orders#the-executed-fill-payload).
+
+`engine.batched_market.status(tracking_id, after_seq=n)` is the non-blocking single poll; every event carries a `seq`, so a crashed process can resume replay without missing or double-counting events.
+
+Prefer the SDK's settle logic but want the journey as it happens — e.g. `AttemptFailed` diagnostics as debug logs? Pass `on_event=` to `submit_intent_batch` (with `wait=True`) or to `batched_market.wait(...)`: the hook fires per lifecycle event, terminal included even when the call raises, while settlement still returns/raises through the SDK. See [Track the order lifecycle](/trading/market-orders#track-the-order-lifecycle).
+
+**Blitz relayer routes** (passthrough actions: limit orders, margin, approvals, ...) settle by `request_id`:
+
+```python
+from avantis_trader_sdk.errors import RelayError, RelayTimeoutError
+
+try:
+    status = await engine.relayer.wait(receipt.request_id)  # polls until settled
+    print("mined:", status.tx_hash)
+except RelayTimeoutError:
+    ...  # may still land; check positions before assuming failure
+except RelayError:
+    ...  # rejected by the relayer or reverted on-chain
+```
+
+`engine.relayer.status(request_id)` is the single non-blocking poll returning a `RelayStatus` (`settled`, `success`, `tx_hash`, `error_message`). This is exactly what the default `wait=True` path runs internally.
+
+## Pair with
+
+- `wait=False` on submission, confirming fills via the settlement calls above or the [order event stream](/data/prices-and-streams).
+- The Lazer SSE price stream for the freshest `open_price`.

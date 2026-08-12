@@ -150,6 +150,21 @@ examples/test/
 
 scripts/
 
+# ruff
+.ruff_cache/
+
+# local-only: live E2E run logs (request ids, tx hashes, dev messages)
+e2e_logs/
+
+# local-only: temporary e2e dashboard (delete after the v2 upgrade)
+devui/
+
+# local-only: internal engineering memory docs (research notes, progress log)
+docs/v2/
+
+# local-only: adhoc relayer stress-test bench (wallet keys, run results)
+bench/
+
 # PyCharm
 #  JetBrains specific template is maintainted in a separate JetBrains.gitignore that can
 #  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore

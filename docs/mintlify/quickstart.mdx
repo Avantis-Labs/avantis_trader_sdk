@@ -1,0 +1,68 @@
+---
+title: Quickstart
+description: "From zero to a filled trade."
+---
+
+## 1. Install
+
+```bash
+pip install avantis-trader-sdk
+```
+
+## 2. Create an API key
+
+Open the [Avantis API Key Generator](https://delegate.avantisfi.com/)
+and generate a key. One wallet signature registers it as a trading delegate;
+approve USDC in the same flow if prompted. Copy the key right away, since it
+is only shown once.
+
+```bash
+export AVANTIS_PRIVATE_KEY=0x...      # the API key
+export AVANTIS_TRADER_ADDRESS=0x...   # your wallet address
+```
+
+<Note>
+The API key can trade on your account but can never withdraw funds, approve
+USDC, or add other delegates. Revoke it anytime from the UI.
+</Note>
+
+## 3. Trade
+
+```python
+import asyncio
+from avantis_trader_sdk import AsyncAvantis
+
+async def main():
+    async with AsyncAvantis() as client:
+        receipt = await client.trade.market_open(
+            "ETH/USD", "long",
+            collateral=100,      # USDC
+            leverage=10,
+            take_profit=4000,    # optional
+            stop_loss=2800,      # optional
+        )
+        # the receipt reflects the executed fill (batched-market route)
+        print("executed:", receipt.tx_hash, "order:", receipt.order_id)
+
+        positions = await client.account.positions()
+        for p in positions.positions:
+            print(p.side, float(p.collateral), "USDC at", float(p.open_price))
+
+asyncio.run(main())
+```
+
+## 4. Close
+
+```python
+pos = positions.positions[0]
+await client.trade.market_close(
+    pos.pair_index, pos.index,
+    collateral_to_close=float(pos.collateral),  # full close
+)
+```
+
+## Next
+
+- [Core concepts](/concepts): units, keys, receipts (2-minute read).
+- [Market orders](/trading/market-orders): the full trading surface.
+- [Runnable examples](https://github.com/Avantis-Labs/avantis_trader_sdk/tree/main/examples): one script per flow.

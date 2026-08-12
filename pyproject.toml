@@ -1,0 +1,88 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "avantis-trader-sdk"
+version = "2.0.1"
+description = "Python SDK for Avantis v2 — API-first perpetuals trading on Base"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Avantis Labs" }]
+requires-python = ">=3.10"
+keywords = [
+    "avantis",
+    "perpetuals",
+    "perps",
+    "trading",
+    "base",
+    "defi",
+    "derivatives",
+    "crypto",
+    "web3",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Office/Business :: Financial :: Investment",
+    "Typing :: Typed",
+]
+dependencies = [
+    "httpx>=0.27,<1",
+    "pydantic>=2.8,<3",
+    "eth-account>=0.13.4,<0.14",
+    "eth-utils>=4,<6",
+    "eth-abi>=5,<6",
+    "websockets>=12,<15",
+]
+
+[project.optional-dependencies]
+kms = ["boto3>=1.35,<2", "pyasn1>=0.6,<1"]
+streams = ["python-socketio[asyncio_client]>=5.11,<6"]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.24",
+    "respx>=0.21",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "build>=1.2",
+    "twine>=5",
+]
+
+[project.urls]
+Homepage = "https://www.avantisfi.com"
+Documentation = "https://sdk.avantisfi.com"
+Source = "https://github.com/Avantis-Labs/avantis_trader_sdk"
+Changelog = "https://github.com/Avantis-Labs/avantis_trader_sdk/blob/main/CHANGELOG.md"
+
+[tool.setuptools.packages.find]
+include = ["avantis_trader_sdk*"]
+
+[tool.setuptools.package-data]
+avantis_trader_sdk = ["py.typed"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "B", "ASYNC"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+check_untyped_defs = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

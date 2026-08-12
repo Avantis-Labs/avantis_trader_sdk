@@ -1,0 +1,81 @@
+---
+title: Positions
+description: "Open positions, limit orders, and balances."
+---
+
+## Fetch positions
+
+```python
+data = await client.account.positions()      # UserData
+
+for pos in data.positions:
+    print(pos.side, float(pos.collateral), "USDC at", float(pos.open_price),
+          "liq:", float(pos.liquidation_price))
+
+for order in data.limit_orders:
+    print(order.side, float(order.collateral), "@", float(order.price))
+```
+
+`positions()` hits the core API and returns enriched data: liquidation price, accrued rollover, and unrealized funding are already computed. Pass `trader=` to read any address.
+
+### `Position` fields (human units)
+
+| Property | Meaning |
+| --- | --- |
+| `pair_index`, `index` | Identify the position; pass both to close/update methods |
+| `side` / `buy` | `"long"`/`"short"` |
+| `collateral`, `leverage`, `position_size` | USDC, multiplier, notional (collateral × leverage) |
+| `open_price`, `tp`, `sl`, `liquidation_price` | Prices (`0` = unset) |
+| `rollover_fee`, `unrealised_funding_fee` | Accrued fees in USDC |
+| `is_upside` | `True` for positions on Upside pairs (profit share instead of fixed fees); informational — closes route from the pair automatically |
+| `opened_at` | Open timestamp; pass to `market_close(open_timestamp=...)` if closing right after opening |
+| `price_triggers` | All TP/SL triggers on the position — see below |
+
+`data.position(pair_index, index)` looks up a single position.
+
+### Price triggers
+
+`price_triggers` unifies every TP/SL attached to a position:
+
+- **Global (on-chain) TP/SL** — `is_global` is `True`. These are the levels
+  set at open / via `trade.update_tp_sl()`. Their `entity_id` is
+  deterministic (`global-tp-{trader}-{pair}-{index}` / `global-sl-...`) and
+  is **not** accepted by the partial TP/SL CRUD; the SDK rejects it
+  client-side too.
+- **Partial (off-chain) triggers** — `is_global` is `False`. Signed
+  [partial TP/SL](/trading/tp-sl#partial-tpsl-trigger-orders) orders whose
+  `entity_id` works with `trade.update_partial_tp_sl()` and
+  `trade.cancel_partial_tp_sl()`. Note that updating a partial order mints a
+  **new** `entity_id`.
+
+```python
+for trig in pos.price_triggers:
+    print(trig.kind, float(trig.price), "global" if trig.is_global else trig.entity_id)
+
+pos.global_triggers    # only the on-chain TP/SL entries
+pos.partial_triggers   # only the off-chain partial orders
+```
+
+## Live PnL
+
+Combine a position with its pair snapshot and the live price for a UI-parity net PnL breakdown:
+
+```python
+from avantis_trader_sdk.compute import position_net_pnl
+
+pair = await client.markets.pair(pos.pair_index)
+price = await client.markets.price(pos.pair_index)
+pnl = position_net_pnl(pos, pair, price)
+print(f"net {pnl.net:+.2f} (gross {pnl.gross:+.2f}, closing fee {pnl.closing_fee:.2f})")
+```
+
+See [Compute](/data/compute) for the full breakdown fields.
+
+## Balance and raw reads
+
+```python
+balance = await client.account.usdc_balance()          # Decimal, human USDC
+raw = await client.account.positions_onchain()         # tx-builder RPC read, raw bigint strings
+```
+
+Use `positions_onchain()` when you need the unprocessed on-chain state; `positions()` is the right call for everything else.

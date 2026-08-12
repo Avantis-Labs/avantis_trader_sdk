@@ -1,0 +1,55 @@
+---
+title: Introduction
+description: "Trade Avantis v2 perpetuals from Python. Gasless by default, no ABIs, no RPC."
+---
+
+The Avantis Python SDK is an API-first client for Avantis v2 on Base. The
+model is simple: you hold an **API key** (a delegate key
+registered to your wallet with one signature; generate one with the
+[Avantis API Key Generator](https://delegate.avantisfi.com/)),
+the SDK signs orders locally,
+and the Avantis relayer puts them on-chain. No gas, no node, no wallet popups.
+
+```python
+import asyncio
+from avantis_trader_sdk import AsyncAvantis
+
+async def main():
+    async with AsyncAvantis() as client:
+        await client.trade.market_open("ETH/USD", "long", collateral=100, leverage=10)
+
+asyncio.run(main())
+```
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    From zero to a filled trade in five minutes.
+  </Card>
+  <Card title="Trading" icon="chart-line" href="/trading/market-orders">
+    The full order surface: market, limit, TP/SL, margin, TWAP.
+  </Card>
+  <Card title="Positions & portfolio" icon="wallet" href="/account/positions">
+    Open positions, PnL, history, and analytics.
+  </Card>
+  <Card title="Core concepts" icon="lightbulb" href="/concepts">
+    Units, keys, execution routes, receipts. Read this once.
+  </Card>
+  <Card title="Market-maker fast path" icon="bolt" href="/advanced/mm-fast-path">
+    Build and sign orders locally, with the fewest possible round-trips.
+  </Card>
+  <Card title="Runnable examples" icon="code" href="https://github.com/Avantis-Labs/avantis_trader_sdk/tree/main/examples">
+    18 scripts, one per flow, from reading prices to the MM fast path.
+  </Card>
+</CardGroup>
+
+## Why v2
+
+- **All information the Avantis app has**, through one client: pairs, funding,
+  spreads, OI caps, positions with liquidation prices, PnL breakdowns,
+  portfolio analytics, referral stats, vault APY.
+- **Correct by construction.** Every signed intent is digest-verified against
+  the API, and the signer is tested against vectors computed by the on-chain
+  hashing library itself.
+- **Built for every user type.** One-liner market orders for agents and
+  scripts; TWAP, coin-sized orders, direct broadcasting, and local signing
+  for institutions.
