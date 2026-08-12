@@ -12,6 +12,7 @@ from typing import Any
 
 import httpx
 
+from ._version import __version__
 from .errors import ApiError, api_error_from_envelope
 
 _RETRYABLE_STATUS = {502, 503, 504}
@@ -24,7 +25,7 @@ class HttpTransport:
     def __init__(self, timeout_s: float = 30.0) -> None:
         self._client = httpx.AsyncClient(
             timeout=timeout_s,
-            headers={"User-Agent": "avantis-trader-sdk/2.0"},
+            headers={"User-Agent": f"avantis-trader-sdk/{__version__}"},
         )
 
     async def aclose(self) -> None:

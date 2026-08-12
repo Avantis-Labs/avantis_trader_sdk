@@ -25,6 +25,18 @@ def test_testnet_derives_centrally_routed_urls(monkeypatch):
     assert cfg.risk_v2_api_url == "https://staging-api.avantisfi.com/risk/v2"
 
 
+def test_default_network_is_mainnet(monkeypatch):
+    """Public releases default to mainnet; testnet (the staging stack) is
+    an explicit opt-in via AVANTIS_NETWORK=testnet."""
+    monkeypatch.delenv("AVANTIS_NETWORK", raising=False)
+    monkeypatch.delenv("AVANTIS_API_BASE_URL", raising=False)
+    cfg = AvantisConfig.load()
+    assert cfg.network == "mainnet"
+    assert cfg.api_base_url == "https://prod-api.avantisfi.com"
+    monkeypatch.setenv("AVANTIS_NETWORK", "testnet")
+    assert AvantisConfig.load().network == "testnet"
+
+
 def test_mainnet_uses_prod_api(monkeypatch):
     monkeypatch.delenv("AVANTIS_API_BASE_URL", raising=False)
     cfg = AvantisConfig.load(network="mainnet")

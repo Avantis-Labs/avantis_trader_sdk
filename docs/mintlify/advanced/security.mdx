@@ -32,7 +32,7 @@ Delegations expire (`expiry_seconds`) and can be revoked at any time from the UI
 
 ## Recommended setup
 
-1. Generate an API key with the [Avantis API Key Generator](https://avantis-delegate-ui.preview.avantisfi.link/); never put your wallet key on a server.
+1. Generate an API key with the [Avantis API Key Generator](https://delegate.avantisfi.com/); never put your wallet key on a server.
 2. Set a finite `expiry_seconds` and rotate keys periodically.
 3. Call `verify_delegation()` at startup to fail fast on revoked/expired keys.
 4. Keep only trading USDC in the wallet the bot operates on.

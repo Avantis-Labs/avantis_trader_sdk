@@ -10,7 +10,7 @@ Environment variables:
                              with the trader EOA directly (reads the EIP-7702
                              authorization nonce). Not needed with a
                              delegate/API key — the normal setup.
-- ``AVANTIS_NETWORK``        "testnet" (default) | "mainnet"
+- ``AVANTIS_NETWORK``        "mainnet" (default) | "testnet"
 - ``AVANTIS_API_BASE_URL``   central-routing host (prod-api / staging-api);
                              /core, /twap, /batched-market, /blitz, /data and
                              /risk/v2 are derived from it unless individually
@@ -132,7 +132,7 @@ class AvantisConfig:
     rpc_url: str | None = None
 
     # service endpoints
-    network: str = "testnet"
+    network: str = "mainnet"
     api_base_url: str = ""
     tx_builder_url: str = ""
     relayer_url: str = ""
@@ -167,7 +167,7 @@ class AvantisConfig:
     @classmethod
     def load(cls, **overrides) -> AvantisConfig:
         """Build config from env + network profile, applying explicit overrides last."""
-        network = str(overrides.get("network") or os.getenv("AVANTIS_NETWORK", "testnet"))
+        network = str(overrides.get("network") or os.getenv("AVANTIS_NETWORK", "mainnet"))
         profile = PROFILES.get(network)
         if profile is None:
             raise ConfigError(f"Unknown AVANTIS_NETWORK {network!r}; use one of {list(PROFILES)}")

@@ -1,8 +1,17 @@
 # Changelog
 
-## 2.0.0a1 (unreleased)
+## 2.0.0 (2026-08-12)
 
-Ground-up rewrite for Avantis v2. **Breaking: the 1.x API is removed.**
+Ground-up rewrite for Avantis v2 — the August 12, 2026 in-place protocol
+upgrade. **Breaking: the v1 SDK API (0.x releases, last 0.8.17) is removed** —
+`TraderClient`, vendored ABIs and the web3 dependency are all gone.
+
+Upgrading from 0.8.x:
+
+- `pip install --upgrade avantis-trader-sdk` moves you to the new API; follow
+  the [migration guide](https://sdk.avantisfi.com/migration/sdk-migration).
+- Avantis v1 is superseded on-chain by the upgrade, so staying on 0.8.x is
+  only a stopgap — pin `avantis-trader-sdk<2` if you need time to migrate.
 
 ### Architecture
 
@@ -14,6 +23,8 @@ Ground-up rewrite for Avantis v2. **Breaking: the 1.x API is removed.**
 - Delegate ("API key") and trader-key signer identities, freely combined with
   either route. HyperLiquid-style env config
   (`AVANTIS_PRIVATE_KEY` / `AVANTIS_TRADER_ADDRESS` / `AVANTIS_EXECUTION`).
+- Defaults to **mainnet**; `AVANTIS_NETWORK=testnet` opts into the Avantis
+  staging/testnet stack (pre-release builds defaulted to testnet).
 - Async-first (`AsyncAvantis`) with a synchronous facade (`Avantis`).
 
 ### New in v2
@@ -45,7 +56,17 @@ Ground-up rewrite for Avantis v2. **Breaking: the 1.x API is removed.**
   (`int(0.0003 * 1e10)` truncates to `2999999`), so signed intents carry the
   exact raw values the caller specified.
 
-### Unreleased additions (2026-08-09) — price-triggers TP/SL + batched-market error codes
+### Packaging (2026-08-12)
+
+- Version is now sourced from `avantis_trader_sdk/_version.py`
+  (re-exported as `avantis_trader_sdk.__version__`); the HTTP `User-Agent`
+  carries the exact release (`avantis-trader-sdk/2.0.0`).
+- Ships a `py.typed` marker — type checkers consume the SDK's inline
+  annotations from the wheel.
+- MIT `LICENSE` file included in the distribution (SPDX license metadata);
+  PyPI classifiers, keywords and changelog link added.
+
+### Price-triggers TP/SL + batched-market error codes (2026-08-09)
 
 Backend alignment (backend monorepo + avantis-ui-v2 as of 2026-08-09): the
 core API replaced `/offchain-orders` with `/price-triggers`, ids renamed
@@ -105,6 +126,21 @@ machine-readable error codes.
   fetch and local `executePositionUpdateBatched` encoding are gone.
 - **New:** `account.twap(twap_id)` — single TWAP by id
   (`GET {twap}/twaps/{id}`), `None` on 404.
+- `update_tp_sl` visibility-timeout diagnostics: the `RelayTimeoutError`
+  message now carries the signed values (requested tp/sl in human units, what
+  the position still shows, and the pre-update levels) instead of only
+  pairIndex/index, so UIs and logs that surface just the exception string
+  show WHICH update stalled.
+- Run diagnostics for the live checks + e2e (`scripts/checks/_report.py`,
+  `scripts/run_report.py`): every run now auto-generates a self-contained
+  HTML report next to the log — per-step collapsible sections (failures
+  pre-expanded) with the raw request payload, response and click-to-copy
+  correlation ids (`x-request-id`, `trackingId`, tx hash) for every HTTP
+  call; poll loops collapse into one `×N` row. Failed steps additionally
+  print an inline diagnostics block (ids + the write/error/final calls with
+  payload excerpts) and attach `ids` + a light per-call list to
+  `RESULTS_JSON`; summary lines carry the ids. Old runs:
+  `python scripts/run_report.py --all`.
 - **New: `on_event=` lifecycle hook on the batched-market path** — keep
   `wait=True` (the SDK still settles: terminal mapping, STREAM_TIMEOUT
   status-replay fallback, typed raises) and observe the order journey live.
@@ -134,7 +170,7 @@ machine-readable error codes.
   cutover) — keep using `markets.dynamic_spread()` on mainnet. The gateway
   also routes `/ws` (iris websocket app), which the SDK does not consume.
 
-### Unreleased additions (2026-08-07) — per-feature live check scripts
+### Per-feature live check scripts (2026-08-07)
 
 - `scripts/checks/` — standalone live checks, one per feature (reads, streams,
   limits, twap, market, tpsl, margin, delegate, referral, lp, cleanup), so a
@@ -147,7 +183,7 @@ machine-readable error codes.
   checks accept `--use-existing` to skip the fill dependency and `--keep` to
   leave the position open. See `scripts/checks/README.md`.
 
-### Unreleased additions (2026-08-06) — Upside pairs
+### Upside pairs (2026-08-06)
 
 Upside markets (the rebranded ZFP / zero-fee product) are separate pairs
 suffixed `_UPSIDE` (testnet 115–122, e.g. `BTC_UPSIDE/USD` = 116) whose
@@ -197,7 +233,7 @@ determines how an order must route.
 - New example `examples/19_upside_pairs.py`; docs pages updated (market
   orders, markets, positions, compute, quickstart, migration).
 
-### Unreleased additions (2026-08-06) — risk-engine v2 spread API
+### Risk-engine v2 spread API (2026-08-06)
 
 Backend/UI parity audit (backend monorepo, avantis-ui-v2, avantis-cd as of
 2026-08-06). TWAP, off-chain TP/SL, batched-market and blitz surfaces were
@@ -241,7 +277,7 @@ on 2026-07-30 (`d5eab0c0`).
   New core `/v2-onboarding/*` invite/whitelist endpoints exist but were not
   added (launch-window UI concern).
 
-### Unreleased additions (2026-07-29) — batched-market eip7702 optional
+### Batched-market EIP-7702 leg optional (2026-07-29)
 
 - **Batched-market `eip7702` leg is now optional** (relayer change to better
   support market makers): `POST /market/execute-batched` executes a signed
@@ -254,7 +290,7 @@ on 2026-07-30 (`d5eab0c0`).
   (`trade.market_open` etc.) still send both payloads so the server-side
   mechanism switch stays available.
 
-### Unreleased additions (2026-07-28) — backend alignment
+### Backend alignment (2026-07-28)
 
 Aligns the SDK with the new Avantis backend topology (central routing,
 batched-market execution, twap-app, off-chain order CRUD).
@@ -322,7 +358,7 @@ batched-market execution, twap-app, off-chain order CRUD).
   nonce bitmap, formula changes, removed features). docs.json gains the nav
   group and a dismissible site banner announcing the migration date.
 
-### Unreleased additions (2026-07-28)
+### Docs mirror + local intent builder coverage (2026-07-28)
 
 - **Docs overhauled and mirrored**: `docs/mintlify/` is now byte-identical
   with the published `avantis-python-sdk` repo (sync = plain copy, see the

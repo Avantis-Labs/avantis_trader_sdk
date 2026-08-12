@@ -14,9 +14,9 @@ export AVANTIS_TRADER_ADDRESS=0x...   # wallet address (only when using an API k
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `AVANTIS_PRIVATE_KEY` | (none) | Signing key. An API/agent key from the [Avantis API Key Generator](https://avantis-delegate-ui.preview.avantisfi.link/), or your wallet key. |
+| `AVANTIS_PRIVATE_KEY` | (none) | Signing key. An API/agent key from the [Avantis API Key Generator](https://delegate.avantisfi.com/), or your wallet key. |
 | `AVANTIS_TRADER_ADDRESS` | (none) | Your wallet (holds USDC and positions). Set only when the key above is a delegate/API key. |
-| `AVANTIS_NETWORK` | `testnet` | `testnet` or `mainnet`. |
+| `AVANTIS_NETWORK` | `mainnet` | `mainnet` or `testnet`. |
 | `AVANTIS_EXECUTION` | `relayer` | `relayer` (gasless, default) or `direct` (self-broadcast). |
 | `AVANTIS_RPC_URL` | (none) | Base RPC. Required for `direct` execution, and for relayer mode **only when signing with your wallet key directly** (reads the EIP-7702 authorization nonce). Not needed with a delegate/API key. |
 

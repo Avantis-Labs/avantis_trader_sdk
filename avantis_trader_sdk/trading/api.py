@@ -645,6 +645,7 @@ class TradeApi(ExecutingApi):
         OTHER leg confirmed and only a zero-TP leg pending, the update is
         treated as settled instead of raising."""
         sl_ok = False
+        now = before
         deadline = asyncio.get_event_loop().time() + self._cfg.relay_poll_timeout_s
         while asyncio.get_event_loop().time() < deadline:
             position = await self._fetch_position(pair_index, trade_index)
@@ -656,11 +657,19 @@ class TradeApi(ExecutingApi):
             await asyncio.sleep(self._cfg.relay_poll_interval_s)
         if sl_ok and expected[0] == "0":
             return  # zero-TP reset with no observable change (see docstring)
+
+        def _px(raw: str) -> str:
+            return f"{float(from_1e10(raw)):g}"
+
         raise RelayTimeoutError(
             f"TP/SL update accepted but not visible on the position after "
             f"{self._cfg.relay_poll_timeout_s:.0f}s (pairIndex={pair_index} "
-            f"index={trade_index}). It may still execute — re-check "
-            "account.positions()."
+            f"index={trade_index}): signed UpdateTpSlReq with "
+            f"tp={_px(expected[0])} sl={_px(expected[1])}"
+            f"{' (tp=0 resets to the max-gain cap)' if expected[0] == '0' else ''}, "
+            f"position still shows tp={_px(now[0])} sl={_px(now[1])} "
+            f"(was tp={_px(before[0])} sl={_px(before[1])} before the update). "
+            f"The operator may still execute it — re-check account.positions()."
         )
 
     async def _partial_tp_sl_submission(

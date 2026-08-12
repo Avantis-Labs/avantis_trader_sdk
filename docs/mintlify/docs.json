@@ -13,7 +13,7 @@
     "dark": "/logo/dark.svg"
   },
   "banner": {
-    "content": "Avantis v2 goes live on **August 12, 2026**. Integrating against v1? Read the [migration guide](/migration/overview).",
+    "content": "Avantis v2 is live as of **August 12, 2026**. Migrating from v1? Read the [migration guide](/migration/overview).",
     "dismissible": true
   },
   "navigation": {

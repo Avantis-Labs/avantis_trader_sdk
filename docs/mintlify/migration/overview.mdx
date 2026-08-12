@@ -1,15 +1,15 @@
 ---
 title: "Migrating from v1"
-description: "Avantis v2 goes live on August 12, 2026. What changes, what carries over, and how to prepare your integration."
+description: "Avantis v2 is live as of August 12, 2026. What changed, what carries over, and how to move your integration."
 ---
 
-Avantis is upgrading the live Base deployment from v1 to v2 on
-**August 12, 2026** (exact time to be announced). This section is for
-market makers, trading bots, indexers, and every other third-party
-integrator that currently builds against v1. It tells you what happens on
-migration day, what breaks, and exactly how to move.
+Avantis upgraded the live Base deployment from v1 to v2 on
+**August 12, 2026**. This section is for market makers, trading bots,
+indexers, and every other third-party integrator that builds against v1.
+It tells you what changed on migration day, what breaks, and exactly how
+to move.
 
-## What happens on migration day
+## What happened on migration day
 
 The migration is an **in-place proxy upgrade**, not a new deployment:
 
@@ -68,30 +68,28 @@ intent-based**:
 
 ## Checklist
 
-Before August 12:
+If you haven't migrated yet:
 
 1. **Read the guide for your integration type** (above) and inventory what
    you touch: methods, events, read paths.
-2. **Build against v2 on testnet now.** The SDK defaults to the v2 testnet
-   (`AVANTIS_NETWORK=testnet`); direct integrators can exercise the full v2
-   surface there today.
+2. **Build against v2 on testnet first** if you want a safe rehearsal. Set
+   `AVANTIS_NETWORK=testnet` to point the SDK at it; direct integrators can
+   exercise the full v2 surface there.
 3. **Create an API key** with the
-   [Avantis API Key Generator](https://avantis-delegate-ui.preview.avantisfi.link/)
+   [Avantis API Key Generator](https://delegate.avantisfi.com/)
    if you plan to use the gasless relayer path (recommended for most
    trading systems).
-4. **If you index events**: prepare v2 ABIs and topic filters side-by-side
-   with v1, and schema-version any time series that will span the upgrade.
-5. **Plan for the pause window.** Cancel-or-hold logic in trading systems
-   should tolerate a period where transactions revert while trading is
-   paused, then resume.
+4. **If you index events**: rebuild decoding from v2 ABIs and topic
+   filters, and schema-version any time series that spans the upgrade.
 
-On migration day:
+Cutting over:
 
-1. Stop submitting v1-shaped transactions when the pause begins.
+1. Stop submitting v1-shaped transactions — against the upgraded
+   contracts they revert.
 2. Switch to your v2 code path (SDK 2.x, or your updated direct
-   integration) once trading is unpaused.
+   integration).
 3. Verify your positions via `client.account.positions()` or the positions
-   API. Everything you had open before the pause should be there.
+   API. Everything you had open before the upgrade pause should be there.
 
 ## Getting help
 

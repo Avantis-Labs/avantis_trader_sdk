@@ -9,11 +9,12 @@ removed**; there is no compatibility layer. The good news: almost every
 (RPC node, ABIs, gas, transaction receipts, USDC allowances before every
 session, trade indexes) are handled for you.
 
-The package name is unchanged (`avantis-trader-sdk` on PyPI). To stay on
-the v1 SDK until migration day, pin it:
+The package name is unchanged (`avantis-trader-sdk` on PyPI); 2.0.0 is the
+v2 release. Pinning the old client is only a stopgap — Avantis v1 is
+superseded on-chain, so the 0.x SDK no longer trades:
 
 ```bash
-pip install "avantis-trader-sdk<2"   # v1 (until August 12)
+pip install "avantis-trader-sdk<2"   # v1 (legacy)
 pip install "avantis-trader-sdk>=2"  # v2
 ```
 
@@ -46,7 +47,6 @@ trader = trader_client.get_signer().get_ethereum_address()
 ```bash
 export AVANTIS_PRIVATE_KEY=0x...      # API key (recommended) or trader key
 export AVANTIS_TRADER_ADDRESS=0x...   # your wallet, only when using an API key
-export AVANTIS_NETWORK=mainnet        # default is testnet
 ```
 
 ```python
@@ -61,7 +61,7 @@ Two decisions to make once:
 1. **Key type.** The closest thing to 0.x is using your trader key directly
    (set `AVANTIS_PRIVATE_KEY` to it, leave `AVANTIS_TRADER_ADDRESS` unset).
    The recommended setup is an **API key**: a delegate key created with the
-   [Avantis API Key Generator](https://avantis-delegate-ui.preview.avantisfi.link/)
+   [Avantis API Key Generator](https://delegate.avantisfi.com/)
    that can trade but never withdraw. See [Delegates](/account/delegates).
 2. **Execution route.** The default **relayer** route is gasless (signed
    intents, no ETH, no node). `AVANTIS_EXECUTION=direct` with

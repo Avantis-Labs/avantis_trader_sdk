@@ -1,7 +1,7 @@
 """Bring-your-own delegate (API key) onboarding.
 
 Normally you create an API key on the Avantis API Key Generator
-(https://avantis-delegate-ui.preview.avantisfi.link/): one wallet signature,
+(https://delegate.avantisfi.com/): one wallet signature,
 gasless. This example shows the SDK-assisted equivalent for users who
 generate their own delegate keypair. The trader key is used ONCE for the
 DelegateReq signature and must not be persisted.

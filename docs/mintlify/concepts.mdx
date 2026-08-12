@@ -17,7 +17,7 @@ Every SDK method takes and returns human units. `100` means 100 USDC, `10` means
 ## Keys: trader vs API key (delegate)
 
 - **Trader key**: your wallet's own key. Can do everything.
-- **API key (delegate)**: a separate key registered to your wallet with one signature (generate one with the [Avantis API Key Generator](https://avantis-delegate-ui.preview.avantisfi.link/)). Can trade, but can **never** withdraw funds, approve USDC, add delegates, or act on caller-scoped surfaces (referral, claims, LP vault).
+- **API key (delegate)**: a separate key registered to your wallet with one signature (generate one with the [Avantis API Key Generator](https://delegate.avantisfi.com/)). Can trade, but can **never** withdraw funds, approve USDC, add delegates, or act on caller-scoped surfaces (referral, claims, LP vault).
 
 Set `AVANTIS_TRADER_ADDRESS` when using an API key; leave it unset when using the trader key directly. See [Delegates](/account/delegates).
 

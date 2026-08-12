@@ -12,6 +12,7 @@ Quick start (relayer route, delegate key from the Avantis UI):
             await client.trade.market_open("ETH/USD", "long", collateral=100, leverage=10)
 """
 
+from ._version import __version__
 from .client import AsyncAvantis, Avantis
 from .config import MAINNET, TESTNET, AvantisConfig
 from .errors import (
@@ -37,9 +38,8 @@ from .types import (
     TriggerType,
 )
 
-__version__ = "2.0.0a1"
-
 __all__ = [
+    "__version__",
     "AsyncAvantis",
     "Avantis",
     "AvantisConfig",
