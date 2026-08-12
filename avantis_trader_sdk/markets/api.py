@@ -7,7 +7,7 @@ from decimal import Decimal
 from typing import Any
 
 from ..config import AvantisConfig
-from ..errors import ApiError
+from ..errors import ApiError, ConfigError
 from ..transport import HttpTransport
 from ..types import PRECISION_10, Num, to_api_num
 from .models import PairInfo, TradingSnapshot
@@ -248,11 +248,18 @@ class MarketsApi:
     ) -> dict[str, Any]:
         """LEGACY risk-engine dynamic spread (``GET /v2/dynamic-spread``).
 
-        Still what mainnet risk-api.avantisfi.com serves; superseded by
-        :meth:`spread` (risk-engine v2) which the v2 UI uses on testnet.
-        ``is_upside`` quotes the Upside (PnL) spread curve (wire param
-        ``isPnl``).
+        Testnet-only since the 2026-08-12 mainnet cutover: the legacy engine
+        is decommissioned on mainnet (risk-api.avantisfi.com is scaled to
+        zero) and production quotes come from :meth:`spread` (risk-engine v2
+        at ``{api_base_url}/risk/v2``). ``is_upside`` quotes the Upside (PnL)
+        spread curve (wire param ``isPnl``).
         """
+        if not self._cfg.risk_api_url:
+            raise ConfigError(
+                "The legacy risk engine is not deployed on this network "
+                "(decommissioned on mainnet at the v2 cutover) — use "
+                "markets.spread(), or set AVANTIS_RISK_API_URL to override."
+            )
         info = await self.pair(pair)
         precision = 18
         params: dict[str, Any] = {

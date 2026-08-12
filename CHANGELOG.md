@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.0.1 (unreleased)
+
+### Fixes
+
+- Mainnet profile: the legacy risk engine was decommissioned at the v2 cutover
+  (`risk-api.avantisfi.com` is scaled to zero and returns 503), so
+  `risk_api_url` is now empty on mainnet and `markets.dynamic_spread()` raises
+  a `ConfigError` there pointing to `markets.spread()` — the risk-engine v2
+  spread API at `{api_base_url}/risk/v2`, which serves production quotes.
+  `AVANTIS_RISK_API_URL` still overrides.
+
 ## 2.0.0 (2026-08-12)
 
 Ground-up rewrite for Avantis v2 — the August 12, 2026 in-place protocol

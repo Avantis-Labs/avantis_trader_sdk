@@ -41,7 +41,9 @@ class NetworkProfile:
     api_base_url: str
     tx_builder_url: str
     history_api_url: str
-    risk_api_url: str  # LEGACY risk-engine (dynamic_spread) — standalone host
+    # LEGACY risk-engine (dynamic_spread) — standalone host. Testnet-only
+    # since the 2026-08-12 cutover; empty = not deployed on that network.
+    risk_api_url: str
     feed_url: str
     # Centrally-routed services (avantis-cd services/infra-http-routes):
     # derived from api_base_url when left empty.
@@ -93,10 +95,11 @@ MAINNET = NetworkProfile(
     api_base_url="https://prod-api.avantisfi.com",
     tx_builder_url="https://tx-builder.avantisfi.com",
     history_api_url="https://api.avantisfi.com",
-    risk_api_url="https://risk-api.avantisfi.com",
-    # NB: prod-api routes /risk/v2 but the mainnet v2 spread engine is not
-    # serving yet (5xx until the cutover) — use markets.dynamic_spread()
-    # (legacy engine above) on mainnet in the meantime.
+    # Production spreads come from the v2 engine at {api_base_url}/risk/v2
+    # (markets.spread()). The legacy engine was decommissioned at the
+    # 2026-08-12 cutover — risk-api.avantisfi.com is scaled to zero (503) —
+    # so markets.dynamic_spread() raises on mainnet.
+    risk_api_url="",
     feed_url="https://feed-v3.avantisfi.com",
 )
 
