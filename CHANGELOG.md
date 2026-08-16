@@ -2,6 +2,25 @@
 
 ## 2.0.1 (unreleased)
 
+### Added
+
+- **Builder-code lookup**: `client.account.builder_code(code)` reads a code's
+  fee config from the BuilderCode registry via the new tx-builder
+  `GET /v2/builder-code` — owner, fee mode/values, fee collector, and the
+  protocol caps enforced by `register_builder_code`. The registry is live at
+  `0x1B121398b3588beFD0d888e0F8504EC4C70a01Ad` on Base mainnet and the
+  internal testnet (surfaced in `/addresses` as `builderCode`); the delegate
+  UI (delegate.avantisfi.com) now has a matching no-code register/update card.
+  New `examples/20_builder_code.py`.
+
+### Docs
+
+- **Pair data Socket.IO** (`docs/mintlify/data/socket-io.mdx`, mirrored to
+  avantis-python-sdk): handshake, hosts (`data.avantisfi.com` and the
+  `/data` gateway), `RES:DATA` deep-diff payloads, merge/reconnect rules,
+  and the SDK `pair_data_stream()` wrapper. Linked from Markets, Prices &
+  streams, and the direct-integrators read table.
+
 ### Fixes
 
 - Mainnet profile: the legacy risk engine was decommissioned at the v2 cutover

@@ -64,6 +64,9 @@ class TxBuilderClient:
         params = self._clean({"owner": owner})
         return await self._t.txb("GET", self._url("/v2/lp/state"), params=params)
 
+    async def builder_code(self, code: str) -> dict[str, Any]:
+        return await self._t.txb("GET", self._url("/v2/builder-code"), params={"code": code})
+
     # -- builders --------------------------------------------------------------
 
     async def calldata(self, path: str, **params: Any) -> CallData:

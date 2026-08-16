@@ -215,7 +215,7 @@ served over HTTP (the Multicall contract still exists as a fallback):
 | --- | --- |
 | Addresses, domains, enums, units | tx-builder `GET /v2/meta` |
 | Positions + liquidation price, rollover, funding, limit orders | core API `GET /user-data?trader=` (raw scales) or tx-builder `GET /v2/positions` |
-| Pair catalog: fees, funding, OI + caps, leverage envelopes, market hours | data API `GET /v2/trading` (human units; Socket.IO for live updates) |
+| Pair catalog: fees, funding, OI + caps, leverage envelopes, market hours | data API `GET /v2/trading` (human units; [Socket.IO](/data/socket-io) `RES:DATA` for live diffs) |
 | Dynamic spread quote | risk API `GET /v2/dynamic-spread/{pair}` |
 | Prices (REST, SSE stream, OHLCV) | feed API |
 | Trade/order history with full fee breakdowns, portfolio analytics | history API `/v2/history/*` |

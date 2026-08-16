@@ -61,6 +61,7 @@
             "group": "Data & Compute",
             "pages": [
               "data/markets",
+              "data/socket-io",
               "data/prices-and-streams",
               "data/compute"
             ]
@@ -163,6 +164,12 @@
             ]
           },
           {
+            "group": "Data",
+            "pages": [
+              "data/socket-io"
+            ]
+          },
+          {
             "group": "Relay",
             "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
             "pages": [
@@ -222,7 +229,8 @@
               "GET /v2/nonce",
               "GET /v2/positions",
               "GET /v2/delegation",
-              "GET /v2/allowance"
+              "GET /v2/allowance",
+              "GET /v2/builder-code"
             ]
           }
         ]

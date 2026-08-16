@@ -1,0 +1,191 @@
+---
+title: "Pair Data Socket.IO"
+description: "Live pair-catalog diffs from the data service. Same payload as GET /v2/trading, streamed as partial updates."
+---
+
+The [data service](https://data.avantisfi.com/) serves the pair catalog
+(`GET /v2/trading`) and broadcasts every change over Socket.IO as `RES:DATA`.
+This is the live feed behind `client.pair_data_stream()` and the Avantis
+web app: funding, open interest, spreads, market hours, and the rest of
+the snapshot, in **human units**.
+
+No auth. The server broadcasts to every connected client. You do not emit
+anything; connect and listen.
+
+| Network | Standalone host | Gateway (SDK default) |
+| --- | --- | --- |
+| Mainnet | `https://data.avantisfi.com` | `https://prod-api.avantisfi.com/data` |
+| Testnet | `https://testnet-data.avantisfi.com` | `https://staging-api.avantisfi.com/data` |
+
+Both hosts are the same service. The gateway rewrites the `/data` prefix to
+`/` before the backend. Use the standalone origin if you are wiring this up
+without the SDK; the SDK connects to the gateway unless you set
+`AVANTIS_DATA_API_URL`.
+
+## Bootstrap, then merge
+
+Socket.IO does **not** send the current snapshot on connect, and missed
+diffs are not replayed. On every (re)connect:
+
+1. `GET /v2/trading` for the full snapshot.
+2. Deep-merge each `RES:DATA` payload into that snapshot.
+
+```bash
+curl https://data.avantisfi.com/v2/trading
+```
+
+The response is the snapshot itself (no `{ok, data}` envelope). Top-level
+shape:
+
+| Field | Meaning |
+| --- | --- |
+| `dataVersion` | Payload format version (currently `3`) |
+| `pairInfos` | Map of pair index → pair (fees, OI, funding, leverage, feeds, market hours, …) |
+| `groupInfo` | Map of group index → group OI and caps |
+| `pairCount` | Number of listed pairs |
+| `maxTradesPerPair` | Per-pair open-trade cap |
+| `totalOi` | Protocol-wide open interest |
+| `maxOpenInterest` | Protocol-wide OI cap |
+
+`pairInfos` keys are **strings** (`"1"`, not `1`). Field names are camelCase.
+See [Markets](/data/markets) for the load-bearing `PairInfo` fields.
+
+## Handshake
+
+Socket.IO v4 / Engine.IO v4. Default namespace `/`. Transports:
+`websocket` then `polling`. Path is `/socket.io` on the standalone host
+and `/data/socket.io` on the gateway.
+
+<Note>
+`socket.io-client` treats the URL path as a **namespace**, not the Engine.IO
+path. Connect to the origin and set `path` explicitly. Do not pass
+`https://prod-api.avantisfi.com/data` as the URL — that joins namespace
+`/data` and misses the broadcast.
+</Note>
+
+Standalone (recommended for direct integrators):
+
+```javascript
+import { io } from "socket.io-client";
+
+const socket = io("https://data.avantisfi.com", {
+  path: "/socket.io",
+  transports: ["websocket", "polling"],
+  reconnection: true,
+});
+```
+
+Gateway:
+
+```javascript
+const socket = io("https://prod-api.avantisfi.com", {
+  path: "/data/socket.io",
+  transports: ["websocket", "polling"],
+  reconnection: true,
+});
+```
+
+Python (`pip install 'python-socketio[asyncio_client]'`; `python-socketio`
+discards the URL path, so pass `socketio_path`):
+
+```python
+import socketio
+
+sio = socketio.AsyncClient(reconnection=True)
+await sio.connect(
+    "https://data.avantisfi.com",
+    transports=["websocket", "polling"],
+    socketio_path="socket.io",
+)
+```
+
+On the gateway, `socketio_path="data/socket.io"`.
+
+## `RES:DATA`
+
+Server → client, every time the worker publishes a cache diff (incremental
+pair sync ~1s, market-hours / leverage / spread windows ~1 min, full rebuild
+~30 min, plus on-chain OI and funding events).
+
+The payload is a **deep diff** of the snapshot: only changed keys, nested.
+Unchanged pairs and fields are omitted. Arrays are replaced wholesale.
+
+```json
+{
+  "pairInfos": {
+    "1": {
+      "openInterest": { "long": 12450.5, "short": 9801.0 },
+      "pairOI": 22251.5,
+      "fundingFeePerHourP": 0.012,
+      "fundingRate": { "long": 0.012, "short": -0.012 }
+    }
+  },
+  "totalOi": 1850000.0,
+  "groupInfo": {
+    "0": { "groupOI": 420000.0 }
+  }
+}
+```
+
+Deep-merge into the snapshot you bootstrapped. Nested objects merge;
+scalars and arrays overwrite.
+
+```javascript
+function deepMerge(target, source) {
+  const out = { ...target };
+  for (const [key, value] of Object.entries(source)) {
+    const prev = out[key];
+    if (
+      value && typeof value === "object" && !Array.isArray(value) &&
+      prev && typeof prev === "object" && !Array.isArray(prev)
+    ) {
+      out[key] = deepMerge(prev, value);
+    } else {
+      out[key] = value;
+    }
+  }
+  return out;
+}
+
+let snapshot = await fetch("https://data.avantisfi.com/v2/trading").then((r) => r.json());
+
+socket.on("RES:DATA", (diff) => {
+  snapshot = deepMerge(snapshot, diff);
+});
+
+socket.on("connect", async () => {
+  snapshot = await fetch("https://data.avantisfi.com/v2/trading").then((r) => r.json());
+});
+```
+
+Refetch on `connect` so a reconnect cannot apply a stale diff on top of a
+gap.
+
+Fields that move on every incremental tick: `pairInfos[i].openInterest`,
+`coinOI`, `pairOI`, `fundingRate`, `fundingFeePerHourP`, `marginFee`,
+`spreadP`, `liquidity`, and the matching `groupInfo` / `totalOi`. Market
+hours live under `pairInfos[i].feed.attributes` (`isOpen`, `nextOpen`,
+`nextClose`, `schedule`).
+
+## SDK
+
+```python
+# pip install 'avantis-trader-sdk[streams]'
+from avantis_trader_sdk import AsyncAvantis
+
+async with AsyncAvantis() as client:
+    stream = client.pair_data_stream()
+
+    async def on_update(diff: dict) -> None:
+        changed = diff.get("pairInfos", {})
+        print("pairs updated:", list(changed))
+
+    await stream.run(on_update)   # blocks; stream.stop() to end
+```
+
+The callback receives the raw `RES:DATA` dict. The SDK does not merge it
+into `client.markets` (that snapshot is HTTP-polled, 5s TTL). Treat the
+stream as its own live copy, or call `markets.snapshot(force=True)` when
+you need the typed `PairInfo` models refreshed.
+
+Runnable sketch: `examples/17_streams.py`.

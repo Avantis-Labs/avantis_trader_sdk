@@ -17,7 +17,7 @@ Good for scripts. For anything latency-sensitive, stream instead.
 | --- | --- | --- | --- |
 | `client.lazer_price_stream(feed_ids)` | SSE | Prices, lowest latency | Feed ids from `pair.lazer_feed.feed_id` |
 | `client.hermes_price_stream(feed_ids)` | Pyth Hermes WS | Prices | 0x-hex Pyth feed ids |
-| `client.pair_data_stream()` | Socket.IO | Funding / OI / spread updates | Needs `pip install 'avantis-trader-sdk[streams]'` |
+| `client.pair_data_stream()` | Socket.IO | Funding / OI / spread updates | Needs `pip install 'avantis-trader-sdk[streams]'`. Protocol: [Pair data Socket.IO](/data/socket-io) |
 | `client.order_event_stream(trader=None)` | Pusher WS | Your fills and cancels | Idle unless your orders execute |
 
 All streams share the same API: `await stream.run(callback)` blocks and invokes the callback per event; `stream.stop()` ends it.
@@ -35,6 +35,23 @@ await stream.run(on_price)
 ```
 
 `PriceUpdate` fields: `feed_id`, `price`, `timestamp_ms`, `best_bid`, `best_ask`, `raw`.
+
+### Pair data
+
+Live catalog diffs (funding, OI, spread, market hours) from the data
+service. Payloads are **partial** — bootstrap from `GET /v2/trading` and
+deep-merge. Full handshake, hosts, and payload rules:
+[Pair data Socket.IO](/data/socket-io).
+
+```python
+# pip install 'avantis-trader-sdk[streams]'
+stream = client.pair_data_stream()
+
+async def on_pairs(diff):          # raw RES:DATA dict
+    print(list(diff.get("pairInfos", {})))
+
+await stream.run(on_pairs)
+```
 
 ### Order events
 

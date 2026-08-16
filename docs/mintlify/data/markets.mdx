@@ -16,7 +16,7 @@ print("funding/h:", eth.funding_fee_per_hour_p, "%")
 print("OI:", eth.open_interest.long, "long /", eth.open_interest.short, "short")
 ```
 
-Everything comes from one `/v2/trading` snapshot, cached for 5 seconds (`snapshot()` with `force=True` refreshes). Useful `PairInfo` fields:
+Everything comes from one `/v2/trading` snapshot, cached for 5 seconds (`snapshot()` with `force=True` refreshes). For a live copy of the same payload (funding, OI, spreads, market hours) subscribe to the data service [Socket.IO feed](/data/socket-io). Useful `PairInfo` fields:
 
 | Field | Meaning |
 | --- | --- |

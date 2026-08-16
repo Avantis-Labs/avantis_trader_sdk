@@ -197,7 +197,7 @@ history with fee breakdowns, portfolio analytics, vault APY).
 | `FeedClient()` + `register_price_feed_callback(...)` + `listen_for_price_updates()` | `client.lazer_price_stream([...])` / `client.hermes_price_stream([...])`, see [Prices & streams](/data/prices-and-streams) |
 | `feed_client.get_latest_price_updates(...)` | `markets.price(pair)` |
 | `feed_client.get_price_update_data(...)` | `markets.price_update_data(pair)` (rarely needed; market orders no longer require you to attach price updates) |
-| (none) | `client.pair_data_stream()` (live pair-catalog updates), `client.order_event_stream()` (your order lifecycle events) |
+| (none) | `client.pair_data_stream()` (live pair-catalog updates — [Socket.IO protocol](/data/socket-io)), `client.order_event_stream()` (your order lifecycle events) |
 
 ## New v2 surface worth adopting
 

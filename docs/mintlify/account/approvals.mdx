@@ -43,15 +43,22 @@ await client.account.claim_keeper_rewards()   # keeper rewards
 
 ## Builder codes
 
-Partners routing order flow can register a builder code that collects a per-trade fee:
+Partners routing order flow can register a builder code that collects a per-trade fee — a percent of the trade's collateral or a fixed USDC amount, paid by the trader to your fee collector. Check a code first (`registered: False` means it's free to claim; the response also carries the protocol fee caps):
+
+```python
+info = await client.account.builder_code("MYAPP")
+# {"registered": False, "owner": None, ..., "maxFeePercentHuman": 1, "maxFixedFeeUsdc": 10}
+```
 
 ```python
 await client.account.register_builder_code(
     "MYAPP",
     fee_collector="0x...",
     is_percent_fee=True,
-    fee_percent=1,            # 1 = 1%
+    fee_percent=0.05,         # 1 = 1% of collateral
 )
 ```
 
-`modify_builder_code(...)` (same parameters) updates it. Set `builder_code` in the [configuration](/configuration) to attach your code to outgoing orders.
+`modify_builder_code(...)` (same parameters, owner only) updates it. Registration is caller-scoped like claims: the caller becomes the code owner, so it cannot go through a delegate key. There's also a no-code flow in the [Avantis API Key Generator](https://delegate.avantisfi.com/).
+
+To attach your code to outgoing orders, set `builder_code` in the [configuration](/configuration) to the normalized 32-byte value (`info["code"]` from the lookup above).
