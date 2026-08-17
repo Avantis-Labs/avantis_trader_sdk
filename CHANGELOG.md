@@ -15,6 +15,14 @@
 
 ### Docs
 
+- **Builder codes got a dedicated section**: new `builders/builder-codes.mdx`
+  ("For Builders" nav group) covering fee mechanics, the fee-eligible actions
+  (market/limit/coin opens, increases, TWAP and RFQ opens), register / modify /
+  lookup, attaching a code to user order flow (`builder_code` suffix +
+  delegation-template fees), and revenue tracking via `BuilderFeesCharged`.
+  The API reference groups the three builder-code endpoints under their own
+  "Builder Codes" group (previously buried in Misc/Reads), and
+  `examples/20_builder_code.py` now walks the full owner + user flow.
 - **Pair data Socket.IO** (`docs/mintlify/data/socket-io.mdx`, mirrored to
   avantis-python-sdk): handshake, hosts (`data.avantisfi.com` and the
   `/data` gateway), `RES:DATA` deep-diff payloads, merge/reconnect rules,

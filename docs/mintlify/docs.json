@@ -74,6 +74,12 @@
             ]
           },
           {
+            "group": "For Builders",
+            "pages": [
+              "builders/builder-codes"
+            ]
+          },
+          {
             "group": "Advanced",
             "pages": [
               "advanced/execution-modes",
@@ -213,13 +219,20 @@
             ]
           },
           {
+            "group": "Builder Codes",
+            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
+            "pages": [
+              "GET /v2/builder-code",
+              "POST /v2/misc/builder-code/register",
+              "POST /v2/misc/builder-code/modify"
+            ]
+          },
+          {
             "group": "Misc",
             "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
             "pages": [
               "POST /v2/misc/claim-keeper-rewards",
-              "POST /v2/misc/add-to-buffer",
-              "POST /v2/misc/builder-code/register",
-              "POST /v2/misc/builder-code/modify"
+              "POST /v2/misc/add-to-buffer"
             ]
           },
           {
@@ -229,8 +242,7 @@
               "GET /v2/nonce",
               "GET /v2/positions",
               "GET /v2/delegation",
-              "GET /v2/allowance",
-              "GET /v2/builder-code"
+              "GET /v2/allowance"
             ]
           }
         ]

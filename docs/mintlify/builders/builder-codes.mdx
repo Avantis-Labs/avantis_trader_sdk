@@ -1,0 +1,127 @@
+---
+title: Builder Codes
+description: "Register a builder code and earn a per-trade fee on the order flow your integration routes to Avantis."
+---
+
+A builder code is an on-chain fee configuration in the Avantis **BuilderCode registry**. Trades attached to your code charge a fee — a percentage of the trade's collateral or a fixed USDC amount per trade — paid by the trader directly to your fee collector address. You own the code with the wallet that registers it and can change the fee parameters at any time.
+
+There are two ways to manage codes: the SDK (this page) or the no-code card in the [Avantis API Key Generator](https://delegate.avantisfi.com/).
+
+<Warning>
+Builder-code registration and updates are **caller-scoped**: the signing key becomes (or must be) the code owner, so these calls cannot go through a delegate/API key. Sign with the wallet you want to own the code.
+</Warning>
+
+## How fees work
+
+- **Two fee modes.** Percent of the trade's collateral (`fee_percent`, `1 = 1%`) or a fixed USDC amount per trade (`fixed_fee_usdc`).
+- **Paid by the trader, in USDC, to your `fee_collector`.** Charged on-chain at execution time; every charge emits a `BuilderFeesCharged` event.
+- **Live config.** The fee parameters are read from the registry at trade time, so `modify_builder_code(...)` takes effect immediately for all future trades.
+- **Protocol caps.** Registration and updates revert above the protocol maximums. Read them (and a code's current config) with `builder_code(...)` — currently 1% of collateral / 10 USDC per trade.
+
+### Fee-eligible actions
+
+Fees are charged on the actions that open or add exposure. Closes, cancels, margin updates, and TP/SL changes never charge a builder fee.
+
+| Action | SDK methods | Builder fee |
+| --- | --- | --- |
+| Market open | `trade.market_open`, `trade.market_open_coin` | Yes |
+| Limit-order placement | `trade.limit_open` | Yes |
+| Position increase | `trade.increase_position`, `trade.increase_position_coin` | Yes |
+| TWAP open | `trade.twap_open` | Yes |
+| RFQ open | `trade.rfq_open` | Yes |
+| Close / cancel / margin / TP-SL | everything else | No |
+
+## Check a code
+
+Look a code up before registering — `registered: False` means it's free to claim. The response also carries the protocol caps:
+
+```python
+info = await client.account.builder_code("MYAPP")
+# {
+#   "code": "0x4d59415050…0000",   # normalized 32-byte form
+#   "registered": False,
+#   "owner": None, "feeCollector": None,
+#   "isPercentFee": False, "feePercentHuman": 0, "fixedFeeUsdc": 0,
+#   "maxFeePercentHuman": 1,        # protocol caps
+#   "maxFixedFeeUsdc": 10,
+# }
+```
+
+Codes are `bytes32` on-chain; pass a plain string of 1-31 characters (right-padded, like referral codes) or a 32-byte `0x` hex value.
+
+## Register a code
+
+```python
+await client.account.register_builder_code(
+    "MYAPP",
+    fee_collector="0x...",        # receives the fees (defaults make sense: your own wallet)
+    is_percent_fee=True,
+    fee_percent=0.05,             # 0.05% of each trade's collateral (1 = 1%)
+)
+```
+
+For a flat fee instead:
+
+```python
+await client.account.register_builder_code(
+    "MYAPP",
+    fee_collector="0x...",
+    is_percent_fee=False,
+    fixed_fee_usdc=0.25,          # 0.25 USDC per trade
+)
+```
+
+The registering wallet becomes the code owner. Registration reverts with `BUILDER_CODE_ALREADY_REGISTERED` if the code is taken, and with `FEE_PERCENT_TOO_HIGH` / `FIXED_FEE_TOO_HIGH` above the caps.
+
+## Update a code
+
+`modify_builder_code(...)` takes the same parameters and is owner-only. Changes apply to all future trades immediately:
+
+```python
+await client.account.modify_builder_code(
+    "MYAPP",
+    fee_collector="0x...",        # can also re-point the collector
+    is_percent_fee=False,
+    fixed_fee_usdc=0.25,
+)
+```
+
+## Attach your code to your users' trades
+
+Fees are charged by the Avantis EIP-7702 delegation template that executes a trade: a **builder-specific template** carries your code and verifies it against the registry on every fee-eligible call. Wiring your registered code into a template for your order flow is coordinated with the Avantis team — reach out once your code is registered.
+
+Independently of fees, set `builder_code` in the [configuration](/configuration) to tag your order flow: the SDK appends the 32-byte value as a calldata suffix to every EIP-7702 transaction it builds (market opens/closes/increases and all relayer-passthrough actions), which Avantis uses for order-flow attribution:
+
+```python
+info = await client.account.builder_code("MYAPP")
+
+client = AsyncAvantis(
+    private_key="0x...",              # your user's delegate/API key
+    trader_address="0x...",           # your user's wallet
+    builder_code=info["code"],        # normalized 32-byte value from the lookup
+)
+await client.trade.market_open("ETH/USD", "long", collateral=100, leverage=10)
+```
+
+Notes on coverage:
+
+- The suffix rides on every transaction the SDK signs and relays itself (the EIP-7702 route). Intent-only paths that Avantis executes server-side — TWAP intents, the [market-maker fast path](/advanced/mm-fast-path), and global TP/SL triggers — carry no SDK-built calldata.
+- In [direct mode](/advanced/execution-modes) the SDK broadcasts plain transactions from the trader's wallet, which bypasses the delegation template, so no builder fee is charged on those trades.
+
+## Track your revenue
+
+Every charge emits `BuilderFeesCharged(trader, feeCollector, builderCode, fee)`. Like all EIP-7702 activity, the event is emitted **from the trader's EOA**, so filter logs by topic across all addresses rather than by a fixed contract address (see [events for indexers](/migration/direct-integrators#indexers-event-migration)). `RegisteredBuilderCode` and `ModifiedBuilderCode` fire on registry changes.
+
+## API endpoints
+
+If you integrate against the HTTP API directly instead of the SDK, the tx-builder exposes a Builder Codes group in the [API reference](/api-reference/overview):
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /v2/builder-code` | Look up a code: owner, fee config, caps |
+| `POST /v2/misc/builder-code/register` | Build the registration transaction |
+| `POST /v2/misc/builder-code/modify` | Build the update transaction (owner only) |
+
+The registry contract address is in `GET /addresses` under `builderCode`.
+
+Runnable script: [`examples/20_builder_code.py`](https://github.com/Avantis-Labs/avantis_trader_sdk/blob/main/examples/20_builder_code.py).

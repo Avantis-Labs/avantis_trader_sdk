@@ -1,6 +1,6 @@
 ---
 title: Approvals & Claims
-description: "USDC allowances, rebate claims, and builder codes."
+description: "USDC allowances and rebate claims."
 ---
 
 ## USDC approval
@@ -43,22 +43,4 @@ await client.account.claim_keeper_rewards()   # keeper rewards
 
 ## Builder codes
 
-Partners routing order flow can register a builder code that collects a per-trade fee — a percent of the trade's collateral or a fixed USDC amount, paid by the trader to your fee collector. Check a code first (`registered: False` means it's free to claim; the response also carries the protocol fee caps):
-
-```python
-info = await client.account.builder_code("MYAPP")
-# {"registered": False, "owner": None, ..., "maxFeePercentHuman": 1, "maxFixedFeeUsdc": 10}
-```
-
-```python
-await client.account.register_builder_code(
-    "MYAPP",
-    fee_collector="0x...",
-    is_percent_fee=True,
-    fee_percent=0.05,         # 1 = 1% of collateral
-)
-```
-
-`modify_builder_code(...)` (same parameters, owner only) updates it. Registration is caller-scoped like claims: the caller becomes the code owner, so it cannot go through a delegate key. There's also a no-code flow in the [Avantis API Key Generator](https://delegate.avantisfi.com/).
-
-To attach your code to outgoing orders, set `builder_code` in the [configuration](/configuration) to the normalized 32-byte value (`info["code"]` from the lookup above).
+Routing order flow to Avantis as a partner? Register a builder code and earn a per-trade fee — registration, fee mechanics, and attaching the code to your users' trades are covered on the dedicated [Builder codes](/builders/builder-codes) page.
