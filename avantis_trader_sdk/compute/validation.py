@@ -1,4 +1,4 @@
-"""Pre-trade validation — same rules the Avantis UI enforces.
+"""Pre-trade validation: same rules the Avantis UI enforces.
 
 Note the tx-builder API also validates server-side (min position, leverage
 envelope, headroom, market hours) and returns human-readable 400s; this local
@@ -46,7 +46,7 @@ def validate_order(
 ) -> OrderValidation:
     """Validate a prospective open order against pair config and live OI.
 
-    ``is_upside`` selects the Upside (PnL) rule set — leverage envelope, TP
+    ``is_upside`` selects the Upside (PnL) rule set: leverage envelope, TP
     cap net of profit share, SL floor. Leave it as ``None`` to derive from
     the pair itself (``pair_info.is_upside``), matching the SDK's automatic
     order-type routing.

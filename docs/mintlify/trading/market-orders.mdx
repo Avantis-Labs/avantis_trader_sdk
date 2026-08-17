@@ -30,10 +30,10 @@ receipt = await client.trade.market_open(
 
 <Info>
 **Upside markets route automatically.** Upside pairs (formerly "zero-fee"/ZFP)
-are separate markets suffixed `_UPSIDE` — e.g. `BTC_UPSIDE/USD` next to
+are separate markets suffixed `_UPSIDE`, e.g. `BTC_UPSIDE/USD` next to
 `BTC/USD`. Opening one sends the PnL (Upside) order type by itself: no
 open/close fee, a tiered profit share on gains instead. There is no flag to
-pass — the pair determines the order type (the contract rejects any
+pass; the pair determines the order type (the contract rejects any
 mismatch). Upside pairs are market-only: no limit/stop opens and no TWAP.
 See [Markets](/data/markets#upside-markets) for discovering them.
 </Info>
@@ -83,7 +83,7 @@ await client.trade.market_close_coin(pos.pair_index, pos.index, coin_exposure=0.
 | `open_timestamp` | `None` | Binds the close to a specific open (see below) |
 
 Closes route from the pair too: a position on an Upside pair closes with the
-PnL close type automatically (`Position.is_upside` is informational — you
+PnL close type automatically (`Position.is_upside` is informational; you
 don't pass it anywhere).
 
 <Warning>
@@ -115,8 +115,8 @@ contract error name like `WrongSl`, or a service code like
 
 ### Watch the journey while the SDK settles
 
-Want the SDK's settle logic **and** live visibility of the journey — e.g. to
-log `AttemptFailed` diagnostics for later debugging? Pass `on_event=` (all
+Want the SDK's settle logic **and** live visibility of the journey (e.g. to
+log `AttemptFailed` diagnostics for later debugging)? Pass `on_event=` (all
 market open/close/increase methods take it). The hook is called once per
 lifecycle event, in stream order, while the call still blocks until settled:
 
@@ -134,7 +134,7 @@ receipt = await client.trade.market_open(
 The hook sees everything the SDK sees: `MarketOrderAccepted`, each retryable
 `AttemptFailed` (`{attempt, code, message, willRetry}`), unknown
 informational types the server may add, the initiation event, and the
-terminal — **including when the terminal makes the call raise**, so a
+terminal, **including when the terminal makes the call raise**, so a
 journey log is complete on failures. If the stream view times out, the hook
 also sees the connection-scoped `STREAM_TIMEOUT` `Error` and then each event
 recovered via status polling, every event exactly once.
@@ -142,8 +142,8 @@ recovered via status polling, every event exactly once.
 Notes:
 
 - Relayer route only (the direct RPC route has no lifecycle stream).
-- Sync and async callables both work; keep the hook fast — it runs inline on
-  the client's event loop.
+- Sync and async callables both work; keep the hook fast (it runs inline on
+  the client's event loop).
 - Exceptions from the hook propagate and abort the local wait; the order
   keeps executing server-side (settle with
   `client.engine.batched_market.wait(tracking_id)`).
@@ -169,7 +169,7 @@ also takes `on_event=` and delivers each newly replayed event to it live.
 ## The executed fill payload
 
 The terminal `MarketOrderExecuted` event carries the **final trade as it
-executed on-chain** — no follow-up positions query is needed to learn the
+executed on-chain**; no follow-up positions query is needed to learn the
 fill. It's available as `outcome.terminal.data` (and as `receipt.raw` with
 the default `wait=True`):
 

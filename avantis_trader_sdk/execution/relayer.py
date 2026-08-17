@@ -39,7 +39,7 @@ class RelayerClient:
     async def create(self, tx_params: dict[str, Any], wallet: str | None = None) -> str:
         """Submit txParams for broadcast; returns the requestId to poll.
 
-        503 means every relayer wallet is busy — retried a few times since it
+        503 means every relayer wallet is busy; retried a few times since it
         clears as soon as an in-flight relay settles.
         """
         body: dict[str, Any] = {"txParams": tx_params}

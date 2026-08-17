@@ -132,7 +132,7 @@ INTENT_TYPES: dict[str, dict[str, list[Field]]] = {
             {"name": "_nonce", "type": "uint256"},
         ],
     },
-    # No deadline field — freshness enforced via `signTimestamp` (ms).
+    # No deadline field; freshness enforced via `signTimestamp` (ms).
     "TpSlReq": {
         "TpSlReq": [
             {"name": "trader", "type": "address"},

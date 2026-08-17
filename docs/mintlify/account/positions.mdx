@@ -27,9 +27,9 @@ for order in data.limit_orders:
 | `collateral`, `leverage`, `position_size` | USDC, multiplier, notional (collateral × leverage) |
 | `open_price`, `tp`, `sl`, `liquidation_price` | Prices (`0` = unset) |
 | `rollover_fee`, `unrealised_funding_fee` | Accrued fees in USDC |
-| `is_upside` | `True` for positions on Upside pairs (profit share instead of fixed fees); informational — closes route from the pair automatically |
+| `is_upside` | `True` for positions on Upside pairs (profit share instead of fixed fees); informational (closes route from the pair automatically) |
 | `opened_at` | Open timestamp; pass to `market_close(open_timestamp=...)` if closing right after opening |
-| `price_triggers` | All TP/SL triggers on the position — see below |
+| `price_triggers` | All TP/SL triggers on the position (see below) |
 
 `data.position(pair_index, index)` looks up a single position.
 
@@ -37,15 +37,15 @@ for order in data.limit_orders:
 
 `price_triggers` unifies every TP/SL attached to a position:
 
-- **Global (on-chain) TP/SL** — `is_global` is `True`. These are the levels
+- **Global (on-chain) TP/SL**: `is_global` is `True`. These are the levels
   set at open / via `trade.update_tp_sl()`. Their `entity_id` is
   deterministic (`global-tp-{trader}-{pair}-{index}` / `global-sl-...`) and
   is **not** accepted by the partial TP/SL CRUD; the SDK rejects it
   client-side too.
-- **Partial (off-chain) triggers** — `is_global` is `False`. Signed
+- **Partial (off-chain) triggers**: `is_global` is `False`. Signed
   [partial TP/SL](/trading/tp-sl#partial-tpsl-trigger-orders) orders whose
   `entity_id` works with `trade.update_partial_tp_sl()` and
-  `trade.cancel_partial_tp_sl()`. Note that updating a partial order mints a
+  `trade.cancel_partial_tp_sl()`. Updating a partial order mints a
   **new** `entity_id`.
 
 ```python

@@ -1,4 +1,4 @@
-"""Fee math — skew-adjusted open fee and maker/taker classification.
+"""Fee math: skew-adjusted open fee and maker/taker classification.
 
 Mirrors avantis-ui-v2 hooks/trade/useOpeningFee.ts and useMakerTakerFee.ts.
 """

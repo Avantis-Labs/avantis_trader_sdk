@@ -27,7 +27,7 @@ await client.trade.update_tp_sl(
 ```
 
 `None` keeps a leg unchanged (the SDK copies its current value from the
-position — the signed intent always carries both legs). `stop_loss=0` truly
+position; the signed intent always carries both legs). `stop_loss=0` truly
 removes the SL. A position always has a TP on-chain, so `take_profit=0`
 *resets* it to the pair's max-gain cap (typically +2500%) instead of removing
 it.
@@ -69,7 +69,7 @@ Existing triggers appear on `Position.price_triggers` when you fetch
 stored-order `entityId`; the global TP/SL shows up as `is_global=True`
 entries with deterministic `global-tp-*` / `global-sl-*` ids. Passing a
 global id to `update_partial_tp_sl` / `cancel_partial_tp_sl` raises a
-`ValidationError` — manage those levels with `update_tp_sl`.
+`ValidationError`; manage those levels with `update_tp_sl`.
 
 ## Update a partial TP/SL
 
@@ -90,7 +90,7 @@ order = await client.trade.update_partial_tp_sl(
 <Warning>
 An update mints a **new** `entityId` (the backend deletes the old order and
 stores the replacement atomically). Always adopt the returned dict's
-`entityId` — the one you passed in is gone.
+`entityId`; the one you passed in is gone.
 </Warning>
 
 ## Cancel a partial TP/SL

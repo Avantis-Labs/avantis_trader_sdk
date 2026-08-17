@@ -36,7 +36,7 @@ The snapshot itself (`await client.markets.snapshot()`) carries protocol-wide st
 ## Upside markets
 
 Upside markets (formerly "zero-fee"/ZFP) are separate pairs suffixed
-`_UPSIDE` — `BTC_UPSIDE/USD` trades alongside `BTC/USD` with the same price
+`_UPSIDE`: `BTC_UPSIDE/USD` trades alongside `BTC/USD` with the same price
 feed but no open/close fee and a tiered profit share on gains. Trading
 methods route the order type automatically from the pair; you just pick the
 market:
@@ -53,12 +53,12 @@ print(btc_upside.base_symbol)   # "BTC/USD" (suffix stripped)
 
 Symbol resolution accepts `"BTC_UPSIDE"`, `"BTC_UPSIDE/USD"`, and quote-side
 forms like `"USD/JPY_UPSIDE"`; `upside_pair_for` raises when a market has no
-upside listing. Upside pairs are market-only — see
+upside listing. Upside pairs are market-only; see
 [Market orders](/trading/market-orders).
 
 ## Spread
 
-Per-order spread quote from the risk engine v2 — the same endpoint the Avantis web app uses. Size the request by coin exposure directly, or by `collateral` + `leverage` (converted at `wanted_price`, or the live price when omitted):
+Per-order spread quote from the risk engine v2, the same endpoint the Avantis web app uses. Size the request by coin exposure directly, or by `collateral` + `leverage` (converted at `wanted_price`, or the live price when omitted):
 
 ```python
 spread = await client.markets.spread(
@@ -67,10 +67,10 @@ spread = await client.markets.spread(
 print(spread["spreadPct"], spread["spreadMechanism"])   # percent, descaled
 ```
 
-`spreadPct` is the quoted value (the with-flow estimate when the flow mechanism is active, otherwise the without-flow spread). A `404` means the engine matched a mechanism but could not compute a spread (for example a stale orderbook) — treat it as "do not execute", not as zero spread.
+`spreadPct` is the quoted value (the with-flow estimate when the flow mechanism is active, otherwise the without-flow spread). A `404` means the engine matched a mechanism but could not compute a spread (for example a stale orderbook); treat it as "do not execute", not as zero spread.
 
 <Note>
-The v2 spread engine serves both networks — it is the production spread source. The legacy `client.markets.dynamic_spread(...)` endpoint was decommissioned on mainnet at the v2 cutover (it raises a `ConfigError` there) and remains available on testnet only.
+The v2 spread engine serves both networks; it is the production spread source. The legacy `client.markets.dynamic_spread(...)` endpoint was decommissioned on mainnet at the v2 cutover (it raises a `ConfigError` there) and remains available on testnet only.
 </Note>
 
 Related risk reads: `client.markets.open_interests()` (per-pair long/short OI including pending amounts) and `client.markets.orderbook_snapshots()` (cumulative bid/ask coin liquidity per orderbook source).

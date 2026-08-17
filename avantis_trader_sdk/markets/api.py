@@ -76,7 +76,7 @@ class MarketsApi:
 
     async def upside_pairs(self) -> dict[int, PairInfo]:
         """Upside markets only (separate pairs carrying the ``_UPSIDE`` suffix,
-        e.g. BTC_UPSIDE/USD). These take the PnL order type automatically —
+        e.g. BTC_UPSIDE/USD). These take the PnL order type automatically;
         see ``TradeApi``."""
         return {i: p for i, p in (await self.pairs()).items() if p.is_upside}
 
@@ -146,10 +146,11 @@ class MarketsApi:
         by COIN exposure: pass ``coin_size`` (base-asset units) directly, or
         ``collateral`` + ``leverage`` and it is derived as
         ``collateral * leverage / price`` (``wanted_price`` if given, else the
-        live feed price) — the same conversion the UI applies.
+        live feed price), the same conversion the UI applies.
 
-        ``order_type`` is the risk-engine enum (``market``/``limit`` — also
-        used for stop-limit — /``tp``/``sl``/``liquidation``) or its int value.
+        ``order_type`` is the risk-engine enum (``market``/``limit``/``tp``/
+        ``sl``/``liquidation``; ``limit`` is also used for stop-limit) or its
+        int value.
         ``wanted_price`` additionally feeds mechanism SM002; omit it to skip.
 
         Returns the raw response plus descaled float percentages:
@@ -160,12 +161,12 @@ class MarketsApi:
 
         Error semantics (surfaced as :class:`ApiError`): 400 = malformed
         request, 403 = spread blocked (roll window / closed market / wallet),
-        404 = mechanism matched but no spread computable — treat as
+        404 = mechanism matched but no spread computable; treat as
         "do not execute", never as zero spread.
 
         Deployment note: routed at ``{api_base_url}/risk/v2``; live on
         testnet. The mainnet route exists but the engine is not serving yet
-        (5xx until the v2 cutover) — use :meth:`dynamic_spread` there in the
+        (5xx until the v2 cutover); use :meth:`dynamic_spread` there in the
         meantime.
         """
         info = await self.pair(pair)
@@ -257,7 +258,7 @@ class MarketsApi:
         if not self._cfg.risk_api_url:
             raise ConfigError(
                 "The legacy risk engine is not deployed on this network "
-                "(decommissioned on mainnet at the v2 cutover) — use "
+                "(decommissioned on mainnet at the v2 cutover); use "
                 "markets.spread(), or set AVANTIS_RISK_API_URL to override."
             )
         info = await self.pair(pair)

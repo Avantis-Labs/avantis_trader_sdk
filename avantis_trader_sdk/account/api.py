@@ -44,7 +44,7 @@ class AccountApi(ExecutingApi):
         liquidation price, rollover, and unrealized funding).
 
         Each position also gets ``base_symbol`` from the markets pair catalog
-        (with any ``_UPSIDE`` suffix stripped — BTC_UPSIDE/USD tags as "BTC")
+        (with any ``_UPSIDE`` suffix stripped; BTC_UPSIDE/USD tags as "BTC")
         so ``Position.size_in_asset`` handles USD-base pairs (USD/JPY, ...)
         correctly.
         """
@@ -148,7 +148,7 @@ class AccountApi(ExecutingApi):
     ) -> ExecutionReceipt:
         """Approve USDC for trading (TradingStorage) or LP (pass the tranche).
 
-        The approval must come from the TRADER's own address — it cannot be
+        The approval must come from the TRADER's own address; it cannot be
         routed through a delegate key.
         """
         self._require_caller_is_signer("USDC approve")
@@ -225,7 +225,7 @@ class AccountApi(ExecutingApi):
 
     async def add_to_buffer(self, amount: Num, *, wait: bool = True) -> ExecutionReceipt:
         """PROTOCOL-INTERNAL: USDC injection into the protocol buffer
-        (VaultManager). Not part of the public trading surface — intentionally
+        (VaultManager). Not part of the public trading surface, intentionally
         undocumented; regular users should never need this.
 
         Needs a prior USDC approval to the VaultManager address

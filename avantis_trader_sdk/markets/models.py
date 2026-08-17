@@ -177,7 +177,7 @@ class PairInfo(BaseModel):
 
         Same convention as the Avantis UI: the ``_UPSIDE`` suffix on either
         symbol. Upside pairs take ONLY the PnL order type (market_pnl) and are
-        market-only — no limit/stop opens, no TWAP.
+        market-only: no limit/stop opens, no TWAP.
         """
         upper_from = self.from_symbol.upper()
         upper_to = self.to_symbol.upper()

@@ -123,7 +123,7 @@ BATCHED_MARKET_INTENT_KINDS: frozenset[str] = frozenset(
 # The batched-market endpoint's allow-list (avantis-backend-monorepo
 # src/market-app/batched-market/batched-order-types.ts). Membership routes an
 # intent to POST /market/execute-batched. UPDATE_SL is not relayed by the SDK
-# at all anymore — global TP/SL goes through the core API price-triggers
+# at all anymore; global TP/SL goes through the core API price-triggers
 # endpoint (TradeApi.update_tp_sl).
 BATCHED_MARKET_ORDER_TYPES: frozenset[AggregatorOrderType] = frozenset(
     {

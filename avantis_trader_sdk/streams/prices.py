@@ -1,7 +1,7 @@
 """Real-time price streams.
 
 - LazerPriceStream: feed-v3 SSE (`/v1/stream?price_feed_ids=…`, event
-  ``price_update``, 30s heartbeats) — lowest latency, Avantis-hosted.
+  ``price_update``, 30s heartbeats); lowest latency, Avantis-hosted.
 - HermesPriceStream: Pyth Hermes WebSocket (`wss://hermes.pyth.network/ws`).
 
 Both reconnect with exponential backoff and deliver ``PriceUpdate`` objects to

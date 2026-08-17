@@ -5,7 +5,7 @@ src/market-app/batched-market) is the front door for market execution: one
 endpoint for every supported order type, streaming the order lifecycle back
 as Server-Sent Events over the POST response.
 
-Request body (``erc712`` required, ``eip7702`` OPTIONAL — when present the
+Request body (``erc712`` required, ``eip7702`` OPTIONAL: when present the
 server picks which mechanism to act on via its own strategy switch, so ops
 can move between EIP-712 and EIP-7702 without client releases; when omitted
 the server executes the EIP-712 intent directly, which is the market-maker
@@ -33,12 +33,12 @@ final on-chain fill (server market-fill-details.ts, a published contract):
 resulting position. All uints are strings in raw units (1e6 USDC, 1e10
 prices/leverage). Keep-alives are SSE comments
 (``: hb``). A dropped stream is recoverable via
-``GET /tracking-id/{trackingId}/status?afterSeq={lastSeenSeq}`` — every event
+``GET /tracking-id/{trackingId}/status?afterSeq={lastSeenSeq}``: every event
 is persisted with its seq, so the replay is complete.
 
 ``AttemptFailed`` (non-terminal, persisted with a seq) reports one execution
-attempt that hit a retryable condition — payload
-``{attempt, code, message, willRetry}`` — while the backend keeps working the
+attempt that hit a retryable condition (payload
+``{attempt, code, message, willRetry}``) while the backend keeps working the
 request. Unknown event types MUST be ignored (the server adds non-terminal
 types without a version bump), which this client does by matching terminals
 against an allow-list.
@@ -52,14 +52,14 @@ synthetic backend code (``NO_PRICE``, ``SPREAD_BLOCKED``,
 ``RELAY_FAILED`` / ``TX_REVERTED`` / ``RELAY_TIMEOUT`` in 7702 mode).
 
 ``code == "STREAM_TIMEOUT"`` is the one ``Error`` that is NOT the request's
-outcome — only this connection's view of it timed out (the server also emits
+outcome: only this connection's view of it timed out (the server also emits
 it without an ``id:`` line; it is not persisted). This client falls back to
 status polling for it; every other ``Error`` is a real terminal failure and
 raises :class:`RelayError` carrying the ``code``.
 
 Observing the journey: pass ``on_event=`` to :meth:`BatchedMarketClient.execute`
 or :meth:`BatchedMarketClient.wait` to be called with every lifecycle event as
-it arrives — the terminal outcome still settles through this client's logic
+it arrives; the terminal outcome still settles through this client's logic
 (return value or typed raise). See :data:`BatchedMarketEventHook`.
 """
 
@@ -106,7 +106,7 @@ BatchedMarketEventHook = Callable[[BatchedMarketEvent], Any]
 
 Called once per lifecycle event, in stream order: ``MarketOrderAccepted``,
 any non-terminal ``AttemptFailed`` diagnostics, unknown informational types
-the server may add, the initiation event, and the terminal event — the
+the server may add, the initiation event, and the terminal event. The
 terminal is delivered even when it makes the call raise (``RelayError`` on
 ``MarketOrderCanceled`` / ``Error``), so a journey log is complete on
 failures. A connection-scoped ``Error`` with ``code == "STREAM_TIMEOUT"`` is
@@ -114,8 +114,8 @@ also delivered (useful to log the fallback to status polling) although it is
 not the request's outcome.
 
 Sync and async callables both work (an awaitable return value is awaited on
-the client's event loop). Exceptions propagate and abort the *local* wait —
-the order itself keeps executing server-side; recover with
+the client's event loop). Exceptions propagate and abort the *local* wait.
+The order itself keeps executing server-side; recover with
 :meth:`BatchedMarketClient.wait` on the trackingId.
 """
 
@@ -158,7 +158,7 @@ class BatchedMarketOutcome:
     @property
     def attempt_failures(self) -> list[BatchedMarketEvent]:
         """Non-terminal ``AttemptFailed`` events observed along the way
-        (payloads: ``{attempt, code, message, willRetry}``). Informational —
+        (payloads: ``{attempt, code, message, willRetry}``). Informational:
         a successful outcome can still have several."""
         return [ev for ev in self.events if ev.type == ATTEMPT_FAILED]
 
@@ -200,7 +200,7 @@ class BatchedMarketClient:
         ``Error``, :class:`ApiError` on a 4xx/5xx rejection.
 
         ``on_event`` observes every lifecycle event live while this method
-        still settles the outcome — see :data:`BatchedMarketEventHook`.
+        still settles the outcome; see :data:`BatchedMarketEventHook`.
         """
         body: dict[str, Any] = {"orderType": int(order_type), "erc712": erc712}
         if eip7702 is not None:
@@ -230,7 +230,7 @@ class BatchedMarketClient:
                             code = str(ev.data.get("code") or "")
                             msg = str(ev.data.get("message", ""))
                             # STREAM_TIMEOUT is this connection's view timing
-                            # out, not the request's outcome — the order may
+                            # out, not the request's outcome; the order may
                             # still execute. (Older servers sent it without a
                             # code or an id: line; keep that sniff as a
                             # fallback.) Recover via status polling.
@@ -290,7 +290,7 @@ class BatchedMarketClient:
         """Poll the status replay until a terminal event lands.
 
         ``on_event`` observes each newly replayed event (never the already-seen
-        ``events`` seed) — see :data:`BatchedMarketEventHook`.
+        ``events`` seed); see :data:`BatchedMarketEventHook`.
         """
         collected = list(events or [])
         seen_seq = after_seq

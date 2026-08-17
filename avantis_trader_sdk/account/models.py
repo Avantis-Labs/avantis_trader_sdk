@@ -18,11 +18,11 @@ class PriceTrigger(BaseModel):
 
     Two flavors share the shape (backend OffchainOrderDto):
 
-    - ``is_global`` True — the position's global on-chain TP/SL. Synthetic
+    - ``is_global`` True: the position's global on-chain TP/SL. Synthetic
       deterministic ``entityId`` (``global-tp-{trader}-{pairIndex}-{index}`` /
       ``global-sl-...``); change or remove via ``trade.update_tp_sl()``.
       ``coin_size`` is the full position size.
-    - ``is_global`` False — an off-chain partial TP/SL signed intent; its
+    - ``is_global`` False: an off-chain partial TP/SL signed intent; its
       ``entityId`` works with ``trade.update_partial_tp_sl()`` /
       ``cancel_partial_tp_sl()``. NOTE: a DB-backed entityId changes on every
       update (the response's ``newEntityId`` replaces it); global ids are
@@ -101,7 +101,7 @@ class Position(BaseModel):
     base_symbol: str | None = None
     """Base ("from") asset of the pair with any ``_UPSIDE`` suffix stripped,
     e.g. "BTC" for BTC_UPSIDE/USD or "USD" for USD/JPY. Not part of the core
-    API payload — populated by ``AccountApi.positions()`` from the markets
+    API payload; populated by ``AccountApi.positions()`` from the markets
     pair catalog."""
 
     # -- triggers -------------------------------------------------------------

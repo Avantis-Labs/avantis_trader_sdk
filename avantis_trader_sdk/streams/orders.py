@@ -5,7 +5,7 @@ The Avantis operator publishes per-trader execution events on channel
 ``ExecutionConfirmedInFlashblock``, ``OrderFilled``, ``OrderCanceled``.
 
 Implemented directly over the Pusher WebSocket protocol (protocol 7, public
-channels — no auth), so no extra dependency is required beyond ``websockets``.
+channels, no auth), so no extra dependency is required beyond ``websockets``.
 Requires the deployment's Pusher app key (``pusher_key`` config).
 """
 

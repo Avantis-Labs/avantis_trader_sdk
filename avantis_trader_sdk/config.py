@@ -9,7 +9,7 @@ Environment variables:
                              (broadcast) and for relayer mode when signing
                              with the trader EOA directly (reads the EIP-7702
                              authorization nonce). Not needed with a
-                             delegate/API key — the normal setup.
+                             delegate/API key (the normal setup).
 - ``AVANTIS_NETWORK``        "mainnet" (default) | "testnet"
 - ``AVANTIS_API_BASE_URL``   central-routing host (prod-api / staging-api);
                              /core, /twap, /batched-market, /blitz, /data and
@@ -41,7 +41,7 @@ class NetworkProfile:
     api_base_url: str
     tx_builder_url: str
     history_api_url: str
-    # LEGACY risk-engine (dynamic_spread) — standalone host. Testnet-only
+    # LEGACY risk-engine (dynamic_spread): standalone host. Testnet-only
     # since the 2026-08-12 cutover; empty = not deployed on that network.
     risk_api_url: str
     feed_url: str
@@ -83,7 +83,7 @@ TESTNET = NetworkProfile(
     # reachable ingress (avantis-cd/services/risk-engine/testnet-public).
     risk_api_url="https://risk-api-testnet-public.avantisfi.com",
     # Testnet feed app (feed-v3, tenderly-testnet namespace). Its signed price
-    # updates are the ones the fork's price aggregator verifies — messages
+    # updates are the ones the fork's price aggregator verifies; messages
     # from the mainnet feed (feed-v3.avantisfi.com) revert on-chain there.
     feed_url="https://feed-v3-testnet.avantisfi.com",
     pusher_key="f86bc7e9919fc938694a",
@@ -97,7 +97,7 @@ MAINNET = NetworkProfile(
     history_api_url="https://api.avantisfi.com",
     # Production spreads come from the v2 engine at {api_base_url}/risk/v2
     # (markets.spread()). The legacy engine was decommissioned at the
-    # 2026-08-12 cutover — risk-api.avantisfi.com is scaled to zero (503) —
+    # 2026-08-12 cutover; risk-api.avantisfi.com is scaled to zero (503),
     # so markets.dynamic_spread() raises on mainnet.
     risk_api_url="",
     feed_url="https://feed-v3.avantisfi.com",

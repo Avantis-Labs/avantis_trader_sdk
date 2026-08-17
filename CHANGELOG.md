@@ -40,14 +40,14 @@
 - Mainnet profile: the legacy risk engine was decommissioned at the v2 cutover
   (`risk-api.avantisfi.com` is scaled to zero and returns 503), so
   `risk_api_url` is now empty on mainnet and `markets.dynamic_spread()` raises
-  a `ConfigError` there pointing to `markets.spread()` — the risk-engine v2
+  a `ConfigError` there pointing to `markets.spread()`, the risk-engine v2
   spread API at `{api_base_url}/risk/v2`, which serves production quotes.
   `AVANTIS_RISK_API_URL` still overrides.
 
 ## 2.0.0 (2026-08-12)
 
-Ground-up rewrite for Avantis v2 — the August 12, 2026 in-place protocol
-upgrade. **Breaking: the v1 SDK API (0.x releases, last 0.8.17) is removed** —
+Ground-up rewrite for Avantis v2, the August 12, 2026 in-place protocol
+upgrade. **Breaking: the v1 SDK API (0.x releases, last 0.8.17) is removed**;
 `TraderClient`, vendored ABIs and the web3 dependency are all gone.
 
 Upgrading from 0.8.x:
@@ -55,7 +55,7 @@ Upgrading from 0.8.x:
 - `pip install --upgrade avantis-trader-sdk` moves you to the new API; follow
   the [migration guide](https://sdk.avantisfi.com/migration/sdk-migration).
 - Avantis v1 is superseded on-chain by the upgrade, so staying on 0.8.x is
-  only a stopgap — pin `avantis-trader-sdk<2` if you need time to migrate.
+  only a stopgap; pin `avantis-trader-sdk<2` if you need time to migrate.
 
 ### Architecture
 
@@ -75,7 +75,7 @@ Upgrading from 0.8.x:
 
 - Full v2 trading surface: coin-sized opens/closes, Upside (PnL) orders,
   position increases, partial TP/SL trigger orders (off-chain stored), TWAP.
-  (RFQ methods exist in the client but the product is not live yet —
+  (RFQ methods exist in the client but the product is not live yet;
   undocumented on purpose.)
 - Local intent builder + nonce pool for market makers (zero HTTP on the hot
   path), validated against on-chain golden vectors.
@@ -105,7 +105,7 @@ Upgrading from 0.8.x:
 - Version is now sourced from `avantis_trader_sdk/_version.py`
   (re-exported as `avantis_trader_sdk.__version__`); the HTTP `User-Agent`
   carries the exact release (`avantis-trader-sdk/2.0.0`).
-- Ships a `py.typed` marker — type checkers consume the SDK's inline
+- Ships a `py.typed` marker; type checkers consume the SDK's inline
   annotations from the wheel.
 - MIT `LICENSE` file included in the distribution (SPDX license metadata);
   PyPI classifiers, keywords and changelog link added.
@@ -130,7 +130,7 @@ machine-readable error codes.
   entry point itself with a fresh signed price. Same path in relayer AND
   direct mode. **Breaking semantics:** `None` now keeps a leg
   (its current value is read from the position and re-signed), `0` clears it
-  (`take_profit=0` resets to the pair's max-gain cap — a position always has
+  (`take_profit=0` resets to the pair's max-gain cap; a position always has
   a TP on-chain). A 2xx means accepted, not mined: `wait=True` (default)
   polls `/user-data` until the new levels are visible
   (`RelayTimeoutError` otherwise). Receipt `route` is `price-triggers`
@@ -143,9 +143,9 @@ machine-readable error codes.
   (`update_partial_tp_sl(entity_id, ...)`; the returned dicts carry
   `entityId`). An update now MINTS A NEW id (backend delete+insert): the
   response's `{result: {oldEntityId, newEntityId}}` is parsed and the
-  returned dict's `entityId` is the replacement's id — adopt it. The
+  returned dict's `entityId` is the replacement's id; adopt it. The
   `CancelOffchainOrder` intent signs `entityId` (field renamed upstream;
-  old `documentId` signatures no longer verify — golden vector regenerated
+  old `documentId` signatures no longer verify; golden vector regenerated
   with ethers + viem cross-check).
 - **Models**: `PriceTrigger.entity_id` (accepts legacy `documentId` payloads
   via validation alias; `document_id` kept as a deprecated property).
@@ -160,7 +160,7 @@ machine-readable error codes.
   `SPREAD_BLOCKED`, `SPREAD_UNAVAILABLE`, `SUBMISSION_FAILED`,
   `ATTEMPTS_EXHAUSTED`, `TX_NOT_EXECUTED`, `STREAM_TIMEOUT`,
   `ENQUEUE_FAILED`, `RELAY_FAILED`, `TX_REVERTED`, `RELAY_TIMEOUT`):
-  `RelayError.code` exposes it — branch on the code, not the message.
+  `RelayError.code` exposes it; branch on the code, not the message.
   `code == "STREAM_TIMEOUT"` (stream-view expiry, not the outcome) falls
   back to status polling; the legacy message sniff is kept for older
   deployments.
@@ -168,7 +168,7 @@ machine-readable error codes.
   (`BATCHED_MARKET_INTENT_KINDS` allow-list replaces `INTENT_BATCH_ACTION`;
   `RelayAction` removed); the blitz `UPDATE_SL` branch, its feed-v3 price
   fetch and local `executePositionUpdateBatched` encoding are gone.
-- **New:** `account.twap(twap_id)` — single TWAP by id
+- **New:** `account.twap(twap_id)`: single TWAP by id
   (`GET {twap}/twaps/{id}`), `None` on 404.
 - `update_tp_sl` visibility-timeout diagnostics: the `RelayTimeoutError`
   message now carries the signed values (requested tp/sl in human units, what
@@ -177,7 +177,7 @@ machine-readable error codes.
   show WHICH update stalled.
 - Run diagnostics for the live checks + e2e (`scripts/checks/_report.py`,
   `scripts/run_report.py`): every run now auto-generates a self-contained
-  HTML report next to the log — per-step collapsible sections (failures
+  HTML report next to the log: per-step collapsible sections (failures
   pre-expanded) with the raw request payload, response and click-to-copy
   correlation ids (`x-request-id`, `trackingId`, tx hash) for every HTTP
   call; poll loops collapse into one `×N` row. Failed steps additionally
@@ -185,38 +185,38 @@ machine-readable error codes.
   payload excerpts) and attach `ids` + a light per-call list to
   `RESULTS_JSON`; summary lines carry the ids. Old runs:
   `python scripts/run_report.py --all`.
-- **New: `on_event=` lifecycle hook on the batched-market path** — keep
+- **New: `on_event=` lifecycle hook on the batched-market path**: keep
   `wait=True` (the SDK still settles: terminal mapping, STREAM_TIMEOUT
   status-replay fallback, typed raises) and observe the order journey live.
   The hook (sync or async callable taking a `BatchedMarketEvent`; exported at
   package root) is called once per streamed event in order: accepted,
   non-terminal `AttemptFailed` diagnostics, unknown informational types,
-  initiation, and the terminal — delivered even when the call raises, so a
+  initiation, and the terminal, delivered even when the call raises, so a
   journey log is complete on failures; the connection-scoped
   `STREAM_TIMEOUT` `Error` and the events replayed by the polling fallback
   are delivered too (each event exactly once). Plumbed through
   `trade.market_open[_coin]` / `market_close[_coin]` /
-  `increase_position[_coin]` (relayer route only — the direct route has no
+  `increase_position[_coin]` (relayer route only; the direct route has no
   lifecycle stream), `engine.submit_intent_batch`, and
   `BatchedMarketClient.execute` / `.wait` (so `wait=False` + settle-later
   gets the same journey). Hook exceptions propagate and abort the local
   wait; the order keeps executing server-side (recover via
   `wait(tracking_id)`).
 - **Central routing expanded** (gateway `central-routes` update):
-  `data_api_url` and `risk_v2_api_url` now derive from `api_base_url` —
-  `{base}/data` (data-service) and `{base}/risk/v2` (risk-engine v2) —
+  `data_api_url` and `risk_v2_api_url` now derive from `api_base_url`:
+  `{base}/data` (data-service) and `{base}/risk/v2` (risk-engine v2),
   replacing the standalone `testnet-data`/`data` and `risk-api-v2-testnet`
   defaults (old hosts still respond; `AVANTIS_DATA_API_URL` /
   `AVANTIS_RISK_V2_API_URL` overrides unchanged). `PairDataStream` now
   re-applies the URL's path prefix via `socketio_path`, so the Socket.IO
   handshake works through the `/data` prefix. NB: prod-api routes `/risk/v2`
   but the mainnet v2 spread engine is not serving yet (5xx until the
-  cutover) — keep using `markets.dynamic_spread()` on mainnet. The gateway
+  cutover); keep using `markets.dynamic_spread()` on mainnet. The gateway
   also routes `/ws` (iris websocket app), which the SDK does not consume.
 
 ### Per-feature live check scripts (2026-08-07)
 
-- `scripts/checks/` — standalone live checks, one per feature (reads, streams,
+- `scripts/checks/`: standalone live checks, one per feature (reads, streams,
   limits, twap, market, tpsl, margin, delegate, referral, lp, cleanup), so a
   flaky area (e.g. operator fills) doesn't block testing everything else the
   way the monolithic e2e does. Shared harness with step accounting, non-zero
@@ -235,13 +235,13 @@ suffixed `_UPSIDE` (testnet 115–122, e.g. `BTC_UPSIDE/USD` = 116) whose
 equality between that flag and the PnL order type, so the pair fully
 determines how an order must route.
 
-- **Automatic order-type routing** — trade methods resolve the pair against
+- **Automatic order-type routing**: trade methods resolve the pair against
   the markets catalog and pick the order type from it: opens/closes on an
   upside pair send `market_pnl` / the `MARKET_*_PNL` aggregator types, fixed
   pairs the plain market types. The tx-builder now always receives the
   resolved `pairIndex` (symbol resolution no longer depends on the server).
   **Breaking:** `market_open`/`market_open_coin` lose `zero_fee`,
-  `market_close`/`market_close_coin` lose `is_pnl` — there is nothing to
+  `market_close`/`market_close_coin` lose `is_pnl`; there is nothing to
   pass anymore.
 - **Upside pairs are market-only**: `limit_open`, `twap_open` and
   `twap_close` raise `ValidationError` (`UPSIDE_MARKET_ONLY`) on them
@@ -253,13 +253,13 @@ determines how an order must route.
   (`isPnlTypeAllowed`), `markets.upside_pairs()` and
   `markets.upside_pair_for()` (fixed-fee -> upside twin).
 - **Positions & global TP/SL (`priceTriggers`)**: positions parse the new
-  `priceTriggers` field — global on-chain TP/SL as synthetic
+  `priceTriggers` field (global on-chain TP/SL as synthetic
   `global-tp-*`/`global-sl-*` entries (`is_global` True) plus off-chain
-  partial orders — as `Position.price_triggers` (`PriceTrigger` model,
+  partial orders) as `Position.price_triggers` (`PriceTrigger` model,
   `global_triggers`/`partial_triggers` filters). `offchainOrders` is
   deprecated upstream but still parsed. `update_partial_tp_sl` /
   `cancel_partial_tp_sl` reject synthetic `global-*` documentIds
-  (`GLOBAL_TRIGGER_ID`) — global levels are managed via `update_tp_sl`,
+  (`GLOBAL_TRIGGER_ID`); global levels are managed via `update_tp_sl`,
   which keeps its existing EIP-712 `UpdateTpSlReq` -> operator
   `executePositionUpdateBatched` route (confirmed current; batched-market
   still rejects `UPDATE_SL`).
@@ -284,31 +284,31 @@ Backend/UI parity audit (backend monorepo, avantis-ui-v2, avantis-cd as of
 confirmed unchanged; the one drift was the spread API, which the UI switched
 on 2026-07-30 (`d5eab0c0`).
 
-- **New `markets.spread()`** — the risk-engine v2 quote endpoint
+- **New `markets.spread()`**: the risk-engine v2 quote endpoint
   (`POST {risk-v2}/spread`) that replaces the legacy dynamic-spread GET in
   the v2 UI. Coin-sized request: pass `coin_size` directly or
   `collateral` + `leverage` (converted via `wanted_price` or the live feed
   price, matching the UI's `coinFromCollateral`). `order_type` uses the
-  risk-engine enum (market=0, limit=1 — also for stop-limit —, tp=2, sl=3,
+  risk-engine enum (market=0, limit=1 (also for stop-limit), tp=2, sl=3,
   liquidation=4; NOT the trade order-type enum). Anonymous quotes send the
   zero address (`trader` is required and checksummed server-side). Response
   adds descaled floats: `spreadPct` (quoted; with-flow when available),
   `spreadPctWithoutFlow`, `estimatedSpreadPctWithFlow`, alongside the raw
   `spreadMechanism` (SM001–SM006), `byPass` and `flowParams`. Error
   semantics: 400 malformed, 403 blocked (roll/closed market/wallet), 404 =
-  no spread computable — "do not execute", never zero.
+  no spread computable: "do not execute", never zero.
 - New config field `risk_v2_api_url` (`AVANTIS_RISK_V2_API_URL`): testnet
   `https://risk-api-v2-testnet.avantisfi.com` (live); mainnet defaults to
   `https://risk-api.avantisfi.com`, which the v2 engine takes over at the
-  cutover — until then mainnet still serves only the legacy engine, so
+  cutover; until then mainnet still serves only the legacy engine, so
   `markets.dynamic_spread()` (kept, docstring marked LEGACY) remains the
   mainnet path.
-- **`markets.open_interests()`** — core `GET /v2/open-interests` (per-pair
+- **`markets.open_interests()`**: core `GET /v2/open-interests` (per-pair
   long/short OI incl. pending amounts + market-maker breakdown).
-- **`markets.orderbook_snapshots()`** — risk-engine v2
+- **`markets.orderbook_snapshots()`**: risk-engine v2
   `GET /orderbook/snapshots` (cumulative bid/ask coin liquidity per
   pair/source with `ageMs` staleness).
-- **`RelayerClient.status_by_tx_hash()`** — blitz
+- **`RelayerClient.status_by_tx_hash()`**: blitz
   `GET /relays/by-tx-hash/{txHash}` (added to blitz 2026-08); returns None
   for unknown hashes.
 - Audit notes: the batched-market allow-list (10 order types), TWAP
@@ -326,7 +326,7 @@ on 2026-07-30 (`d5eab0c0`).
 - **Batched-market `eip7702` leg is now optional** (relayer change to better
   support market makers): `POST /market/execute-batched` executes a signed
   EIP-712 intent on its own, so the MM fast path no longer needs a
-  tx-builder calldata fetch — local build + sign -> POST, zero
+  tx-builder calldata fetch: local build + sign -> POST, zero
   pre-submission round-trips. `BatchedMarketClient.execute` takes
   `eip7702=None` (key omitted from the body), and
   `engine.submit_intent_batch` accepts `calldata=None` for batched-market
@@ -357,7 +357,7 @@ batched-market execution, twap-app, off-chain order CRUD).
   `GET /tracking-id/{id}/status?afterSeq=`. `ExecutionReceipt` gains
   `tracking_id` (lifecycle replay id) and `order_id` (on-chain id), and a new
   `batched-market` route label. `MarketOrderCanceled` (tx landed, fill
-  declined — e.g. slippage) raises `RelayError`.
+  declined, e.g. slippage) raises `RelayError`.
 - **Blitz relayer scope narrowed**: `UPDATE_SL` (excluded from the
   batched-market allow-list) keeps the locally-encoded
   `executePositionUpdateBatched` + blitz type-2 relay; limit orders, margin,
@@ -375,15 +375,15 @@ batched-market execution, twap-app, off-chain order CRUD).
   `update_partial_tp_sl(document_id, ...)` does an atomic in-place
   replacement via `PUT {core}/offchain-orders/{documentId}`;
   `cancel_partial_tp_sl` signs the new `CancelOffchainOrder` intent (EIP-712
-  over the `documentId`) and sends `DELETE` with a JSON body — it also
+  over the `documentId`) and sends `DELETE` with a JSON body; it also
   accepts a bare documentId string.
 - **New intent kinds**: `TwapCancelReq` and `CancelOffchainOrder` added to
   `intents_schema` and `LocalIntentBuilder` (`twap_cancel`,
-  `cancel_offchain_order`), with golden vectors (ethers `TypedDataEncoder` —
+  `cancel_offchain_order`), with golden vectors (ethers `TypedDataEncoder`;
   the twap-app/core-backend verify these off-chain with ethers).
 - **EIP-7702 authorization nonce**: relayer-mode type-4 transactions now sign
   the authorization over the correct EOA protocol nonce. Delegate/API keys
-  (register in the UI, export the key — the normal setup) are fresh EOAs, so
+  (register in the UI, export the key; the normal setup) are fresh EOAs, so
   nonce 0 is correct and no RPC is needed. Signing with the trader EOA
   directly now requires `rpc_url` / `AVANTIS_RPC_URL` (any Base endpoint) and
   fails fast with a `ConfigError` otherwise. Found in the 2026-07-28 live
@@ -392,9 +392,9 @@ batched-market execution, twap-app, off-chain order CRUD).
   delegation (e.g. MetaMask-upgraded wallets).
 - `account.register_delegate` docstring now spells out that the expiry is an
   ABSOLUTE unix timestamp in seconds (the tx-builder rejects durations).
-- **Docs — v1 → v2 migration section** (`docs/mintlify/migration/`, mirrored
+- **Docs: v1 → v2 migration section** (`docs/mintlify/migration/`, mirrored
   to the published avantis-python-sdk repo): `overview` (Aug 12 in-place
-  upgrade mechanics — same proxy addresses, positions/funds carry over,
+  upgrade mechanics: same proxy addresses, positions/funds carry over,
   pause window), `sdk-migration` (TraderClient 0.x → AsyncAvantis 2.x
   method-by-method mapping with before/after code), and
   `direct-integrators` (contract/API-level breaking changes distilled from
@@ -416,7 +416,7 @@ batched-market execution, twap-app, off-chain order CRUD).
   paths (`positions`, `trade/open`) via `x-mint.metadata.sidebarTitle`
   emitted by the tx-builder OpenAPI generator (was operationId-style
   `V2Positions`).
-- `market_open` / `market_open_coin` accept an optional `open_price` — the
+- `market_open` / `market_open_coin` accept an optional `open_price`, the
   reference price the fill is validated against (± `slippage_percent`);
   resolved from the live feed when omitted (matching `increase_position`).
 - LocalIntentBuilder now covers the full non-RFQ intent surface with typed
@@ -434,7 +434,7 @@ batched-market execution, twap-app, off-chain order CRUD).
 - Markets snapshot: `GroupInfo` now reads the live `groupMaxOI` / `groupOI`
   fields (compute OI-headroom / `validate_order` previously saw zero group
   headroom and rejected valid orders).
-- Lazer SSE stream: feed-v3 sends `timestampUs` as a string — price updates no
+- Lazer SSE stream: feed-v3 sends `timestampUs` as a string; price updates no
   longer crash the callback loop.
 
 ### Fixes from live testnet E2E (2026-08-11)
@@ -449,19 +449,19 @@ batched-market execution, twap-app, off-chain order CRUD).
   fallback.
 - `default_gas_limit` raised 1M -> 2M: relayer-mode passthrough runs without
   an RPC to estimate gas, and `updateMargin` (oracle fulfill + full position
-  accounting) burns just over 1M — margin deposits/withdrawals ran out of gas
+  accounting) burns just over 1M; margin deposits/withdrawals ran out of gas
   a few opcodes short of completion and reverted. 2M matches the backend's
   own budget for the same call class; the blitz relayer caps relays at 3M.
 
 ### Docs
 
 - Complete Mintlify docs site (docs/mintlify): 20 pages covering the full SDK
-  surface — getting started (configuration, core concepts), trading (market,
+  surface: getting started (configuration, core concepts), trading (market,
   limit, TP/SL, margin/size, TWAP), account & portfolio (positions, analytics,
   delegates, approvals), data & compute, LP vault, referrals, and advanced
   (execution modes, MM fast path, security model, error taxonomy).
 - MM fast path ("Settling relays") + example 13: after `wait=False`, reconcile
-  queued relays by `request_id` via `engine.relayer.wait()` / `.status()` —
+  queued relays by `request_id` via `engine.relayer.wait()` / `.status()`;
   a queued relay can still revert or time out.
 
 ### Testing

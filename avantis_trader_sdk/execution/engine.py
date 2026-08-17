@@ -110,8 +110,8 @@ class ExecutionEngine:
 
         A wrong nonce makes the authorization invalid, so the protocol skips
         it silently: fine once the Gelato delegation code is already set (the
-        authorization is redundant), but the first application — or replacing
-        a foreign delegation, e.g. a MetaMask-upgraded EOA — never happens and
+        authorization is redundant), but the first application (or replacing
+        a foreign delegation, e.g. a MetaMask-upgraded EOA) never happens and
         every smart-account call reverts.
 
         Delegate/API keys (the normal setup: register the delegate in the UI,
@@ -177,11 +177,11 @@ class ExecutionEngine:
         back. The EIP-7702 leg is optional: pass the direct-route
         ``calldata`` to also send a pre-signed EIP-7702 transaction (the
         server then picks the execution mechanism); omit it to execute the
-        signed intent directly — the market-maker fast path, with no
-        tx-builder round-trip.
+        signed intent directly (the market-maker fast path, with no
+        tx-builder round-trip).
 
         ``on_event`` observes every streamed lifecycle event (``AttemptFailed``
-        diagnostics, the terminal — also when it raises) while the SDK settles
+        diagnostics, the terminal, even when it raises) while the SDK settles
         the outcome; see
         :data:`~avantis_trader_sdk.execution.batched_market.BatchedMarketEventHook`.
         """
@@ -273,7 +273,7 @@ class ExecutionEngine:
             return receipt
 
         # No RPC: sign with static params and use the tx-builder raw relay.
-        # Nonce must come from somewhere — the tx-builder relay simulates from
+        # Nonce must come from somewhere; the tx-builder relay simulates from
         # the recovered signer, so a wrong nonce fails fast with a clear error.
         raise ConfigError(
             "Direct execution needs AVANTIS_RPC_URL for nonce/gas discovery. "

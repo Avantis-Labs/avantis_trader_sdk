@@ -57,7 +57,7 @@ def sl_price_to_percent(
 
 
 def pnl_order_min_sl(leverage: float) -> float:
-    """Minimum SL % for Upside (guaranteed-execution) orders — piecewise in leverage."""
+    """Minimum SL % for Upside (guaranteed-execution) orders, piecewise in leverage."""
     if leverage <= 10:
         return (leverage / 10) * 1.5
     if leverage <= 25:

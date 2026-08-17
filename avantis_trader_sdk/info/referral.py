@@ -20,7 +20,7 @@ _SET_CODE_WITH_SIG = keccak(text="setTraderReferralCodeByUserWithSig(bytes,bytes
 
 
 class ReferralApi(ExecutingApi):
-    """client.referral — actions execute as the SDK's signing key."""
+    """client.referral: actions execute as the SDK's signing key."""
 
     @property
     def caller(self) -> str:

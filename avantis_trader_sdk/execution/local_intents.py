@@ -1,4 +1,4 @@
-"""Local intent builder — the market-maker fast path.
+"""Local intent builder: the market-maker fast path.
 
 Builds ready-to-sign IntentPayloads with ZERO HTTP round-trips on the hot
 path: schemas/domains come from `intents_schema` (mirrored from the contracts
@@ -65,7 +65,7 @@ _ABI_TYPE_MAP = {"Trade": "tuple", "UpdatePositionSize": "tuple"}
 
 # ITradingStorage.TriggerType (partial TP/SL).
 _TRIGGER_TYPE_CODES = {"fixed": 0, "percentage": 1}
-# ITradingStorage.LimitOrder — partial TP/SL live at codes 4/5.
+# ITradingStorage.LimitOrder: partial TP/SL live at codes 4/5.
 _PARTIAL_KIND_CODES = {"take_profit": 4, "tp": 4, "stop_loss": 5, "sl": 5}
 
 
@@ -489,7 +489,7 @@ class LocalIntentBuilder:
     ) -> IntentPayload:
         """Partial TP/SL trigger order (TpSlReq).
 
-        NO deadline by design — freshness comes from ``signTimestamp`` (ms,
+        NO deadline by design; freshness comes from ``signTimestamp`` (ms,
         must not be in the future). The signed order is stored OFF-CHAIN via
         the core API /price-triggers; building/signing alone does nothing.
         """
@@ -594,7 +594,7 @@ class LocalIntentBuilder:
     def cancel_offchain_order(self, *, entity_id: str) -> IntentPayload:
         """Delete proof for a stored partial TP/SL: signs the order's
         ``entityId`` (from the create response / a position's
-        ``priceTriggers``). Off-chain only — never submitted to a contract."""
+        ``priceTriggers``). Off-chain only; never submitted to a contract."""
         return self.build("CancelOffchainOrder", {"entityId": entity_id})
 
     def delegate_req(

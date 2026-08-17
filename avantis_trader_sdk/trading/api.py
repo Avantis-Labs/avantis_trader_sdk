@@ -12,7 +12,7 @@ either a symbol ("ETH/USD", "eth-usd", "BTC_UPSIDE") or a pair index.
 
 Upside markets (separate pairs suffixed ``_UPSIDE``, formerly branded ZFP /
 zero-fee) route automatically: opens/closes on an upside pair take the PnL
-order type — there is no flag to pass. The pair fully determines the type
+order type; there is no flag to pass. The pair fully determines the type
 (the contract reverts ``PnlOrderNotAllowed`` on any mismatch), which also
 means upside pairs are market-only: no limit/stop opens and no TWAP.
 """
@@ -130,15 +130,15 @@ class TradeApi(ExecutingApi):
         """Open a market position.
 
         Upside pairs (e.g. ``"BTC_UPSIDE"`` / index 116) route automatically
-        as PnL (Upside) orders — no flag needed; fixed-fee pairs always send
+        as PnL (Upside) orders, no flag needed; fixed-fee pairs always send
         the plain market type. ``open_price`` is the reference price the fill
         is validated against (± slippage_percent); resolved from the live
         feed when omitted.
 
         ``on_event`` (relayer route only; the direct route has no lifecycle
-        stream) observes each batched-market event live — the accepted event,
-        retryable ``AttemptFailed`` diagnostics, and the terminal (also when
-        it raises) — while the call still settles normally. Sync or async
+        stream) observes each batched-market event live while the call still
+        settles normally: the accepted event, retryable ``AttemptFailed``
+        diagnostics, and the terminal (also when it raises). Sync or async
         callable taking a ``BatchedMarketEvent``.
         """
         info = await self._resolve_pair(pair)
@@ -398,11 +398,11 @@ class TradeApi(ExecutingApi):
 
         ``updateMargin`` calldata embeds price-update bytes that the on-chain
         aggregator verifies, and the signature must come from the feed app of
-        THIS environment (``config.feed_url``) — e.g. the testnet fork rejects
+        THIS environment (``config.feed_url``); e.g. the testnet fork rejects
         mainnet-signed updates. Fetching and passing them explicitly keeps the
         tx-builder's server-side feed fallback out of the loop. Prefers the
         pro (Lazer) leg, like the UI. Returns ``{}`` when the feed has no
-        update — the tx-builder then sources the bytes itself.
+        update; the tx-builder then sources the bytes itself.
         """
         assert self._t is not None
         try:
@@ -559,12 +559,12 @@ class TradeApi(ExecutingApi):
         """Update the GLOBAL (on-chain) TP/SL on an open position.
 
         ``None`` keeps a leg unchanged (its current value is copied from the
-        position — the signed intent always carries both legs); ``0`` clears
+        position; the signed intent always carries both legs); ``0`` clears
         a leg. ``stop_loss=0`` truly removes the SL. A position always has a
         TP on-chain, so ``take_profit=0`` RESETS it to the pair's max-gain
         cap (``maxGainP``, typically +2500%) rather than removing it.
 
-        v2 has no public updateTpAndSl entry point — this signs an EIP-712
+        v2 has no public updateTpAndSl entry point; this signs an EIP-712
         ``UpdateTpSlReq`` and submits it to the core API price-triggers
         endpoint (``PUT /price-triggers/global-...``), which verifies it and
         executes ``executePositionUpdateBatched(UPDATE_SL, ...)`` through the
@@ -637,7 +637,7 @@ class TradeApi(ExecutingApi):
         """Poll /user-data until the position's (tp, sl) match the accepted
         update. ``take_profit=0`` is contract-corrected to the max-gain price
         (PairStorage.correctTp), so an exact match cannot be required for a
-        zero TP leg — any change from the pre-update snapshot settles it too.
+        zero TP leg; any change from the pre-update snapshot settles it too.
 
         One reset case is unobservable: signing ``_newTp = 0`` when the TP
         already sits at the corrected default re-stores the same value, so
@@ -669,7 +669,7 @@ class TradeApi(ExecutingApi):
             f"{' (tp=0 resets to the max-gain cap)' if expected[0] == '0' else ''}, "
             f"position still shows tp={_px(now[0])} sl={_px(now[1])} "
             f"(was tp={_px(before[0])} sl={_px(before[1])} before the update). "
-            f"The operator may still execute it — re-check account.positions()."
+            f"The operator may still execute it; re-check account.positions()."
         )
 
     async def _partial_tp_sl_submission(
@@ -742,7 +742,7 @@ class TradeApi(ExecutingApi):
         Signs a TpSlReq intent (no deadline by design; freshness comes from
         signTimestamp) and stores it with the Avantis operator via
         ``POST {core}/price-triggers``. The operator executes it on-chain
-        when the trigger price hits. Returns the stored order — keep its
+        when the trigger price hits. Returns the stored order; keep its
         ``entityId`` to update or cancel later.
         """
         submission = await self._partial_tp_sl_submission(
@@ -768,14 +768,14 @@ class TradeApi(ExecutingApi):
     def _require_partial_entity_id(entity_id: str, what: str) -> None:
         """Positions' ``priceTriggers`` mix off-chain orders with synthetic
         global entries (``global-tp-*`` / ``global-sl-*``, ``isGlobal`` true).
-        The global ones live on-chain — manage them with
+        The global ones live on-chain; manage them with
         :meth:`update_tp_sl` (``take_profit=0`` resets the TP,
         ``stop_loss=0`` removes the SL), not the partial-order CRUD."""
         if str(entity_id).startswith("global-"):
             raise ValidationError(
                 f"{what}: {entity_id!r} is the synthetic id of the position's "
                 "global on-chain TP/SL (priceTriggers entry with isGlobal). "
-                "Change or remove it with update_tp_sl() — e.g. stop_loss=0 "
+                "Change or remove it with update_tp_sl(); e.g. stop_loss=0 "
                 "removes the SL; the partial-order CRUD only accepts stored "
                 "order entityIds.",
                 code="GLOBAL_TRIGGER_ID",
@@ -799,13 +799,13 @@ class TradeApi(ExecutingApi):
 
         ``entity_id`` comes from the create response / a position's
         ``price_triggers`` (entries with ``is_global`` False). The
-        replacement is a freshly signed TpSlReq — pass the FULL new order,
+        replacement is a freshly signed TpSlReq; pass the FULL new order,
         not a diff. Ownership is enforced from the signature; per-position
         caps are not re-checked (1:1 replace).
 
         The backend deletes the old order and stores the replacement
         atomically, minting a NEW id: the returned dict's ``entityId`` is the
-        replacement's id — adopt it, the old one is gone.
+        replacement's id; adopt it, the old one is gone.
         """
         self._require_partial_entity_id(entity_id, "update_partial_tp_sl")
         submission = await self._partial_tp_sl_submission(
@@ -836,7 +836,7 @@ class TradeApi(ExecutingApi):
         ``order`` is the dict returned by :meth:`partial_tp_sl` / an entry
         from a position's ``price_triggers`` with ``is_global`` False (must
         carry ``entityId``), or the ``entityId`` string itself. Global
-        (on-chain) triggers cannot be cancelled here — use
+        (on-chain) triggers cannot be cancelled here; use
         :meth:`update_tp_sl` with 0. Ownership proof is an EIP-712
         ``CancelOffchainOrder`` signature over the entityId; the trader or
         an active delegate may sign.
@@ -871,7 +871,7 @@ class TradeApi(ExecutingApi):
 
         The twap-app verifies the signature, sends executeTwapBatched itself
         (operator wallet) and responds synchronously with
-        {twapId, transactionHash, blockNumber} — no relayer involved. Body
+        {twapId, transactionHash, blockNumber}; no relayer involved. Body
         shape follows the twap-app DTOs: pairIndex/index as numbers, other
         numerics as decimal strings, ``__reserved1`` renamed ``reserved1``.
         """
@@ -983,7 +983,7 @@ class TradeApi(ExecutingApi):
     ) -> ExecutionReceipt:
         """Open an RFQ order (fill at expected_price ± max_slippage_percent).
 
-        NOTE: RFQ is not live on Avantis yet — kept for when it ships.
+        NOTE: RFQ is not live on Avantis yet; kept for when it ships.
 
         ``expected_price`` is resolved from the live feed when omitted. There
         is no trader-side RFQ cancel on-chain (operator-only).
@@ -1011,7 +1011,7 @@ class TradeApi(ExecutingApi):
         expected_price: Num | None = None,
         wait: bool = True,
     ) -> ExecutionReceipt:
-        """NOTE: RFQ is not live on Avantis yet — kept for when it ships."""
+        """NOTE: RFQ is not live on Avantis yet; kept for when it ships."""
         params: dict[str, Any] = {
             "pairIndex": (await self._resolve_pair(pair)).index,
             "trader": self.trader,

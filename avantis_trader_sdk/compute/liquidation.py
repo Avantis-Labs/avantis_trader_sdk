@@ -1,4 +1,4 @@
-"""Liquidation price estimate — mirrors avantis-ui-v2 useLiqPrice.ts and
+"""Liquidation price estimate: mirrors avantis-ui-v2 useLiqPrice.ts and
 PairInfos.getTradeLiquidationPricePure.
 
 The authoritative value for open positions comes from the core API

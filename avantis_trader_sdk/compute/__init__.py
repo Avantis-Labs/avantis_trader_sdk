@@ -1,4 +1,4 @@
-"""Pure computation layer — UI-parity math (no I/O).
+"""Pure computation layer: UI-parity math (no I/O).
 
 All functions take human-unit numbers (USDC, plain prices, leverage as a
 multiplier, percentages as plain numbers where 1 = 1%).

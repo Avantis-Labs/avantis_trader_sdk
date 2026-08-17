@@ -10,7 +10,7 @@ removed**; there is no compatibility layer. The good news: almost every
 session, trade indexes) are handled for you.
 
 The package name is unchanged (`avantis-trader-sdk` on PyPI); 2.0.0 is the
-v2 release. Pinning the old client is only a stopgap — Avantis v1 is
+v2 release. Pinning the old client is only a stopgap; Avantis v1 is
 superseded on-chain, so the 0.x SDK no longer trades:
 
 ```bash
@@ -83,7 +83,7 @@ Every 0.x write was a `build_*_tx` + `sign_and_get_receipt` pair (plus a
 | 0.x | 2.x |
 | --- | --- |
 | `trade.build_trade_open_tx(TradeInput, MARKET, slippage)` | `trade.market_open(pair, side, collateral=, leverage=, ...)` |
-| `trade.build_trade_open_tx(TradeInput, MARKET_ZERO_FEE, ...)` | `trade.market_open(...)` on the Upside pair (e.g. `"BTC_UPSIDE"`) — the PnL order type routes from the pair, no flag |
+| `trade.build_trade_open_tx(TradeInput, MARKET_ZERO_FEE, ...)` | `trade.market_open(...)` on the Upside pair (e.g. `"BTC_UPSIDE"`); the PnL order type routes from the pair, no flag |
 | `trade.build_trade_open_tx(TradeInput, LIMIT / STOP_LIMIT, ...)` | `trade.limit_open(...)` |
 | `trade.build_trade_close_tx(pair_index, trade_index, collateral_to_close, trader)` | `trade.market_close(pair, index, collateral_to_close=)` |
 | `trade.build_order_cancel_tx(...)` | `trade.cancel_limit_order(pair, index)` |
@@ -177,7 +177,7 @@ were RPC multicall fan-outs. In 2.x, one snapshot call carries the full
 | `pairs_cache.get_pairs_info()` / `get_pair_index(...)` | `markets.pairs()` / `markets.pair_index(...)` (or just pass the symbol) |
 | `snapshot.get_snapshot()` | `markets.snapshot()`: OI, caps, fees, funding, spreads, leverage envelopes, market hours per pair |
 | `asset_parameters.get_oi()` / `get_oi_limits()` / `get_utilization()` / `get_asset_skew()` | fields on `markets.snapshot()` pairs |
-| `asset_parameters.get_price_impact_spread()` / `get_skew_impact_spread()` / `get_opening_price_impact_spread()` | `markets.spread(...)` (risk engine v2 — the production spread source; the legacy `markets.dynamic_spread(...)` remains on testnet only); v2's spread model is flow-based and served by the risk API |
+| `asset_parameters.get_price_impact_spread()` / `get_skew_impact_spread()` / `get_opening_price_impact_spread()` | `markets.spread(...)` (risk engine v2, the production spread source; the legacy `markets.dynamic_spread(...)` remains on testnet only); v2's spread model is flow-based and served by the risk API |
 | `category_parameters.*` / `blended.*` | group fields on `markets.snapshot()` |
 | `fee_parameters.get_new_trade_opening_fee(...)` | `compute.skew_adjusted_open_fee(...)` (plus `compute.maker_or_taker_fee_p(...)`; maker/taker is new in v2) |
 | `fee_parameters.get_margin_fee()` | margin-fee / funding fields on `markets.snapshot()` pairs |
@@ -197,7 +197,7 @@ history with fee breakdowns, portfolio analytics, vault APY).
 | `FeedClient()` + `register_price_feed_callback(...)` + `listen_for_price_updates()` | `client.lazer_price_stream([...])` / `client.hermes_price_stream([...])`, see [Prices & streams](/data/prices-and-streams) |
 | `feed_client.get_latest_price_updates(...)` | `markets.price(pair)` |
 | `feed_client.get_price_update_data(...)` | `markets.price_update_data(pair)` (rarely needed; market orders no longer require you to attach price updates) |
-| (none) | `client.pair_data_stream()` (live pair-catalog updates — [Socket.IO protocol](/data/socket-io)), `client.order_event_stream()` (your order lifecycle events) |
+| (none) | `client.pair_data_stream()` (live pair-catalog updates; see the [Socket.IO protocol](/data/socket-io)), `client.order_event_stream()` (your order lifecycle events) |
 
 ## New v2 surface worth adopting
 

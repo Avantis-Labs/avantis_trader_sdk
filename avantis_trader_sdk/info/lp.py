@@ -2,7 +2,7 @@
 
 USDC must be approved to the TRANCHE (not TradingStorage) first:
 ``client.account.approve_usdc(amount, spender=tranche_address)``.
-No lock/epoch in v2 — withdrawals are immediate, gated by utilization.
+No lock/epoch in v2: withdrawals are immediate, gated by utilization.
 """
 
 from __future__ import annotations

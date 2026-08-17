@@ -1,7 +1,7 @@
 """Signer interface.
 
 One interface, multiple key backends. The signer does not know about traders
-or delegates — identity resolution lives in the client config; the signer just
+or delegates: identity resolution lives in the client config; the signer just
 produces secp256k1 signatures.
 """
 

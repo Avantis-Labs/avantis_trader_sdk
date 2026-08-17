@@ -1,4 +1,4 @@
-"""Pair/OI/funding snapshot stream — Socket.IO ``RES:DATA`` broadcasts from
+"""Pair/OI/funding snapshot stream: Socket.IO ``RES:DATA`` broadcasts from
 the data-service (same host as /v2/trading).
 
 Requires the ``streams`` extra: ``pip install avantis-trader-sdk[streams]``.

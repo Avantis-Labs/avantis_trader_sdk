@@ -1,4 +1,4 @@
-"""PnL math — mirrors avantis-ui-v2 lib/utils.ts and positions.helper.ts."""
+"""PnL math: mirrors avantis-ui-v2 lib/utils.ts and positions.helper.ts."""
 
 from __future__ import annotations
 

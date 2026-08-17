@@ -45,7 +45,7 @@ class ApiError(AvantisError):
 
 
 class ValidationError(ApiError):
-    """400 VALIDATION_ERROR / BAD_REQUEST — pre-trade or request-shape failure."""
+    """400 VALIDATION_ERROR / BAD_REQUEST: pre-trade or request-shape failure."""
 
 
 class RateLimitedError(ApiError):
@@ -71,7 +71,7 @@ class SigningError(AvantisError):
 class DigestMismatchError(SigningError):
     """Locally computed EIP-712 digest differs from the API-provided digest.
 
-    NEVER submit after this error — it means encoding drift between the SDK
+    NEVER submit after this error: it means encoding drift between the SDK
     and the API/contracts.
     """
 

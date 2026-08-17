@@ -1,4 +1,4 @@
-"""Avantis v2 Python SDK — API-first perpetuals trading on Base.
+"""Avantis v2 Python SDK: API-first perpetuals trading on Base.
 
 Quick start (relayer route, delegate key from the Avantis UI):
 
