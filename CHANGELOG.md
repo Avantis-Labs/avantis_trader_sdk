@@ -185,7 +185,7 @@ machine-readable error codes.
   payload excerpts) and attach `ids` + a light per-call list to
   `RESULTS_JSON`; summary lines carry the ids. Old runs:
   `python scripts/run_report.py --all`.
-- **New: `on_event=` lifecycle hook on the batched-market path**: keep
+- **New: `on_event=` lifecycle hook on the batched-market path.** Keep
   `wait=True` (the SDK still settles: terminal mapping, STREAM_TIMEOUT
   status-replay fallback, typed raises) and observe the order journey live.
   The hook (sync or async callable taking a `BatchedMarketEvent`; exported at

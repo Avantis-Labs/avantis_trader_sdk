@@ -12,7 +12,7 @@ accepted order can still fail (declined fill, revert), so YOU own the
 settlement check. Reconcile off the hot path with
 ``engine.batched_market.wait(tracking_id)`` (or ``.status()`` for a single,
 seq-resumable poll). Prefer keeping ``wait=True`` and still seeing the order
-journey (AttemptFailed diagnostics etc.) live? Pass ``on_event=`` — the SDK
+journey (AttemptFailed diagnostics etc.) live? Pass ``on_event=``: the SDK
 settles as usual and calls your hook per lifecycle event; it also works on
 ``wait()`` below.
 
@@ -20,8 +20,8 @@ Beyond ``open_trade``/``close_trade`` the builder covers the whole intent
 surface: ``open_trade_coin``/``close_trade_coin`` (coin-sized, pair with
 AggregatorOrderType.*_WITH_COIN_EXPOSURE), ``increase_position[_coin]``,
 ``update_tp_sl`` and ``partial_tp_sl`` (both submitted to the core API
-/price-triggers endpoint — what ``trade.update_tp_sl`` / ``partial_tp_sl``
-do — not to batched-market), ``twap_open``/``twap_close``/``twap_cancel``,
+/price-triggers endpoint, what ``trade.update_tp_sl`` / ``partial_tp_sl``
+do, not to batched-market), ``twap_open``/``twap_close``/``twap_cancel``,
 ``cancel_offchain_order``, ``delegate_req``, and the referral intents.
 Prices are always caller-supplied; there is no feed lookup locally.
 """
@@ -51,7 +51,7 @@ async def main() -> None:
                 open_price=update.price,
                 slippage_percent=0.3,
             )
-            # submit the signed intent directly — the EIP-7702 leg is
+            # submit the signed intent directly: the EIP-7702 leg is
             # optional, so no tx-builder call is needed on the hot path
             receipt = await engine.submit_intent_batch(
                 payload, AggregatorOrderType.MARKET_OPEN, wait=False

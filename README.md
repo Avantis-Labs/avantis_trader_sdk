@@ -30,10 +30,10 @@ Python 3.10+.
 ## Upgrading from v1 (0.8.x)
 
 v2 is a ground-up, **breaking** rewrite for the Avantis v2 protocol (live
-August 12, 2026) — the v1 `TraderClient` API is removed. Follow the
+August 12, 2026); the v1 `TraderClient` API is removed. Follow the
 [migration guide](https://sdk.avantisfi.com/migration/sdk-migration). Avantis
 v1 is superseded on-chain by the upgrade, so staying on the old SDK is only a
-stopgap — pin `avantis-trader-sdk<2` if you need time to migrate.
+stopgap; pin `avantis-trader-sdk<2` if you need time to migrate.
 
 ## Setup (default: gasless API key)
 

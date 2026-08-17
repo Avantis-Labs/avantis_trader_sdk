@@ -5,12 +5,12 @@ digest correctness check), and queues it with the Avantis relayer. No RPC, no
 ETH needed.
 
 The order type routes from the pair: trade an Upside market (e.g.
-"BTC_UPSIDE") and the SDK sends the PnL (Upside) order type automatically —
+"BTC_UPSIDE") and the SDK sends the PnL (Upside) order type automatically;
 see examples/19_upside_pairs.py.
 
 ``on_event`` (optional) observes the order journey live while the SDK still
 settles the outcome: the accepted event, retryable AttemptFailed diagnostics
-(good debug logs — e.g. NO_PRICE, SPREAD_BLOCKED, or a contract error name),
+(good debug logs, e.g. NO_PRICE, SPREAD_BLOCKED, or a contract error name),
 and the terminal event, which is delivered even when the call raises.
 """
 

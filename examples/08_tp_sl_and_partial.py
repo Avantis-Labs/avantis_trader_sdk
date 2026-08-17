@@ -2,8 +2,8 @@
 
 - Full (global) TP/SL update is intent-only in v2 (no public contract entry
   point): the SDK signs an UpdateTpSlReq and submits it to the core API
-  price-triggers endpoint, which executes it through the Avantis operator —
-  the same path in relayer and direct mode. None keeps a leg, 0 clears it
+  price-triggers endpoint, which executes it through the Avantis operator
+  (the same path in relayer and direct mode). None keeps a leg, 0 clears it
   (a TP of 0 resets to the pair's max-gain cap; a position always has a TP).
 - Partial TP/SL are trigger orders stored with the operator (off-chain) and
   executed on-chain when the price hits.
@@ -41,7 +41,7 @@ async def main() -> None:
         print("stored partial TP:", order["price"], "entityId:", order["entityId"])
 
         # move the trigger: atomic in-place replacement (pass the FULL order).
-        # The backend mints a NEW entityId on update — adopt the returned one.
+        # The backend mints a NEW entityId on update; adopt the returned one.
         order = await client.trade.update_partial_tp_sl(
             order["entityId"],
             pos.pair_index,

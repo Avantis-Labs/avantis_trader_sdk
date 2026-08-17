@@ -5,7 +5,7 @@ next to BTC/USD on the same price feed). They charge no open/close fee and
 take a tiered profit share on gains instead.
 
 Routing is automatic: opening or closing on an upside pair sends the PnL
-(Upside) order type — there is no flag to pass, the pair determines the
+(Upside) order type; there is no flag to pass, the pair determines the
 type. Upside pairs are market-only (no limit/stop opens, no TWAP; the SDK
 raises a ValidationError before any network call).
 """
