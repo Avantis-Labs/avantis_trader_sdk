@@ -11,7 +11,7 @@ fresh price, prices the spread, builds the calldata, submits it on-chain, and
 response.
 
 This is the transport behind `client.trade.market_open` / `market_close` /
-`increase_position` in the SDK, and — with a locally built intent — the
+`increase_position` in the SDK, and, with a locally built intent, the
 [market-maker fast path](/advanced/mm-fast-path): local build + sign →
 one POST, zero API round-trips before submission.
 
@@ -49,11 +49,11 @@ one POST, zero API round-trips before submission.
 
 <Note>
 **Why `eip7702` exists at all.** The server decides which mechanism to execute
-from its own configuration, never from the request — so operations can move
+from its own configuration, never from the request, so operations can move
 traffic between EIP-712 and EIP-7702 (or roll back) without a client release.
 The SDK's high-level calls send both legs to keep that flip free. A client
-that only signs intents may omit `eip7702` — that is the market-maker fast
-path — with the trade-off that its requests start returning `400` if the
+that only signs intents may omit `eip7702` (that is the market-maker fast
+path), with the trade-off that its requests start returning `400` if the
 deployment is ever switched to EIP-7702 mode.
 </Note>
 
@@ -76,14 +76,14 @@ Any value outside this set is rejected with `400`.
 
 Notes:
 
-- **PnL vs non-PnL is a property of the pair** — use the `_PNL` types on PnL
+- **PnL vs non-PnL is a property of the pair**: use the `_PNL` types on PnL
   pairs only; mismatches are rejected.
 - **Coin-exposure variants** size the order in the base asset (e.g. exactly
   0.5 ETH) instead of USDC notional.
 - Increases have no PnL variant.
 - The intent structs, field meanings, and units are documented on the
   corresponding tx-builder pages (`/v2/intents/open`, `/v2/intents/close`,
-  `/v2/intents/increase`, and their `-coin` variants) — the `message` shown
+  `/v2/intents/increase`, and their `-coin` variants); the `message` shown
   there is exactly what you sign, and the returned `encodedIntent` is the
   `userIntent` this service consumes. Remember: deadlines are unix
   **milliseconds**, nonces are unordered 256-bit bitmap values, and closes
@@ -107,14 +107,14 @@ MarketOrderAccepted (seq 0)  →  [AttemptFailed ...]  →  one initiation event
 
 Either flow can instead end with:
 
-- **`MarketOrderCanceled`** — the transaction succeeded but the protocol
+- **`MarketOrderCanceled`**: the transaction succeeded but the protocol
   declined the fill (e.g. slippage). A market outcome, not a system error.
-- **`Error`** — execution failed (bad intent, no price, retries exhausted) or
+- **`Error`**: execution failed (bad intent, no price, retries exhausted) or
   the stream view timed out.
 
 **`AttemptFailed`** (non-terminal, persisted) reports one execution attempt
-that hit a retryable condition — payload `{attempt, code, message,
-willRetry}` — while the service keeps working the request. Treat unknown
+that hit a retryable condition (payload `{attempt, code, message,
+willRetry}`) while the service keeps working the request. Treat unknown
 event types as non-terminal noise: the server adds informational types
 without a version bump.
 
@@ -128,14 +128,14 @@ synthetic service code (`NO_PRICE`, `SPREAD_BLOCKED`, `SPREAD_UNAVAILABLE`,
 
 Wire format: each event is an `event:` line (type), an `id:` line (the `seq`,
 monotonic per trackingId), and a `data:` line (JSON payload), terminated by a
-blank line. Lines starting with `:` are keep-alive comments (sent every ~15s)
-— a spec-compliant parser never surfaces them. The stream has a hard lifetime
+blank line. Lines starting with `:` are keep-alive comments (sent every ~15s);
+a spec-compliant parser never surfaces them. The stream has a hard lifetime
 cap (60s in EIP-712 mode, 180s in EIP-7702 mode); a stream that ends without
-a terminal event does **not** mean failure — replay by `seq` (below).
+a terminal event does **not** mean failure; replay by `seq` (below).
 
 <Warning>
 An `Error` with `code: "STREAM_TIMEOUT"` (also recognizable by its missing
-`id:` line — it is not persisted) is **not the request's outcome**: only this
+`id:` line; it is not persisted) is **not the request's outcome**: only this
 connection's view of it timed out, and the order may still execute. Fall back
 to the status endpoint. Every other `Error` is a real terminal failure;
 `ENQUEUE_FAILED` means the request never reached the execution queue.
@@ -144,28 +144,28 @@ to the status endpoint. Every other `Error` is a real terminal failure;
 ## Event payloads
 
 All uint values are **strings** in raw on-chain units (USDC 1e6,
-prices/leverage/exposure 1e10) — many exceed `Number.MAX_SAFE_INTEGER`.
+prices/leverage/exposure 1e10); many exceed `Number.MAX_SAFE_INTEGER`.
 
-**`MarketOrderAccepted`** (seq 0) — the request was accepted and a
+**`MarketOrderAccepted`** (seq 0): the request was accepted and a
 `trackingId` minted. Nothing is on-chain yet; save it for reconnects.
 
 ```json
 { "trackingId": "…" }
 ```
 
-**`MarketOrderInitiated`** — the order is registered on-chain with an `orderId`.
+**`MarketOrderInitiated`**: the order is registered on-chain with an `orderId`.
 
 ```json
 { "orderId": 42, "trader": "0x…", "pairIndex": 2, "open": true, "isBuy": true, "isPnl": false, "transactionHash": "0x…" }
 ```
 
-**`IncreasePositionRequested`** — the increase is registered on-chain.
+**`IncreasePositionRequested`**: the increase is registered on-chain.
 
 ```json
 { "orderId": 99, "trader": "0x…", "pairIndex": 2, "index": 7, "isBuy": true, "isPnl": false, "addedCollateral": "50000000", "coinExposure": "0", "isCoinExposureFixed": false, "transactionHash": "0x…" }
 ```
 
-**`MarketOrderExecuted`** (terminal — opens/closes) — the final fill. `t` is
+**`MarketOrderExecuted`** (terminal for opens/closes): the final fill. `t` is
 the stored Trade tuple (`initialPosToken` = final collateral, plus `leverage`,
 `openPrice`, `tp`/`sl`). On closes, `percentProfit` and `usdcSentToTrader`
 carry the realized outcome.
@@ -190,7 +190,7 @@ carry the realized outcome.
 }
 ```
 
-**`PositionSizeIncreased`** (terminal — increases) — note the shape differs
+**`PositionSizeIncreased`** (terminal for increases). Note the shape differs
 from a fill: no `price` / `percentProfit` / `usdcSentToTrader`, and `t` is the
 **blended resulting position**.
 
@@ -198,20 +198,20 @@ from a fill: no `price` / `percentProfit` / `usdcSentToTrader`, and `t` is the
 { "orderId": 99, "isPnl": false, "coinExposureAdded": "…", "isCoinExposureFixed": false, "t": { "…": "…" }, "transactionHash": "0x…" }
 ```
 
-**`MarketOrderCanceled`** (terminal) — the protocol declined the fill.
+**`MarketOrderCanceled`** (terminal): the protocol declined the fill.
 
 ```json
 { "orderId": 42, "trader": "0x…", "pairIndex": 2, "transactionHash": "0x…" }
 ```
 
-**`AttemptFailed`** (non-terminal) — one retryable attempt failed; the
+**`AttemptFailed`** (non-terminal): one retryable attempt failed; the
 service is still working the request.
 
 ```json
 { "attempt": 1, "code": "NO_PRICE", "message": "…", "willRetry": true }
 ```
 
-**`Error`** (terminal — except `STREAM_TIMEOUT`, which is this connection's
+**`Error`** (terminal, except `STREAM_TIMEOUT`, which is this connection's
 view expiring).
 
 ```json
@@ -236,7 +236,7 @@ GET /tracking-id/{trackingId}/status?afterSeq={lastSeenSeq}
 }
 ```
 
-- `afterSeq` is optional — omit it for the full history.
+- `afterSeq` is optional; omit it for the full history.
 - `404` = unknown trackingId. An empty `events` array = accepted but nothing
   has happened yet; poll again (~1–2s cadence) until a terminal event lands.
 
@@ -245,14 +245,14 @@ GET /tracking-id/{trackingId}/status?afterSeq={lastSeenSeq}
 | Signal | Meaning | What to do |
 | --- | --- | --- |
 | HTTP `400` before the stream opens | The request was rejected: unsupported `orderType`, malformed intent or signature, expired deadline, consumed nonce, position mismatch. | Fix and resubmit; the body carries the reason. |
-| `AttemptFailed` event | One attempt hit a retryable condition; the service retries. | Informational — wait for the terminal event. |
+| `AttemptFailed` event | One attempt hit a retryable condition; the service retries. | Informational; wait for the terminal event. |
 | Terminal `Error` event | Accepted but execution ultimately failed. | Branch on the `code` (contract error name or service code); sign a new intent to retry. |
 | `Error` with `code: "STREAM_TIMEOUT"` | Only this connection's stream view expired. | Replay via the status endpoint; the order may still execute. |
-| Terminal `MarketOrderCanceled` | The fill was declined on-chain (e.g. slippage). | A market outcome — retry with wider slippage or a fresh price if desired. |
-| Stream ends with no terminal event | Unknown — the order may still execute. | Replay via the status endpoint; don't assume failure. |
+| Terminal `MarketOrderCanceled` | The fill was declined on-chain (e.g. slippage). | A market outcome; retry with wider slippage or a fresh price if desired. |
+| Stream ends with no terminal event | Unknown; the order may still execute. | Replay via the status endpoint; don't assume failure. |
 
 Because intents carry unordered nonces, the service retries execution
-internally without double-execution risk — never re-POST an accepted order;
+internally without double-execution risk: never re-POST an accepted order;
 only retry if the POST itself returned 4xx.
 
 ## Using it from the SDK
@@ -264,8 +264,8 @@ from avantis_trader_sdk.types import AggregatorOrderType
 receipt = await client.trade.market_open("ETH/USD", "long", collateral=100, leverage=10)
 
 # Same, but observe the journey live while the SDK settles (on_event fires
-# per streamed event: accepted, AttemptFailed diagnostics, the terminal —
-# also when it raises):
+# per streamed event: accepted, AttemptFailed diagnostics, the terminal,
+# even when it raises):
 receipt = await client.trade.market_open(
     "ETH/USD", "long", collateral=100, leverage=10,
     on_event=lambda ev: log.info("order %s seq=%s %s", ev.type, ev.seq, ev.data),
@@ -280,9 +280,9 @@ receipt = await client.engine.submit_intent_batch(
 outcome = await client.engine.batched_market.wait(receipt.tracking_id)  # replay by seq
 ```
 
-`on_event` is available on every layer of the path — `trade.market_*` /
+`on_event` is available on every layer of the path (`trade.market_*` /
 `increase_position*`, `engine.submit_intent_batch`, and
-`BatchedMarketClient.execute` / `.wait` — sync or async callables; see
+`BatchedMarketClient.execute` / `.wait`), as sync or async callables; see
 [Track the order lifecycle](/trading/market-orders#track-the-order-lifecycle).
 
 See [MM fast path](/advanced/mm-fast-path) for the full zero-I/O signing loop.

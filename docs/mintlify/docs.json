@@ -101,7 +101,7 @@
           },
           {
             "group": "Meta",
-            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
+            "openapi": "https://tx-builder.avantisfi.com/openapi.json",
             "pages": [
               "GET /v2/meta",
               "GET /v2/pairs",
@@ -114,7 +114,7 @@
           },
           {
             "group": "Trading",
-            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
+            "openapi": "https://tx-builder.avantisfi.com/openapi.json",
             "pages": [
               "POST /v2/trade/open",
               "POST /v2/trade/open-coin",
@@ -129,7 +129,7 @@
           },
           {
             "group": "Delegate",
-            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
+            "openapi": "https://tx-builder.avantisfi.com/openapi.json",
             "pages": [
               "POST /v2/delegate/set",
               "POST /v2/delegate/remove"
@@ -137,14 +137,14 @@
           },
           {
             "group": "Token",
-            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
+            "openapi": "https://tx-builder.avantisfi.com/openapi.json",
             "pages": [
               "POST /v2/token/approve"
             ]
           },
           {
             "group": "Intents",
-            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
+            "openapi": "https://tx-builder.avantisfi.com/openapi.json",
             "pages": [
               "POST /v2/intents/open",
               "POST /v2/intents/open-coin",
@@ -177,7 +177,7 @@
           },
           {
             "group": "Relay",
-            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
+            "openapi": "https://tx-builder.avantisfi.com/openapi.json",
             "pages": [
               "POST /v2/relay",
               "GET /v2/relay/{hash}"
@@ -185,7 +185,7 @@
           },
           {
             "group": "TWAP",
-            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
+            "openapi": "https://tx-builder.avantisfi.com/openapi.json",
             "pages": [
               "POST /v2/twap/open",
               "POST /v2/twap/close",
@@ -194,7 +194,7 @@
           },
           {
             "group": "Referral",
-            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
+            "openapi": "https://tx-builder.avantisfi.com/openapi.json",
             "pages": [
               "POST /v2/referral/register-code",
               "POST /v2/referral/set-code",
@@ -209,7 +209,7 @@
           },
           {
             "group": "LP",
-            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
+            "openapi": "https://tx-builder.avantisfi.com/openapi.json",
             "pages": [
               "POST /v2/lp/deposit",
               "POST /v2/lp/mint",
@@ -220,16 +220,15 @@
           },
           {
             "group": "Builder Codes",
-            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
+            "openapi": "https://tx-builder.avantisfi.com/openapi.json",
             "pages": [
-              "GET /v2/builder-code",
               "POST /v2/misc/builder-code/register",
               "POST /v2/misc/builder-code/modify"
             ]
           },
           {
             "group": "Misc",
-            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
+            "openapi": "https://tx-builder.avantisfi.com/openapi.json",
             "pages": [
               "POST /v2/misc/claim-keeper-rewards",
               "POST /v2/misc/add-to-buffer"
@@ -237,7 +236,7 @@
           },
           {
             "group": "Reads",
-            "openapi": "https://tx-builder-testnet.avantisfi.com/openapi.json",
+            "openapi": "https://tx-builder.avantisfi.com/openapi.json",
             "pages": [
               "GET /v2/nonce",
               "GET /v2/positions",

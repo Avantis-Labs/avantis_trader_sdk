@@ -3,12 +3,12 @@ title: Builder Codes
 description: "Register a builder code and earn a per-trade fee on the order flow your integration routes to Avantis."
 ---
 
-A builder code is an on-chain fee configuration in the Avantis **BuilderCode registry**. Trades attached to your code charge a fee — a percentage of the trade's collateral or a fixed USDC amount per trade — paid by the trader directly to your fee collector address. You own the code with the wallet that registers it and can change the fee parameters at any time.
+A builder code is an on-chain fee configuration in the Avantis **BuilderCode registry**. Trades attached to your code charge a fee, either a percentage of the trade's collateral or a fixed USDC amount per trade, paid by the trader directly to your fee collector address. You own the code with the wallet that registers it and can change the fee parameters at any time.
 
 There are two ways to manage codes: the SDK (this page) or the no-code card in the [Avantis API Key Generator](https://delegate.avantisfi.com/).
 
 <Warning>
-Builder-code registration and updates are **caller-scoped**: the signing key becomes (or must be) the code owner, so these calls cannot go through a delegate/API key. Sign with the wallet you want to own the code.
+Registering or updating a code needs the owner wallet itself: the wallet that signs `register_builder_code` becomes the code owner, and a delegate/API key cannot do it for you. This restriction only applies to managing the code. **Trading is unaffected**: your users (and you) trade through delegate/API keys as usual, with your builder code attached.
 </Warning>
 
 ## How fees work
@@ -16,7 +16,7 @@ Builder-code registration and updates are **caller-scoped**: the signing key bec
 - **Two fee modes.** Percent of the trade's collateral (`fee_percent`, `1 = 1%`) or a fixed USDC amount per trade (`fixed_fee_usdc`).
 - **Paid by the trader, in USDC, to your `fee_collector`.** Charged on-chain at execution time; every charge emits a `BuilderFeesCharged` event.
 - **Live config.** The fee parameters are read from the registry at trade time, so `modify_builder_code(...)` takes effect immediately for all future trades.
-- **Protocol caps.** Registration and updates revert above the protocol maximums. Read them (and a code's current config) with `builder_code(...)` — currently 1% of collateral / 10 USDC per trade.
+- **Protocol caps.** Registration and updates revert above the protocol maximums, currently 1% of collateral and 10 USDC per trade. Read them (and a code's current config) with `builder_code(...)`.
 
 ### Fee-eligible actions
 
@@ -28,17 +28,16 @@ Fees are charged on the actions that open or add exposure. Closes, cancels, marg
 | Limit-order placement | `trade.limit_open` | Yes |
 | Position increase | `trade.increase_position`, `trade.increase_position_coin` | Yes |
 | TWAP open | `trade.twap_open` | Yes |
-| RFQ open | `trade.rfq_open` | Yes |
 | Close / cancel / margin / TP-SL | everything else | No |
 
 ## Check a code
 
-Look a code up before registering — `registered: False` means it's free to claim. The response also carries the protocol caps:
+Look a code up before registering: `registered: False` means it's free to claim. The response also carries the protocol caps:
 
 ```python
 info = await client.account.builder_code("MYAPP")
 # {
-#   "code": "0x4d59415050…0000",   # normalized 32-byte form
+#   "code": "0x4d59415050...0000",  # normalized 32-byte form
 #   "registered": False,
 #   "owner": None, "feeCollector": None,
 #   "isPercentFee": False, "feePercentHuman": 0, "fixedFeeUsdc": 0,
@@ -88,7 +87,7 @@ await client.account.modify_builder_code(
 
 ## Attach your code to your users' trades
 
-Fees are charged by the Avantis EIP-7702 delegation template that executes a trade: a **builder-specific template** carries your code and verifies it against the registry on every fee-eligible call. Wiring your registered code into a template for your order flow is coordinated with the Avantis team — reach out once your code is registered.
+Fees are charged by the Avantis EIP-7702 delegation template that executes a trade: a **builder-specific template** carries your code and verifies it against the registry on every fee-eligible call. Wiring your registered code into a template for your order flow is coordinated with the Avantis team, so reach out once your code is registered.
 
 Independently of fees, set `builder_code` in the [configuration](/configuration) to tag your order flow: the SDK appends the 32-byte value as a calldata suffix to every EIP-7702 transaction it builds (market opens/closes/increases and all relayer-passthrough actions), which Avantis uses for order-flow attribution:
 
@@ -105,7 +104,7 @@ await client.trade.market_open("ETH/USD", "long", collateral=100, leverage=10)
 
 Notes on coverage:
 
-- The suffix rides on every transaction the SDK signs and relays itself (the EIP-7702 route). Intent-only paths that Avantis executes server-side — TWAP intents, the [market-maker fast path](/advanced/mm-fast-path), and global TP/SL triggers — carry no SDK-built calldata.
+- The suffix rides on every transaction the SDK signs and relays itself (the EIP-7702 route). Intent-only paths that Avantis executes server-side (TWAP intents, the [market-maker fast path](/advanced/mm-fast-path), and global TP/SL triggers) carry no SDK-built calldata.
 - In [direct mode](/advanced/execution-modes) the SDK broadcasts plain transactions from the trader's wallet, which bypasses the delegation template, so no builder fee is charged on those trades.
 
 ## Track your revenue

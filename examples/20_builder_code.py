@@ -1,12 +1,12 @@
 """Builder codes: register a per-trade partner fee and attach it to order flow.
 
 A builder code is an on-chain fee config in the BuilderCode registry: trades
-attached to your code charge a fee — a percent of the trade's collateral or a
-fixed USDC amount per trade — paid by the trader to your fee collector.
+attached to your code charge a fee (a percent of the trade's collateral or a
+fixed USDC amount per trade), paid by the trader to your fee collector.
 
 Fee-eligible actions (the ones that open or add exposure):
     market_open / market_open_coin, limit_open,
-    increase_position / increase_position_coin, twap_open, rfq_open
+    increase_position / increase_position_coin, twap_open
 Closes, cancels, margin updates, and TP/SL changes never charge builder fees.
 
 Registration is caller-scoped (msg.sender becomes the code owner) so it cannot
@@ -43,7 +43,7 @@ async def register_and_manage() -> str:
             )
 
         # (owner only) fees are read live from the registry, so updates apply
-        # to all future trades immediately — no redeploys:
+        # to all future trades immediately, no redeploys:
         # await client.account.modify_builder_code(
         #     CODE, fee_collector=client.trade.trader,
         #     is_percent_fee=False, fixed_fee_usdc=0.25,
@@ -69,7 +69,7 @@ async def trade_with_code(code_bytes32: str) -> None:
         # trader_address=<your user's wallet>,
         builder_code=code_bytes32,
     ) as client:
-        # All fee-eligible actions work unchanged — the code rides along:
+        # All fee-eligible actions work unchanged; the code rides along:
         await client.trade.market_open("ETH/USD", "long", collateral=100, leverage=10)
         # await client.trade.limit_open("ETH/USD", "long", collateral=100,
         #                               leverage=10, price=3000)

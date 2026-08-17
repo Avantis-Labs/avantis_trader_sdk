@@ -246,7 +246,7 @@ class AccountApi(ExecutingApi):
         ``code`` is a plain string of 1-31 characters or a 32-byte 0x-hex
         value. Returns ``{code, registered, owner, isPercentFee, feePercent,
         feePercentHuman, fixedFee, fixedFeeUsdc, feeCollector, maxFeePercent*,
-        maxFixedFee*}`` — ``registered: False`` means the code is free to
+        maxFixedFee*}``. ``registered: False`` means the code is free to
         claim, and the ``max*`` fields are the protocol caps enforced by
         :meth:`register_builder_code`. The normalized 32-byte ``code`` in the
         response is the value to pass as ``builder_code`` in the SDK config to
@@ -267,8 +267,10 @@ class AccountApi(ExecutingApi):
         """Register a builder code (partner fee registry; feePercent 1 = 1%).
 
         The caller becomes the code owner (msg.sender-scoped; blocked in
-        delegate mode). Fees are charged per fee-eligible trade — percent of
-        the trade's collateral or a fixed USDC amount — and paid by the trader
+        delegate mode). Only managing the code needs the owner wallet:
+        trading with the code attached works through delegate/API keys as
+        usual. Fees are charged per fee-eligible trade (percent of the
+        trade's collateral or a fixed USDC amount) and paid by the trader
         to ``fee_collector``. Caps: see :meth:`builder_code` (``maxFeePercent``
         / ``maxFixedFee``). Non-developers can use the same flow in the
         delegate UI at https://delegate.avantisfi.com.

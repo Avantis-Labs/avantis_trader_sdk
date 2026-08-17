@@ -6,7 +6,7 @@
 
 - **Builder-code lookup**: `client.account.builder_code(code)` reads a code's
   fee config from the BuilderCode registry via the new tx-builder
-  `GET /v2/builder-code` — owner, fee mode/values, fee collector, and the
+  `GET /v2/builder-code`: owner, fee mode/values, fee collector, and the
   protocol caps enforced by `register_builder_code`. The registry is live at
   `0x1B121398b3588beFD0d888e0F8504EC4C70a01Ad` on Base mainnet and the
   internal testnet (surfaced in `/addresses` as `builderCode`); the delegate
@@ -17,12 +17,18 @@
 
 - **Builder codes got a dedicated section**: new `builders/builder-codes.mdx`
   ("For Builders" nav group) covering fee mechanics, the fee-eligible actions
-  (market/limit/coin opens, increases, TWAP and RFQ opens), register / modify /
+  (market/limit/coin opens, increases, TWAP opens), register / modify /
   lookup, attaching a code to user order flow (`builder_code` suffix +
   delegation-template fees), and revenue tracking via `BuilderFeesCharged`.
-  The API reference groups the three builder-code endpoints under their own
-  "Builder Codes" group (previously buried in Misc/Reads), and
+  The API reference groups the builder-code endpoints under their own
+  "Builder Codes" group (previously buried in Misc), and
   `examples/20_builder_code.py` now walks the full owner + user flow.
+  The API reference renders the **mainnet** spec
+  (`tx-builder.avantisfi.com/openapi.json`). TODO once the mainnet
+  tx-builder deploy publishes `GET /v2/builder-code` there: add
+  `"GET /v2/builder-code"` back to the Builder Codes group in `docs.json`
+  (Mintlify fails the build with "Failed to fetch OpenAPI file" while a nav
+  entry references an operation missing from the live spec).
 - **Pair data Socket.IO** (`docs/mintlify/data/socket-io.mdx`, mirrored to
   avantis-python-sdk): handshake, hosts (`data.avantisfi.com` and the
   `/data` gateway), `RES:DATA` deep-diff payloads, merge/reconnect rules,
