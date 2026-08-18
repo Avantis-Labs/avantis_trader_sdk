@@ -271,9 +271,11 @@ class AccountApi(ExecutingApi):
         trading with the code attached works through delegate/API keys as
         usual. Fees are charged per fee-eligible trade (percent of the
         trade's collateral or a fixed USDC amount) and paid by the trader
-        to ``fee_collector``. Caps: see :meth:`builder_code` (``maxFeePercent``
-        / ``maxFixedFee``). Non-developers can use the same flow in the
-        delegate UI at https://delegate.avantisfi.com.
+        to ``fee_collector`` on top of the trade's collateral, as a separate
+        USDC transfer from the trader's wallet. Caps: see
+        :meth:`builder_code` (``maxFeePercent`` / ``maxFixedFee``).
+        Non-developers can use the same flow in the delegate UI at
+        https://delegate.avantisfi.com.
         """
         return await self._passthrough_or_direct(
             "/v2/misc/builder-code/register",

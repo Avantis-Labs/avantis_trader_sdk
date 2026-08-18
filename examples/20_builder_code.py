@@ -2,7 +2,9 @@
 
 A builder code is an on-chain fee config in the BuilderCode registry: trades
 attached to your code charge a fee (a percent of the trade's collateral or a
-fixed USDC amount per trade), paid by the trader to your fee collector.
+fixed USDC amount per trade), paid by the trader to your fee collector. The
+fee is charged on top of the trade's collateral, as a separate USDC transfer
+from the trader's wallet in the same transaction.
 
 Fee-eligible actions (the ones that open or add exposure):
     market_open / market_open_coin, limit_open,

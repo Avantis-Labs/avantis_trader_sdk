@@ -3,7 +3,7 @@ title: Builder Codes
 description: "Register a builder code and earn a per-trade fee on the order flow your integration routes to Avantis."
 ---
 
-A builder code is an on-chain fee configuration in the Avantis **BuilderCode registry**. Trades attached to your code charge a fee, either a percentage of the trade's collateral or a fixed USDC amount per trade, paid by the trader directly to your fee collector address. You own the code with the wallet that registers it and can change the fee parameters at any time.
+A builder code is an on-chain fee configuration in the Avantis **BuilderCode registry**. Trades attached to your code charge a fee, either a percentage of the trade's collateral or a fixed USDC amount per trade, paid by the trader directly to your fee collector address on top of the trade's collateral. You own the code with the wallet that registers it and can change the fee parameters at any time.
 
 There are two ways to manage codes: the SDK (this page) or the no-code card in the [Avantis API Key Generator](https://delegate.avantisfi.com/).
 
@@ -14,13 +14,19 @@ Registering or updating a code needs the owner wallet itself: the wallet that si
 ## How fees work
 
 - **Two fee modes.** Percent of the trade's collateral (`fee_percent`, `1 = 1%`) or a fixed USDC amount per trade (`fixed_fee_usdc`).
-- **Paid by the trader, in USDC, to your `fee_collector`.** Charged on-chain at execution time; every charge emits a `BuilderFeesCharged` event.
+- **Charged on top of the collateral.** The fee never comes out of the trade's collateral or margin. It is a separate USDC transfer from the trader's wallet to your `fee_collector`, made in the same transaction as the trade. Example: a 100 USDC trade with a 0.05% fee sends 100 USDC of collateral to the protocol and an extra 0.05 USDC to your collector, so 100.05 USDC leaves the trader's wallet. Every charge emits a `BuilderFeesCharged` event.
 - **Live config.** The fee parameters are read from the registry at trade time, so `modify_builder_code(...)` takes effect immediately for all future trades.
 - **Protocol caps.** Registration and updates revert above the protocol maximums, currently 1% of collateral and 10 USDC per trade. Read them (and a code's current config) with `builder_code(...)`.
 
+### What the trader needs
+
+- **USDC balance** covering the collateral plus the fee.
+- **Trading from their own wallet**: no extra approval. The fee moves straight from the trader's wallet balance.
+- **Trading through a delegate/API key**: the fee is pulled with `transferFrom`, so the trader needs a USDC allowance for the delegate wallet address. The standard TradingStorage approval covers collateral only; without the extra allowance the whole trade reverts with `FEE_TRANSFER_FAILED`. Setting up this approval in your user onboarding is part of the template wiring with the Avantis team.
+
 ### Fee-eligible actions
 
-Fees are charged on the actions that open or add exposure. Closes, cancels, margin updates, and TP/SL changes never charge a builder fee.
+Fees are charged on the actions that open or add exposure, at placement time (for limit and TWAP orders that means when the order is placed, not when it fills). Closes, cancels, margin updates, and TP/SL changes never charge a builder fee.
 
 | Action | SDK methods | Builder fee |
 | --- | --- | --- |
