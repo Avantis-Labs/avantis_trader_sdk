@@ -1,67 +1,100 @@
 ---
 title: Positions
-description: "Open positions, limit orders, and balances."
+description: "Your open positions, resting limit orders, live PnL and balances."
 ---
 
 ## Fetch positions
 
-```python
-data = await client.account.positions()      # UserData
+<CodeGroup>
+
+```python Python
+data = await client.account.positions()       # UserData
 
 for pos in data.positions:
     print(pos.side, float(pos.collateral), "USDC at", float(pos.open_price),
-          "liq:", float(pos.liquidation_price))
+          "liquidation at", float(pos.liquidation_price))
 
 for order in data.limit_orders:
-    print(order.side, float(order.collateral), "@", float(order.price))
+    print(order.side, float(order.collateral), "at", float(order.price))
 ```
 
-`positions()` hits the core API and returns enriched data: liquidation price, accrued rollover, and unrealized funding are already computed. Pass `trader=` to read any address.
+```typescript TypeScript
+import {
+  limitOrderCollateral, limitOrderPrice, limitOrderSide,
+  positionCollateral, positionLiquidationPrice, positionOpenPrice, positionSide,
+} from "veranta-sdk";
 
-### `Position` fields (human units)
+const data = await client.account.positions();  // UserData
 
-| Property | Meaning |
-| --- | --- |
-| `pair_index`, `index` | Identify the position; pass both to close/update methods |
-| `side` / `buy` | `"long"`/`"short"` |
-| `collateral`, `leverage`, `position_size` | USDC, multiplier, notional (collateral × leverage) |
-| `open_price`, `tp`, `sl`, `liquidation_price` | Prices (`0` = unset) |
-| `rollover_fee`, `unrealised_funding_fee` | Accrued fees in USDC |
-| `is_upside` | `True` for positions on Upside pairs (profit share instead of fixed fees); informational (closes route from the pair automatically) |
-| `opened_at` | Open timestamp; pass to `market_close(open_timestamp=...)` if closing right after opening |
-| `price_triggers` | All TP/SL triggers on the position (see below) |
+for (const pos of data.positions) {
+  console.log(positionSide(pos), positionCollateral(pos), "USDC at", positionOpenPrice(pos),
+    "liquidation at", positionLiquidationPrice(pos));
+}
 
-`data.position(pair_index, index)` looks up a single position.
+for (const order of data.limitOrders) {
+  console.log(limitOrderSide(order), limitOrderCollateral(order), "at", limitOrderPrice(order));
+}
+```
+
+</CodeGroup>
+
+The data comes from the core API and is already enriched: liquidation price, accrued rollover and unrealized funding are computed for you. Pass a trader address to read any account.
+
+### Position fields
+
+Python exposes human-unit properties on each position. TypeScript keeps the raw API object (numbers are strings in on-chain units) and gives you helper functions that return human units.
+
+| Python | TypeScript | Meaning |
+| --- | --- | --- |
+| `pair_index`, `index` | `pairIndex`, `index` | Identify the position. Pass both to close and update methods |
+| `side` | `positionSide(pos)` | `"long"` or `"short"` |
+| `collateral`, `leverage`, `position_size` | `positionCollateral(pos)`, `positionLeverage(pos)`, `positionNotional(pos)` | USDC, multiplier, notional |
+| `open_price`, `tp`, `sl`, `liquidation_price` | `positionOpenPrice(pos)`, `positionTp(pos)`, `positionSl(pos)`, `positionLiquidationPrice(pos)` | Prices. `0` means unset |
+| `rollover_fee`, `unrealised_funding_fee` | `positionRolloverFee(pos)`, `positionUnrealisedFundingFee(pos)` | Accrued fees in USDC |
+| `is_upside` | `pos.isPnl` | `True` on Upside pairs. Informational; closes route from the pair automatically |
+| `opened_at` | `pos.openedAt` | Open timestamp. Pass it to a close made right after the open |
+| `price_triggers` | `pos.priceTriggers` | All TP and SL triggers on the position, see below |
+
+`data.position(pair_index, index)` in Python and `findPosition(data, pairIndex, index)` in TypeScript look up one position.
 
 ### Price triggers
 
-`price_triggers` unifies every TP/SL attached to a position:
+Every take profit and stop loss attached to a position is listed as a trigger:
 
-- **Global (on-chain) TP/SL**: `is_global` is `True`. These are the levels
-  set at open / via `trade.update_tp_sl()`. Their `entity_id` is
-  deterministic (`global-tp-{trader}-{pair}-{index}` / `global-sl-...`) and
-  is **not** accepted by the partial TP/SL CRUD; the SDK rejects it
-  client-side too.
-- **Partial (off-chain) triggers**: `is_global` is `False`. Signed
-  [partial TP/SL](/trading/tp-sl#partial-tpsl-trigger-orders) orders whose
-  `entity_id` works with `trade.update_partial_tp_sl()` and
-  `trade.cancel_partial_tp_sl()`. Updating a partial order mints a
-  **new** `entity_id`.
+- **Global triggers** are the on-chain full-position levels, set at open or with `update_tp_sl` / `updateTpSl`. Their ids are deterministic (`global-tp-...`, `global-sl-...`) and are **not** accepted by the partial methods.
+- **Partial triggers** are the off-chain [partial TP and SL](/trading/tp-sl#partial-tp-and-sl) orders. Their `entityId` works with the partial update and cancel methods.
 
-```python
+<CodeGroup>
+
+```python Python
 for trig in pos.price_triggers:
     print(trig.kind, float(trig.price), "global" if trig.is_global else trig.entity_id)
 
-pos.global_triggers    # only the on-chain TP/SL entries
-pos.partial_triggers   # only the off-chain partial orders
+pos.global_triggers     # only the on-chain levels
+pos.partial_triggers    # only the off-chain partial orders
 ```
+
+```typescript TypeScript
+import { globalTriggers, partialTriggers, triggerKind, triggerPrice } from "veranta-sdk";
+
+for (const trig of pos.priceTriggers ?? []) {
+  console.log(triggerKind(trig), triggerPrice(trig), trig.isGlobal ? "global" : trig.entityId);
+}
+
+globalTriggers(pos);    // only the on-chain levels
+partialTriggers(pos);   // only the off-chain partial orders
+```
+
+</CodeGroup>
 
 ## Live PnL
 
-Combine a position with its pair snapshot and the live price for a UI-parity net PnL breakdown:
+Combine a position with its pair and the live price for the same net PnL breakdown the app shows:
 
-```python
-from avantis_trader_sdk.compute import position_net_pnl
+<CodeGroup>
+
+```python Python
+from veranta_sdk.compute import position_net_pnl
 
 pair = await client.markets.pair(pos.pair_index)
 price = await client.markets.price(pos.pair_index)
@@ -69,13 +102,33 @@ pnl = position_net_pnl(pos, pair, price)
 print(f"net {pnl.net:+.2f} (gross {pnl.gross:+.2f}, closing fee {pnl.closing_fee:.2f})")
 ```
 
-See [Compute](/data/compute) for the full breakdown fields.
+```typescript TypeScript
+import { compute } from "veranta-sdk";
 
-## Balance and raw reads
-
-```python
-balance = await client.account.usdc_balance()          # Decimal, human USDC
-raw = await client.account.positions_onchain()         # tx-builder RPC read, raw bigint strings
+const pair = await client.markets.pair(pos.pairIndex);
+const price = await client.markets.price(pos.pairIndex);
+const pnl = compute.positionNetPnl(pos, pair, price);
+console.log(`net ${pnl.net.toFixed(2)} (gross ${pnl.gross.toFixed(2)}, closing fee ${pnl.closingFee.toFixed(2)})`);
 ```
 
-Use `positions_onchain()` when you need the unprocessed on-chain state; `positions()` is the right call for everything else.
+</CodeGroup>
+
+See [Compute](/data/compute) for every field in the breakdown.
+
+## Balances and raw reads
+
+<CodeGroup>
+
+```python Python
+balance = await client.account.usdc_balance()          # human USDC
+raw = await client.account.positions_onchain()         # raw on-chain read through the tx-builder
+```
+
+```typescript TypeScript
+const balance = await client.account.usdcBalance();    // human USDC
+const raw = await client.account.positionsOnchain();   // raw on-chain read through the tx-builder
+```
+
+</CodeGroup>
+
+Use the on-chain read when you need the unprocessed contract state. For everything else, `positions()` is the right call.

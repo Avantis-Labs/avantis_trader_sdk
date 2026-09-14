@@ -1,75 +1,154 @@
 # Changelog
 
-## 2.0.1 (unreleased)
+## 2.1.0 (unreleased)
+
+### Renamed: Avantis is now Veranta
+
+The protocol, contracts, API keys, delegations and positions are unchanged;
+the naming is new:
+
+- Package `avantis-trader-sdk` -> **`veranta-sdk`**; import `avantis_trader_sdk`
+  -> **`veranta_sdk`**.
+- `AsyncAvantis` / `Avantis` / `AvantisConfig` / `AvantisError` ->
+  `AsyncVeranta` / `Veranta` / `VerantaConfig` / `VerantaError`. The old names
+  remain importable from `veranta_sdk` as deprecated aliases
+  (`DeprecationWarning`).
+- Env vars `AVANTIS_*` -> `VERANTA_*`. The old names are still read when the
+  new one is unset, with a `DeprecationWarning`.
+- Default service hosts move from `*.avantisfi.com` to `*.veranta.xyz` (same
+  deployments, both domains serve); the delegate UI is at
+  https://delegate.veranta.xyz and the docs at https://sdk.veranta.com. The
+  testnet RPC (`base-testnet-rpc-ovh.avantisfi.com`) stays on the old domain
+  for now.
+- `DelegateReq` intents carry the Veranta Terms-of-Service text
+  (`SignatureHelpers._TNC_TO_SIGN_V2`; the contracts accept both the old and
+  the new text). The EIP-712 domain name stays `AvantisTrading`: it is a
+  deployed on-chain constant, so wallet prompts keep showing it.
+- User-Agent is now `veranta-sdk/<version>`.
+- `avantis-trader-sdk` 2.1.0 ships as a final compatibility release that only
+  depends on `veranta-sdk` and re-exports it (see `compat/avantis-trader-sdk/`),
+  so existing `import avantis_trader_sdk` code keeps working. New work lands
+  under the Veranta name only.
+
+
+### Changed (breaking): builder codes v2 — canonical template, per-order rates
+
+The BuilderCode contracts were redesigned (registry / canonical EIP-7702
+template: testnet `0x4edE46D47C1f38d614ADda0BeCF4eBfF7722289d` /
+`0x8Ee65f19929F30F1d85a1dDd4c38a6745483818d`, Base mainnet
+`0xeDA810c70769a7221fB7e640D974534026719975` /
+`0x92F8ab16f6322a11d9f629baF081094c22A3a362`; the SDK never hardcodes them —
+both come from `/v2/meta`). Fees are now a
+**per-order rate on notional** (collateral x leverage, `0.05` = 0.05%), chosen
+by the builder up to three public registered caps, charged by the registry
+against the exact pending order the trade created (replay-guarded,
+template-gated), and pulled from the trader's USDC allowance **to the
+registry** — never to the builder's 1CT wallet. SDK changes:
+
+- **`builder_code` config semantics changed.** It is no longer a raw 32-byte
+  calldata suffix appended to the outer EIP-7702 `execute()` envelope (that
+  mechanism is inert on the new contracts and was removed from
+  `GelatoDelegationEncoder`). It now names the builder code (plain string or
+  bytes32 hex) sent to the tx-builder, which appends the signed suffix
+  `code || feeRate || 0x9481c2bc` to the INNER trading calldata. New
+  `builder_fee_percent` config (and `VERANTA_BUILDER_CODE` /
+  `VERANTA_BUILDER_FEE_PERCENT` env vars) sets the default per-order rate;
+  `market_open/close/increase` (+ `_coin` variants) accept a per-order
+  `builder_fee_percent` override. PnL/Upside pairs auto-zero the rate on
+  opens/increases (the contract demands an explicit 0 there).
+- **Builder-fee orders route via the blitz passthrough** instead of
+  batched-market, so the fee-charging EIP-7702 leg always executes (no
+  server-side mechanism switch). They return normal receipts but no SSE
+  lifecycle (`on_event` does not fire). Direct mode refuses builder params
+  (a plain type-2 never runs the template, so fees would silently not
+  charge). When builder params are active the EIP-7702 authorization targets
+  the canonical template from `/v2/meta` (`addresses.delegationTemplate`);
+  an explicit `delegation_address` still wins.
+- **`register_builder_code` / `modify_builder_code` signatures changed** to
+  the three-cap model: `fee_collector`, `max_open_fee_percent`,
+  `max_close_fee_percent`, `max_pnl_close_fee_percent` (percent of notional;
+  `0` disables a side). The percent/fixed-fee params are gone.
+  `builder_code()` returns the new shape (`maxOpenFeeRate/-Percent`,
+  `maxCloseFeeRate/-Percent`, `maxPnlCloseFeeRate/-Percent`,
+  `globalCapRate/-Percent`).
+- **New onboarding helpers**: `account.approve_builder_fees(amount=None)`
+  (USDC allowance to the registry — the second approval builder-fee trading
+  requires next to TradingStorage) and `account.builder_fee_allowance()`.
 
 ### Added
 
 - **Builder-code lookup**: `client.account.builder_code(code)` reads a code's
-  fee config from the BuilderCode registry via the new tx-builder
-  `GET /v2/builder-code`: owner, fee mode/values, fee collector, and the
-  protocol caps enforced by `register_builder_code`. The registry is live at
-  `0x1B121398b3588beFD0d888e0F8504EC4C70a01Ad` on Base mainnet and the
-  internal testnet (surfaced in `/addresses` as `builderCode`); the delegate
-  UI (delegate.avantisfi.com) now has a matching no-code register/update card.
-  New `examples/20_builder_code.py`.
+  config from the BuilderCode registry via the tx-builder
+  `GET /v2/builder-code` (surfaced in `/addresses` as `builderCode`, the
+  canonical template as `delegationTemplate`); the delegate UI
+  (delegate.veranta.xyz) has a matching no-code register/update card with
+  the three caps, a trader-facing caps preview, and a dual-spender USDC
+  approval card. New `examples/20_builder_code.py`.
 
 ### Docs
 
 - **Builder codes got a dedicated section**: new `builders/builder-codes.mdx`
-  ("For Builders" nav group) covering fee mechanics, the fee-eligible actions
-  (market/limit/coin opens, increases, TWAP opens), register / modify /
-  lookup, attaching a code to user order flow (`builder_code` suffix +
-  delegation-template fees), and revenue tracking via `BuilderFeesCharged`.
+  ("For Builders" nav group) covering the notional x rate fee model, the three
+  registered caps, the fee-eligible actions (market opens/closes/increases +
+  coin variants), the dual USDC approvals, register / modify / lookup,
+  attaching a code + per-order rate to user order flow, blitz routing, and
+  revenue tracking via the orderId-carrying `BuilderFeesCharged` event.
   The API reference groups the builder-code endpoints under their own
   "Builder Codes" group (previously buried in Misc), and
   `examples/20_builder_code.py` now walks the full owner + user flow.
   The API reference renders the **mainnet** spec
-  (`tx-builder.avantisfi.com/openapi.json`). TODO once the mainnet
+  (`tx-builder.veranta.xyz/openapi.json`). TODO once the mainnet
   tx-builder deploy publishes `GET /v2/builder-code` there: add
   `"GET /v2/builder-code"` back to the Builder Codes group in `docs.json`
   (Mintlify fails the build with "Failed to fetch OpenAPI file" while a nav
   entry references an operation missing from the live spec).
 - **Pair data Socket.IO** (`docs/mintlify/data/socket-io.mdx`, mirrored to
-  avantis-python-sdk): handshake, hosts (`data.avantisfi.com` and the
+  avantis-python-sdk): handshake, hosts (`data.veranta.xyz` and the
   `/data` gateway), `RES:DATA` deep-diff payloads, merge/reconnect rules,
   and the SDK `pair_data_stream()` wrapper. Linked from Markets, Prices &
   streams, and the direct-integrators read table.
 
 ### Fixes
 
+- ``markets.price()`` now reads feed-v3 ``/v2/pairs/{index}/price-update-data``
+  (Lazer/pro, else Hermes/core) instead of ``/v1/price-feeds/last-price``. The
+  last-price route returns the hourly candle from 24h ago, so MM-fast-path
+  opens that signed it as ``wantedPrice`` reverted ``HighSlippage`` even with
+  a correctly scaled 1% ``_slippageP`` (1e10).
+
 - Mainnet profile: the legacy risk engine was decommissioned at the v2 cutover
-  (`risk-api.avantisfi.com` is scaled to zero and returns 503), so
+  (`risk-api.veranta.xyz` is scaled to zero and returns 503), so
   `risk_api_url` is now empty on mainnet and `markets.dynamic_spread()` raises
   a `ConfigError` there pointing to `markets.spread()`, the risk-engine v2
   spread API at `{api_base_url}/risk/v2`, which serves production quotes.
-  `AVANTIS_RISK_API_URL` still overrides.
+  `VERANTA_RISK_API_URL` still overrides.
 
 ## 2.0.0 (2026-08-12)
 
-Ground-up rewrite for Avantis v2, the August 12, 2026 in-place protocol
+Ground-up rewrite for Veranta v2, the August 12, 2026 in-place protocol
 upgrade. **Breaking: the v1 SDK API (0.x releases, last 0.8.17) is removed**;
 `TraderClient`, vendored ABIs and the web3 dependency are all gone.
 
 Upgrading from 0.8.x:
 
-- `pip install --upgrade avantis-trader-sdk` moves you to the new API; follow
-  the [migration guide](https://sdk.avantisfi.com/migration/sdk-migration).
-- Avantis v1 is superseded on-chain by the upgrade, so staying on 0.8.x is
-  only a stopgap; pin `avantis-trader-sdk<2` if you need time to migrate.
+- `pip install --upgrade veranta-sdk` moves you to the new API; follow
+  the [migration guide](https://sdk.veranta.com/migration/sdk-migration).
+- Veranta v1 is superseded on-chain by the upgrade, so staying on 0.8.x is
+  only a stopgap; pin `veranta-sdk<2` if you need time to migrate.
 
 ### Architecture
 
 - API-first: all transaction payloads (calldata and EIP-712 intents) come from
-  the Avantis tx-builder API. No vendored ABIs, no web3 dependency.
+  the Veranta tx-builder API. No vendored ABIs, no web3 dependency.
 - Two execution routes: gasless **relayer** (default; signed intents + EIP-7702
-  smart-account envelope queued with the Avantis relayer) and **direct**
+  smart-account envelope queued with the Veranta relayer) and **direct**
   (self-signed EIP-1559 txs via your RPC or the tx-builder raw relay).
 - Delegate ("API key") and trader-key signer identities, freely combined with
   either route. HyperLiquid-style env config
-  (`AVANTIS_PRIVATE_KEY` / `AVANTIS_TRADER_ADDRESS` / `AVANTIS_EXECUTION`).
-- Defaults to **mainnet**; `AVANTIS_NETWORK=testnet` opts into the Avantis
+  (`VERANTA_PRIVATE_KEY` / `VERANTA_TRADER_ADDRESS` / `VERANTA_EXECUTION`).
+- Defaults to **mainnet**; `VERANTA_NETWORK=testnet` opts into the Veranta
   staging/testnet stack (pre-release builds defaulted to testnet).
-- Async-first (`AsyncAvantis`) with a synchronous facade (`Avantis`).
+- Async-first (`AsyncVeranta`) with a synchronous facade (`Veranta`).
 
 ### New in v2
 
@@ -102,9 +181,9 @@ Upgrading from 0.8.x:
 
 ### Packaging (2026-08-12)
 
-- Version is now sourced from `avantis_trader_sdk/_version.py`
-  (re-exported as `avantis_trader_sdk.__version__`); the HTTP `User-Agent`
-  carries the exact release (`avantis-trader-sdk/2.0.0`).
+- Version is now sourced from `veranta_sdk/_version.py`
+  (re-exported as `veranta_sdk.__version__`); the HTTP `User-Agent`
+  carries the exact release (`veranta-sdk/2.0.0`).
 - Ships a `py.typed` marker; type checkers consume the SDK's inline
   annotations from the wheel.
 - MIT `LICENSE` file included in the distribution (SPDX license metadata);
@@ -206,8 +285,8 @@ machine-readable error codes.
   `data_api_url` and `risk_v2_api_url` now derive from `api_base_url`:
   `{base}/data` (data-service) and `{base}/risk/v2` (risk-engine v2),
   replacing the standalone `testnet-data`/`data` and `risk-api-v2-testnet`
-  defaults (old hosts still respond; `AVANTIS_DATA_API_URL` /
-  `AVANTIS_RISK_V2_API_URL` overrides unchanged). `PairDataStream` now
+  defaults (old hosts still respond; `VERANTA_DATA_API_URL` /
+  `VERANTA_RISK_V2_API_URL` overrides unchanged). `PairDataStream` now
   re-applies the URL's path prefix via `socketio_path`, so the Socket.IO
   handshake works through the `/data` prefix. NB: prod-api routes `/risk/v2`
   but the mainnet v2 spread engine is not serving yet (5xx until the
@@ -279,7 +358,7 @@ determines how an order must route.
 
 ### Risk-engine v2 spread API (2026-08-06)
 
-Backend/UI parity audit (backend monorepo, avantis-ui-v2, avantis-cd as of
+Backend/UI parity audit (backend monorepo, avantis-ui-v2, veranta-cd as of
 2026-08-06). TWAP, off-chain TP/SL, batched-market and blitz surfaces were
 confirmed unchanged; the one drift was the spread API, which the UI switched
 on 2026-07-30 (`d5eab0c0`).
@@ -297,9 +376,9 @@ on 2026-07-30 (`d5eab0c0`).
   `spreadMechanism` (SM001–SM006), `byPass` and `flowParams`. Error
   semantics: 400 malformed, 403 blocked (roll/closed market/wallet), 404 =
   no spread computable: "do not execute", never zero.
-- New config field `risk_v2_api_url` (`AVANTIS_RISK_V2_API_URL`): testnet
-  `https://risk-api-v2-testnet.avantisfi.com` (live); mainnet defaults to
-  `https://risk-api.avantisfi.com`, which the v2 engine takes over at the
+- New config field `risk_v2_api_url` (`VERANTA_RISK_V2_API_URL`): testnet
+  `https://risk-api-v2-testnet.veranta.xyz` (live); mainnet defaults to
+  `https://risk-api.veranta.xyz`, which the v2 engine takes over at the
   cutover; until then mainnet still serves only the legacy engine, so
   `markets.dynamic_spread()` (kept, docstring marked LEGACY) remains the
   mainnet path.
@@ -316,7 +395,7 @@ on 2026-07-30 (`d5eab0c0`).
   off-chain TP/SL CRUD and blitz `/relays` all match the SDK as-is. The old
   `/v2/relay/queue` relayer was deleted server-side 2026-08-03 (the SDK
   never used it). Central `{api_base}/...` path routing lives on the
-  unmerged `avantis-cd` `ft/central-routing` branch (applied to the cluster
+  unmerged `veranta-cd` `ft/central-routing` branch (applied to the cluster
   out-of-band); per-service URL overrides keep working as the fallback.
   New core `/v2-onboarding/*` invite/whitelist endpoints exist but were not
   added (launch-window UI concern).
@@ -336,16 +415,16 @@ on 2026-07-30 (`d5eab0c0`).
 
 ### Backend alignment (2026-07-28)
 
-Aligns the SDK with the new Avantis backend topology (central routing,
+Aligns the SDK with the new Veranta backend topology (central routing,
 batched-market execution, twap-app, off-chain order CRUD).
 
 - **Central routing**: service URLs now derive from a single
-  `api_base_url` (`https://prod-api.avantisfi.com` mainnet /
-  `https://staging-api.avantisfi.com` testnet): `{base}/core`,
+  `api_base_url` (`https://prod-api.veranta.xyz` mainnet /
+  `https://staging-api.veranta.xyz` testnet): `{base}/core`,
   `{base}/twap`, `{base}/batched-market`, `{base}/blitz`. New config fields
   `api_base_url`, `twap_api_url`, `batched_market_url` with
-  `AVANTIS_API_BASE_URL` / `AVANTIS_TWAP_API_URL` /
-  `AVANTIS_BATCHED_MARKET_URL` env overrides; individual URL overrides still
+  `VERANTA_API_BASE_URL` / `VERANTA_TWAP_API_URL` /
+  `VERANTA_BATCHED_MARKET_URL` env overrides; individual URL overrides still
   win over derivation.
 - **Batched-market execution** (new `execution/batched_market.py`): market
   opens/closes/increases (10 order types) now go to
@@ -385,7 +464,7 @@ batched-market execution, twap-app, off-chain order CRUD).
   the authorization over the correct EOA protocol nonce. Delegate/API keys
   (register in the UI, export the key; the normal setup) are fresh EOAs, so
   nonce 0 is correct and no RPC is needed. Signing with the trader EOA
-  directly now requires `rpc_url` / `AVANTIS_RPC_URL` (any Base endpoint) and
+  directly now requires `rpc_url` / `VERANTA_RPC_URL` (any Base endpoint) and
   fails fast with a `ConfigError` otherwise. Found in the 2026-07-28 live
   E2E: a stale-nonce authorization is silently skipped by the protocol,
   which bricks every smart-account call for EOAs that carry a foreign
@@ -395,7 +474,7 @@ batched-market execution, twap-app, off-chain order CRUD).
 - **Docs: v1 → v2 migration section** (`docs/mintlify/migration/`, mirrored
   to the published avantis-python-sdk repo): `overview` (Aug 12 in-place
   upgrade mechanics: same proxy addresses, positions/funds carry over,
-  pause window), `sdk-migration` (TraderClient 0.x → AsyncAvantis 2.x
+  pause window), `sdk-migration` (TraderClient 0.x → AsyncVeranta 2.x
   method-by-method mapping with before/after code), and
   `direct-integrators` (contract/API-level breaking changes distilled from
   the contracts v1→v2 delta: event topic0 breaks, signed-intent write path,
@@ -440,7 +519,7 @@ batched-market execution, twap-app, off-chain order CRUD).
 ### Fixes from live testnet E2E (2026-08-11)
 
 - Testnet profile now uses the testnet feed app
-  (`feed-v3-testnet.avantisfi.com`): the fork's price aggregator only verifies
+  (`feed-v3-testnet.veranta.xyz`): the fork's price aggregator only verifies
   price updates signed by that deployment, and `markets.price` /
   `price_update_data` / `candles` were reading mainnet data.
 - `update_margin` now fetches signed price-update bytes from the configured
@@ -469,5 +548,5 @@ batched-market execution, twap-app, off-chain order CRUD).
 - Golden-vector suite covering all 17 intent types (digests computed by the
   real on-chain SignatureHelpers library; the two off-chain-verified kinds,
   TwapCancelReq and CancelOffchainOrder, by ethers TypedDataEncoder).
-- Byte-for-byte EIP-7702/Gelato encoding parity with the Avantis web app.
+- Byte-for-byte EIP-7702/Gelato encoding parity with the Veranta web app.
 - Markets models validated against a real 112-pair testnet snapshot.

@@ -1,7 +1,7 @@
 """Open a market position: the default gasless relayer route.
 
 The SDK fetches the intent from the tx-builder API, signs it locally (with a
-digest correctness check), and queues it with the Avantis relayer. No RPC, no
+digest correctness check), and queues it with the Veranta relayer. No RPC, no
 ETH needed.
 
 The order type routes from the pair: trade an Upside market (e.g.
@@ -16,7 +16,7 @@ and the terminal event, which is delivered even when the call raises.
 
 import asyncio
 
-from avantis_trader_sdk import AsyncAvantis, BatchedMarketEvent
+from veranta_sdk import AsyncVeranta, BatchedMarketEvent
 
 
 def journey(ev: BatchedMarketEvent) -> None:
@@ -26,7 +26,7 @@ def journey(ev: BatchedMarketEvent) -> None:
 
 
 async def main() -> None:
-    async with AsyncAvantis() as client:
+    async with AsyncVeranta() as client:
         receipt = await client.trade.market_open(
             "ETH/USD",
             "long",

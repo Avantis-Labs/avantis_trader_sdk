@@ -3,16 +3,16 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "avantis-trader-sdk"
-version = "2.0.2"
-description = "Python SDK for Avantis v2 — API-first perpetuals trading on Base"
+name = "veranta-sdk"
+version = "2.1.0"
+description = "Python SDK for Veranta v2 — API-first perpetuals trading on Base"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
-authors = [{ name = "Avantis Labs" }]
+authors = [{ name = "Veranta Labs" }]
 requires-python = ">=3.10"
 keywords = [
-    "avantis",
+    "veranta",
     "perpetuals",
     "perps",
     "trading",
@@ -59,16 +59,16 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://www.avantisfi.com"
-Documentation = "https://sdk.avantisfi.com"
+Homepage = "https://www.veranta.xyz"
+Documentation = "https://sdk.veranta.com"
 Source = "https://github.com/Avantis-Labs/avantis_trader_sdk"
 Changelog = "https://github.com/Avantis-Labs/avantis_trader_sdk/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
-include = ["avantis_trader_sdk*"]
+include = ["veranta_sdk*"]
 
 [tool.setuptools.package-data]
-avantis_trader_sdk = ["py.typed"]
+veranta_sdk = ["py.typed"]
 
 [tool.ruff]
 line-length = 100

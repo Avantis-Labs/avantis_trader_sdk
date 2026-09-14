@@ -1,65 +1,96 @@
 ---
-title: Delegates & API Keys
+title: Delegates and API Keys
 description: "Register trading keys that can never touch your funds."
 ---
 
-A delegate (API key) is a separate key registered to your wallet. It signs orders on your behalf; the wallet keeps the funds. This is the recommended setup for bots and agents.
+A delegate, also called an API key, is a separate key registered to your wallet. It signs orders on your behalf while the wallet keeps the funds. This is the recommended setup for bots, agents and apps.
 
-| | Trader key | Delegate / API key |
+| | Wallet key | API key |
 | --- | --- | --- |
-| Trade (open/close/TP/SL/margin/TWAP) | Yes | Yes |
-| Withdraw funds, approve USDC | Yes | **No** |
-| Add/remove delegates | Yes | **No** |
-| Referral, claims, LP vault, builder codes | Yes | **No** (caller-scoped) |
+| Trade: open, close, TP and SL, margin, TWAP | Yes | Yes |
+| Withdraw funds, approve USDC | Yes | No |
+| Add or remove delegates | Yes | No |
+| Referrals, claims, LP vault, builder code management | Yes | No, these are caller-scoped |
 
-The SDK enters delegate mode automatically when `AVANTIS_PRIVATE_KEY`'s address differs from `AVANTIS_TRADER_ADDRESS`.
+The SDK enters delegate mode automatically when the signing key's address differs from the trader address you configured.
 
-## Easiest path: the API Key Generator
+## The easy way: the API Key Generator
 
-Generate an API key on the [Avantis API Key Generator](https://delegate.avantisfi.com/); one wallet signature registers it. Then set the two env vars and trade. See [Quickstart](/quickstart).
+Generate a key on the [Veranta API Key Generator](https://delegate.veranta.xyz/). One wallet signature registers it. Set the two environment variables and trade. See the [quickstart](/quickstart).
 
-## DIY registration
+In a React app, `useSessionKey()` does the same from the browser. See [React hooks](/frontend/react#one-click-trading-with-session-keys).
 
-Register any key programmatically. The trader key signs one `DelegateReq` intent (used transiently, never stored); submission is gasless:
+## Register a key yourself
 
-```python
+You can register any key programmatically. Your wallet key signs one `DelegateReq` message, is used for that single signature and is never stored. Submission is gasless.
+
+<CodeGroup>
+
+```python Python
 import time
-from avantis_trader_sdk import AsyncAvantis, LocalSigner
+from veranta_sdk import AsyncVeranta, LocalSigner
 
-async with AsyncAvantis(private_key=DELEGATE_KEY, trader_address=WALLET) as client:
+async with AsyncVeranta(private_key=API_KEY, trader_address=WALLET) as client:
     await client.account.register_delegate(
-        delegate=LocalSigner(DELEGATE_KEY).address,
-        expiry_seconds=int(time.time()) + 60 * 60 * 24 * 90,  # ABSOLUTE unix ts, in seconds
-        trader_signer=LocalSigner(WALLET_KEY),   # transient, one signature
+        delegate=LocalSigner(API_KEY).address,
+        expiry_seconds=int(time.time()) + 90 * 24 * 3600,   # absolute unix time, in seconds
+        trader_signer=LocalSigner(WALLET_KEY),               # one signature, not stored
     )
 ```
 
+```typescript TypeScript
+import { Veranta, toSigner } from "veranta-sdk";
+
+const client = new Veranta({ privateKey: API_KEY, trader: WALLET });
+await client.account.registerDelegate(
+  toSigner(API_KEY).address,
+  Math.floor(Date.now() / 1000) + 90 * 24 * 3600,          // absolute unix time, in seconds
+  toSigner(WALLET_KEY),                                    // one signature, not stored
+);
+```
+
+</CodeGroup>
+
 <Warning>
-`expiry_seconds` is an **absolute** unix timestamp in seconds (not a
-duration, not milliseconds). The API rejects anything that isn't a future
-timestamp.
+The expiry is an **absolute** unix timestamp in seconds. It is not a duration and not milliseconds. The API rejects anything that is not a future timestamp.
 </Warning>
 
-Registration is gasless and needs no RPC: it rides the fresh delegate key's
-EIP-7702 smart account. Relayer mode only needs an `rpc_url` when you run
-the SDK with your **wallet key** as the signer; see
-[Execution modes](/advanced/execution-modes).
+Registration needs no RPC and no ETH: it rides the new key's own EIP-7702 smart account.
 
 ## Check and verify
 
-```python
+<CodeGroup>
+
+```python Python
 status = await client.account.delegation_status()
 # {"isEnabled": True, "expiry": ..., "canDelegatedAction": ..., "canSignIntents": ...}
 
-await client.account.verify_delegation()   # raises DelegationError if the key can't act
+await client.account.verify_delegation()   # raises DelegationError if the key cannot act
 ```
 
-Call `verify_delegation()` at startup for a fail-fast bot: it is a no-op when the signer is the trader itself.
+```typescript TypeScript
+const status = await client.account.delegationStatus();
+// { isEnabled: true, expiry: ..., canDelegatedAction: ..., canSignIntents: ... }
+
+await client.account.verifyDelegation();   // throws DelegationError if the key cannot act
+```
+
+</CodeGroup>
+
+Call the verify method when your bot starts so a revoked or expired key fails fast. It does nothing when the signer is the wallet itself.
 
 ## Revoke
 
-```python
-await client.account.revoke_delegate(delegate_address)   # trader key only
+<CodeGroup>
+
+```python Python
+await client.account.revoke_delegate(delegate_address)   # wallet key only
 ```
 
-Revoking kills any in-flight intents signed by that delegate. You can also revoke from the UI.
+```typescript TypeScript
+await client.account.revokeDelegate(delegateAddress);    // wallet key only
+```
+
+</CodeGroup>
+
+Revoking kills any in-flight orders signed by that key. You can also revoke from the API Key Generator.

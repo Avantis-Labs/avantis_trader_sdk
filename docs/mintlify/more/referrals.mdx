@@ -1,46 +1,73 @@
 ---
 title: Referrals
-description: "Register codes, refer traders, and claim rebates."
+description: "Register a referral code, refer traders, and claim rebates."
 ---
 
-`client.referral` manages referral codes. Referrers earn a share of referred traders' fees as claimable rebates; referred traders get a fee discount.
+Referrers earn a share of the fees paid by the traders they refer, as claimable rebates. Referred traders get a fee discount.
 
 <Warning>
-Referral actions are **caller-scoped**: they execute as the signing key's own address and cannot be routed through a delegate/API key. Use your wallet key directly.
+Referral actions are caller-scoped. They execute as the signing key's own address, so an API key cannot perform them. Use your wallet key.
 </Warning>
 
-## Register a code (as referrer)
+## Register a code (as a referrer)
 
-```python
-await client.referral.register_code_gasless("MYCODE")   # gasless, via relayer
+<CodeGroup>
+
+```python Python
+await client.referral.register_code_gasless("MYCODE")   # gasless, through the relayer
 ```
 
-`register_code("MYCODE")` is the non-gasless variant (direct calldata; you pay gas in direct mode).
+```typescript TypeScript
+await client.referral.registerCodeGasless("MYCODE");    // gasless, through the relayer
+```
 
-## Attach to a code (as trader)
+</CodeGroup>
 
-```python
+`register_code` / `registerCode` is the transaction variant for direct mode, where you pay gas.
+
+## Use a code (as a trader)
+
+<CodeGroup>
+
+```python Python
 await client.referral.set_code_gasless("FRIENDCODE")
 ```
 
+```typescript TypeScript
+await client.referral.setCodeGasless("FRIENDCODE");
+```
+
+</CodeGroup>
+
 ## Track and claim
 
-```python
+<CodeGroup>
+
+```python Python
 stats = await client.info.referral_stats(trader)
 # {"asReferrer": {"totalFees", "totalRebates", "totalTraders"}, "asTrader": {...}}
 
-await client.account.claim_rebate()      # claim accumulated rebates (referrer key)
+await client.account.claim_rebate()     # claim accumulated rebates, referrer key
 ```
 
-`client.info.referral_count(trader)` and `referred_fees(trader)` give further detail.
+```typescript TypeScript
+const stats = await client.info.referralStats(trader);
+// { asReferrer: { totalFees, totalRebates, totalTraders }, asTrader: {...} }
+
+await client.account.claimRebate();     // claim accumulated rebates, referrer key
+```
+
+</CodeGroup>
+
+`referral_count(trader)` / `referralCount(trader)` and `referred_fees(trader)` / `referredFees(trader)` give more detail.
 
 ## Code administration
 
-| Method | Purpose |
-| --- | --- |
-| `request_special_code(code)` / `cancel_request()` | Request a reserved/private code |
-| `set_code_by_owner(code, trader)` | Approve a pending private-code request (code owner) |
-| `transfer_ownership(code, new_owner)` / `accept_ownership(code)` | Two-step code transfer |
-| `relinquish_code()` | Give up an owned code |
+| Python | TypeScript | Purpose |
+| --- | --- | --- |
+| `request_special_code(code)`, `cancel_request()` | `requestSpecialCode(code)`, `cancelRequest()` | Request a reserved or private code |
+| `set_code_by_owner(code, trader)` | `setCodeByOwner(code, trader)` | Approve a pending private-code request as the code owner |
+| `transfer_ownership(code, new_owner)`, `accept_ownership(code)` | `transferOwnership(code, newOwner)`, `acceptOwnership(code)` | Two-step transfer of a code |
+| `relinquish_code()` | `relinquishCode()` | Give up a code you own |
 
-All take the usual `wait=True` and return an `ExecutionReceipt`.
+All of them return an execution receipt and accept the usual `wait` option.

@@ -1,15 +1,15 @@
-# Avantis Trader SDK v2
+# Veranta Python SDK
 
-Python SDK for [Avantis](https://www.avantisfi.com) v2, leveraged perpetuals
+Python SDK for [Veranta](https://www.veranta.xyz) v2, leveraged perpetuals
 on Base. API-first: no ABIs, no web3, no RPC required. The
-SDK signs locally and everything else comes from Avantis services.
+SDK signs locally and everything else comes from Veranta services.
 
 ```python
 import asyncio
-from avantis_trader_sdk import AsyncAvantis
+from veranta_sdk import AsyncVeranta
 
 async def main():
-    async with AsyncAvantis() as client:              # reads AVANTIS_* env vars
+    async with AsyncVeranta() as client:              # reads VERANTA_* env vars
         await client.trade.market_open("ETH/USD", "long", collateral=100, leverage=10)
         positions = await client.account.positions()
         print(positions.positions)
@@ -20,25 +20,35 @@ asyncio.run(main())
 ## Install
 
 ```bash
-pip install avantis-trader-sdk            # core
-pip install "avantis-trader-sdk[kms]"     # + AWS KMS signing
-pip install "avantis-trader-sdk[streams]" # + Socket.IO pair-data stream
+pip install veranta-sdk            # core
+pip install "veranta-sdk[kms]"     # + AWS KMS signing
+pip install "veranta-sdk[streams]" # + Socket.IO pair-data stream
 ```
 
 Python 3.10+.
 
+## Renamed from `avantis-trader-sdk`
+
+Avantis is now **Veranta** (September 14, 2026). Same protocol and contracts;
+new names: package `veranta-sdk`, import `veranta_sdk`, classes
+`AsyncVeranta` / `Veranta` / `VerantaConfig` / `VerantaError`, env vars
+`VERANTA_*`. The old package name ships one final compatibility release that
+re-exports this package, the old class names stay as deprecated aliases, and
+`AVANTIS_*` env vars are still read with a warning. Details:
+[sdk.veranta.com/migration/rename](https://sdk.veranta.com/migration/rename).
+
 ## Upgrading from v1 (0.8.x)
 
-v2 is a ground-up, **breaking** rewrite for the Avantis v2 protocol (live
+v2 is a ground-up, **breaking** rewrite for the Veranta v2 protocol (live
 August 12, 2026); the v1 `TraderClient` API is removed. Follow the
-[migration guide](https://sdk.avantisfi.com/migration/sdk-migration). Avantis
+[migration guide](https://sdk.veranta.com/migration/sdk-migration). Veranta
 v1 is superseded on-chain by the upgrade, so staying on the old SDK is only a
 stopgap; pin `avantis-trader-sdk<2` if you need time to migrate.
 
 ## Setup (default: gasless API key)
 
 1. Create an **API key** with the
-   [Avantis API Key Generator](https://delegate.avantisfi.com/).
+   [Veranta API Key Generator](https://delegate.veranta.xyz/).
    One wallet signature registers it
    as a trading delegate for your account (it can trade, but can never move
    funds to itself; payouts always go to your wallet).
@@ -46,8 +56,8 @@ stopgap; pin `avantis-trader-sdk<2` if you need time to migrate.
 3. Configure:
 
 ```bash
-export AVANTIS_PRIVATE_KEY=0x...      # the API key
-export AVANTIS_TRADER_ADDRESS=0x...   # your wallet
+export VERANTA_PRIVATE_KEY=0x...      # the API key
+export VERANTA_TRADER_ADDRESS=0x...   # your wallet
 ```
 
 (Or copy
@@ -55,7 +65,7 @@ export AVANTIS_TRADER_ADDRESS=0x...   # your wallet
 to `.env`; it documents every supported variable, including the optional
 ones.)
 
-That's it. Every action is now a signed message relayed by Avantis. No gas,
+That's it. Every action is now a signed message relayed by Veranta. No gas,
 no RPC, no ETH.
 
 ## Execution modes
@@ -64,12 +74,12 @@ Two independent axes; any combination works:
 
 | | signer = API key (delegate) | signer = trader key |
 |---|---|---|
-| **relayer** (default, gasless) | sign intents, Avantis submits | same |
+| **relayer** (default, gasless) | sign intents, Veranta submits | same |
 | **direct** (own RPC + ETH) | `delegatedAction`-wrapped txs | plain txs |
 
 ```bash
-export AVANTIS_EXECUTION=direct       # opt into self-broadcasting
-export AVANTIS_RPC_URL=https://...    # your Base RPC
+export VERANTA_EXECUTION=direct       # opt into self-broadcasting
+export VERANTA_RPC_URL=https://...    # your Base RPC
 ```
 
 Market makers can additionally use the **local intent builder**
@@ -104,7 +114,7 @@ round-trips on the hot path; see `examples/13_mm_fast_path.py`.
   submission, so encoding drift fails loudly instead of reverting on-chain.
 - The signing implementation is tested against **golden vectors computed by
   the actual on-chain hashing library** (all 17 intent types).
-- The EIP-7702 relayer envelope is byte-for-byte compatible with the Avantis
+- The EIP-7702 relayer envelope is byte-for-byte compatible with the Veranta
   web app's implementation.
 
 ## Examples
@@ -116,7 +126,7 @@ one runnable script per flow, from `01_configure_and_meta.py` to
 
 ## Errors
 
-All failures raise typed exceptions from `avantis_trader_sdk.errors`:
+All failures raise typed exceptions from `veranta_sdk.errors`:
 `ValidationError` (pre-trade checks, human-readable), `RelayError`,
 `DigestMismatchError`, `DelegationError`, `RateLimitedError`, `RpcError`, etc.
 
@@ -133,5 +143,5 @@ it expires. Keep expiries short (90 days recommended) and never commit keys.
 pip install -e ".[dev]"
 pytest            # 150+ tests incl. golden vectors and EIP-7702 parity
 ruff check .
-mypy avantis_trader_sdk
+mypy veranta_sdk
 ```

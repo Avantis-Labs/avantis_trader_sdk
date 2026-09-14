@@ -7,10 +7,10 @@ import httpx
 import pytest
 import respx
 
-from avantis_trader_sdk import AsyncAvantis
-from avantis_trader_sdk.errors import ConfigError
-from avantis_trader_sdk.intents_schema import INTENT_TYPES
 from tests.conftest import META, TEST_ADDRESS, TEST_KEY, TRADER, VECTORS, mock_data_api
+from veranta_sdk import AsyncVeranta
+from veranta_sdk.errors import ConfigError
+from veranta_sdk.intents_schema import INTENT_TYPES
 
 TXB = "https://txb.test"
 RELAYER = "https://relayer.test"
@@ -24,7 +24,7 @@ def _ok(data):
     return httpx.Response(200, json={"ok": True, "data": data})
 
 
-def _client(**kw) -> AsyncAvantis:
+def _client(**kw) -> AsyncVeranta:
     defaults = dict(
         network="testnet",
         private_key=TEST_KEY,
@@ -37,7 +37,7 @@ def _client(**kw) -> AsyncAvantis:
         relay_poll_interval_s=0.01,
     )
     defaults.update(kw)
-    return AsyncAvantis(**defaults)
+    return AsyncVeranta(**defaults)
 
 
 def _mock_read_rpc():
@@ -172,7 +172,7 @@ async def test_offchain_partial_tpsl_cancel_signs_entity_id():
     recovered = Account._recover_hash(
         golden["digest"], signature=bytes.fromhex(body["signedMessage"][2:])
     )
-    from avantis_trader_sdk.signing import LocalSigner
+    from veranta_sdk.signing import LocalSigner
 
     assert recovered.lower() == LocalSigner(TEST_KEY).address.lower()
 
@@ -231,7 +231,7 @@ async def test_update_tp_sl_puts_signed_intent_to_price_triggers():
 @pytest.mark.asyncio
 @respx.mock
 async def test_update_tp_sl_requires_an_open_position():
-    from avantis_trader_sdk.errors import ValidationError
+    from veranta_sdk.errors import ValidationError
 
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
     mock_data_api(DATA)
@@ -446,7 +446,7 @@ async def test_direct_route_via_rpc():
 @pytest.mark.asyncio
 @respx.mock
 async def test_register_delegate_flow():
-    from avantis_trader_sdk.signing import LocalSigner
+    from veranta_sdk.signing import LocalSigner
 
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
     payload = _vector_payload("DelegateReq", signerRule="trader-only")

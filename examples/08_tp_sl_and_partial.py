@@ -2,7 +2,7 @@
 
 - Full (global) TP/SL update is intent-only in v2 (no public contract entry
   point): the SDK signs an UpdateTpSlReq and submits it to the core API
-  price-triggers endpoint, which executes it through the Avantis operator
+  price-triggers endpoint, which executes it through the Veranta operator
   (the same path in relayer and direct mode). None keeps a leg, 0 clears it
   (a TP of 0 resets to the pair's max-gain cap; a position always has a TP).
 - Partial TP/SL are trigger orders stored with the operator (off-chain) and
@@ -11,11 +11,11 @@
 
 import asyncio
 
-from avantis_trader_sdk import AsyncAvantis
+from veranta_sdk import AsyncVeranta
 
 
 async def main() -> None:
-    async with AsyncAvantis() as client:
+    async with AsyncVeranta() as client:
         data = await client.account.positions()
         pos = data.positions[0]
 

@@ -28,13 +28,13 @@ Prices are always caller-supplied; there is no feed lookup locally.
 
 import asyncio
 
-from avantis_trader_sdk import AsyncAvantis
-from avantis_trader_sdk.errors import RelayError
-from avantis_trader_sdk.types import AggregatorOrderType
+from veranta_sdk import AsyncVeranta
+from veranta_sdk.errors import RelayError
+from veranta_sdk.types import AggregatorOrderType
 
 
 async def main() -> None:
-    async with AsyncAvantis() as client:
+    async with AsyncVeranta() as client:
         builder = await client.local_intents()   # one-time meta bootstrap
         engine = client.engine
         eth = await client.markets.pair("ETH/USD")

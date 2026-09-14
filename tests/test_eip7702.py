@@ -8,9 +8,9 @@ the actual Gelato SDK from avantis-ui-v2's node_modules.
 import json
 from pathlib import Path
 
-from avantis_trader_sdk.eip7702 import Call, GelatoDelegationEncoder, encode_nonce
-from avantis_trader_sdk.eip7702.account import delegation_code
-from avantis_trader_sdk.signing import LocalSigner
+from veranta_sdk.eip7702 import Call, GelatoDelegationEncoder, encode_nonce
+from veranta_sdk.eip7702.account import delegation_code
+from veranta_sdk.signing import LocalSigner
 
 REF = json.loads((Path(__file__).parent / "vectors" / "eip7702_reference.json").read_text())
 
@@ -58,12 +58,13 @@ def test_build_type4_shape():
     assert auth["v"] == auth["yParity"] + 27
 
 
-def test_builder_code_suffix_appended():
-    enc = _encoder()
-    enc.builder_code = "0x" + "ab" * 32
-    data = enc.encode_call_data(_calls(), int(REF["nonce"]))
-    assert data.hex().endswith("ab" * 32)
-    assert "0x" + data[:-32].hex() == REF["encodeCallData"].lower()
+def test_execute_envelope_carries_no_builder_suffix():
+    """Builder params live on the INNER trading calldata (appended by the
+    tx-builder as ``code || rate || 0x9481c2bc``), never on the outer
+    ``execute()`` envelope: the encoder output must stay byte-identical to
+    the Gelato reference."""
+    data = _encoder().encode_call_data(_calls(), int(REF["nonce"]))
+    assert "0x" + data.hex() == REF["encodeCallData"].lower()
 
 
 def test_encode_nonce_scheme():

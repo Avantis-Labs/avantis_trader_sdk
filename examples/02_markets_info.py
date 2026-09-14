@@ -2,11 +2,11 @@
 
 import asyncio
 
-from avantis_trader_sdk import AsyncAvantis
+from veranta_sdk import AsyncVeranta
 
 
 async def main() -> None:
-    async with AsyncAvantis() as client:
+    async with AsyncVeranta() as client:
         eth = await client.markets.pair("ETH/USD")
         print(f"{eth.symbol} (pair {eth.index})")
         print("  leverage:", eth.leverages.min_leverage, "-", eth.leverages.max_leverage, "x")

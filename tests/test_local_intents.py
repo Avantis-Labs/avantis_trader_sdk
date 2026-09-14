@@ -7,10 +7,10 @@ from pathlib import Path
 
 import pytest
 
-from avantis_trader_sdk.execution.local_intents import LocalIntentBuilder, NoncePool
-from avantis_trader_sdk.intents_schema import INTENT_TYPES
-from avantis_trader_sdk.signing import LocalSigner, sign_intent
 from tests.conftest import TEST_KEY, VECTORS
+from veranta_sdk.execution.local_intents import LocalIntentBuilder, NoncePool
+from veranta_sdk.intents_schema import INTENT_TYPES
+from veranta_sdk.signing import LocalSigner, sign_intent
 
 ENC_REF = json.loads(
     (Path(__file__).parent / "vectors" / "intent_encoding_reference.json").read_text()
@@ -351,7 +351,7 @@ def test_referral_helpers():
 
 
 def test_referral_helpers_require_referral_address():
-    from avantis_trader_sdk.errors import ConfigError
+    from veranta_sdk.errors import ConfigError
 
     domain = VECTORS["domain"]
     b = LocalIntentBuilder(
@@ -364,7 +364,7 @@ def test_referral_helpers_require_referral_address():
 
 
 def test_code_bytes32_validation():
-    from avantis_trader_sdk.execution.local_intents import _code_bytes32
+    from veranta_sdk.execution.local_intents import _code_bytes32
 
     with pytest.raises(ValueError, match="at most 32 bytes"):
         _code_bytes32("x" * 33)

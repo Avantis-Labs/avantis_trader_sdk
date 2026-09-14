@@ -1,0 +1,114 @@
+---
+title: Signers
+description: "Private keys, AWS KMS, browser wallets and custom signers. Where your keys live and how the SDK uses them."
+---
+
+The SDK never sends a private key anywhere. It asks a **signer** for signatures: over order intents (EIP-712), over transactions (direct mode), and over EIP-7702 authorizations (relayer passthroughs). You choose where that key lives.
+
+## Private key
+
+The default. Set `VERANTA_PRIVATE_KEY` or pass the key to the constructor. Use an API key from the [Veranta API Key Generator](https://delegate.veranta.xyz/) rather than your wallet key.
+
+<CodeGroup>
+
+```python Python
+client = AsyncVeranta(private_key="0x...", trader_address="0x...")
+```
+
+```typescript TypeScript
+const client = new Veranta({ privateKey: "0x...", trader: "0x..." });
+```
+
+</CodeGroup>
+
+## AWS KMS
+
+Keep the key inside AWS KMS and let KMS sign each hash. The key never leaves KMS. Create a key with spec `ECC_SECG_P256K1` and usage `SIGN_VERIFY`, then:
+
+<CodeGroup>
+
+```python Python
+# pip install "veranta-sdk[kms]"
+from veranta_sdk import AsyncVeranta
+from veranta_sdk.signing import KmsSigner
+
+signer = KmsSigner("alias/veranta-agent", region_name="us-east-1")
+client = AsyncVeranta(signer=signer)          # the KMS key is the trader
+```
+
+```typescript TypeScript
+// npm i @aws-sdk/client-kms   (Node only)
+import { Veranta } from "veranta-sdk";
+import { KmsSigner } from "veranta-sdk/kms";
+
+const signer = await KmsSigner.create({ keyId: "alias/veranta-agent", region: "us-east-1" });
+const client = new Veranta({ signer });        // the KMS key is the trader
+```
+
+</CodeGroup>
+
+Both signers resolve the key's address from the KMS public key and sign intents, transactions and EIP-7702 authorizations through KMS. Credentials come from the usual AWS sources: environment, shared profile or IAM role. In TypeScript you can also pass a preconfigured `client` for custom endpoints, and `kmsAccount()` returns a plain viem account if you want to use the KMS key elsewhere.
+
+<Note>
+`veranta-sdk/kms` is a separate entry point so browser bundles never include the AWS SDK. The KMS key can be the trader itself or a registered delegate.
+</Note>
+
+## Browser wallets (TypeScript)
+
+Pass a wagmi `WalletClient` as the signer. Order intents are signed with the wallet's normal typed-data popup. Browser wallets cannot sign EIP-7702 authorizations, so passthrough actions fall back to regular wallet transactions. For popup-free trading, use a [session key](/frontend/react#one-click-trading-with-session-keys).
+
+```typescript
+import { useWalletClient } from "wagmi";
+
+const { data: walletClient } = useWalletClient();
+const client = new Veranta({ signer: walletClient, network: "mainnet" });
+```
+
+## Any viem account (TypeScript)
+
+Anything viem considers a local account works: mnemonic accounts, hardware wallet adapters, or a `toAccount()` you built yourself.
+
+```typescript
+import { mnemonicToAccount } from "viem/accounts";
+
+const account = mnemonicToAccount("test test test test test test test test test test test junk");
+const client = new Veranta({ signer: account });
+```
+
+## Custom signers
+
+Implement the small signer interface to plug in an HSM, a remote signing service or anything else.
+
+<CodeGroup>
+
+```python Python
+from veranta_sdk import BaseSigner
+
+class MySigner(BaseSigner):
+    @property
+    def address(self) -> str: ...
+    def sign_typed_data(self, full_message: dict) -> tuple[bytes, bytes]: ...   # (signature, hash)
+    def sign_transaction(self, tx: dict) -> tuple[bytes, str]: ...            # (raw tx, tx hash)
+    def sign_authorization(self, chain_id: int, address: str, nonce: int) -> dict: ...
+
+client = AsyncVeranta(signer=MySigner())
+```
+
+```typescript TypeScript
+import type { VerantaSigner } from "veranta-sdk";
+
+const signer: VerantaSigner = {
+  address: "0x...",
+  canSignAuthorization: true,     // false for signers that cannot do EIP-7702
+  canSendTransaction: false,      // true only for wallets that broadcast themselves
+  signTypedData: async (payload) => "0x...",
+  signAuthorization: async ({ chainId, address, nonce }) => ({ address, chainId, nonce, r: "0x...", s: "0x...", yParity: 0 }),
+  signTransaction: async (tx) => "0x...",
+  sendTransaction: async () => { throw new Error("not supported"); },
+};
+const client = new Veranta({ signer });
+```
+
+</CodeGroup>
+
+The Python KMS signer in the SDK source is a complete, readable example of the interface.

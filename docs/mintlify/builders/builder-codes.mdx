@@ -1,132 +1,181 @@
 ---
 title: Builder Codes
-description: "Register a builder code and earn a per-trade fee on the order flow your integration routes to Avantis."
+description: "Register a builder code, choose a fee per order, and earn on the order flow your app routes to Veranta."
 ---
 
-A builder code is an on-chain fee configuration in the Avantis **BuilderCode registry**. Trades attached to your code charge a fee, either a percentage of the trade's collateral or a fixed USDC amount per trade, paid by the trader directly to your fee collector address on top of the trade's collateral. You own the code with the wallet that registers it and can change the fee parameters at any time.
+A builder code is your app's on-chain identity in the Veranta BuilderCode registry. It carries your fee collector address and three public **fee caps**. Your app then picks the actual fee **per order**, anywhere up to the matching cap. Fees are a percent of the order's notional (collateral times leverage), paid in USDC by the trader to your collector. Only the audited registry contract can pull them, never your wallet and never your users' API keys.
 
-There are two ways to manage codes: the SDK (this page) or the no-code card in the [Avantis API Key Generator](https://delegate.avantisfi.com/).
+You can manage codes with either SDK, or with the no-code card in the [Veranta API Key Generator](https://delegate.veranta.xyz/).
 
 <Warning>
-Registering or updating a code needs the owner wallet itself: the wallet that signs `register_builder_code` becomes the code owner, and a delegate/API key cannot do it for you. This restriction only applies to managing the code. **Trading is unaffected**: your users (and you) trade through delegate/API keys as usual, with your builder code attached.
+Registering or updating a code needs the owner wallet itself. The wallet that signs `register_builder_code` / `registerBuilderCode` becomes the code owner, and an API key cannot do it. This restriction only applies to managing the code. Trading is unaffected: your users trade through API keys as usual, with your code attached.
 </Warning>
 
 ## How fees work
 
-- **Two fee modes.** Percent of the trade's collateral (`fee_percent`, `1 = 1%`) or a fixed USDC amount per trade (`fixed_fee_usdc`).
-- **Charged on top of the collateral.** The fee never comes out of the trade's collateral or margin. It is a separate USDC transfer from the trader's wallet to your `fee_collector`, made in the same transaction as the trade. Example: a 100 USDC trade with a 0.05% fee sends 100 USDC of collateral to the protocol and an extra 0.05 USDC to your collector, so 100.05 USDC leaves the trader's wallet. Every charge emits a `BuilderFeesCharged` event.
-- **Live config.** The fee parameters are read from the registry at trade time, so `modify_builder_code(...)` takes effect immediately for all future trades.
-- **Protocol caps.** Registration and updates revert above the protocol maximums, currently 1% of collateral and 10 USDC per trade. Read them (and a code's current config) with `builder_code(...)`.
+- **Fee equals notional times rate.** Notional is collateral times leverage. For coin-sized orders it is coin size times price. Rates are plain percents: `0.05` means 0.05% per order.
+- **You pick the rate per order**, up to the matching cap. `0` is allowed, which attaches your code for attribution without charging anything. Leaving the builder settings out entirely also charges nothing.
+- **Three caps, public on-chain.** One for opens and increases, one for closes, and one for closes on Upside (PnL) pairs. A cap of `0` disables fees on that side. Every cap is bounded by a governance ceiling, currently 1% of notional.
+- **Upside pairs never pay open fees.** The contract demands a zero rate on their opens and increases, and the SDK sets it for you.
+- **Charged at placement, atomically.** The fee moves in the same transaction that places the market order. If the order later fails to fill, the fee is not refunded. If the placement itself reverts, no fee is taken.
+- **Every charge emits `BuilderFeesCharged`** with the order id, pair, trade index, notional, rate, fee and side, so reconciliation is straightforward.
 
-### What the trader needs
+### What your traders need
 
-- **USDC balance** covering the collateral plus the fee.
-- **Trading from their own wallet**: no extra approval. The fee moves straight from the trader's wallet balance.
-- **Trading through a delegate/API key**: the fee is pulled with `transferFrom`, so the trader needs a USDC allowance for the delegate wallet address. The standard TradingStorage approval covers collateral only; without the extra allowance the whole trade reverts with `FEE_TRANSFER_FAILED`. Setting up this approval in your user onboarding is part of the template wiring with the Avantis team.
+Two USDC approvals, both to audited protocol contracts:
 
-### Fee-eligible actions
+1. **TradingStorage**, for trade collateral. This is the normal trading approval.
+2. **The BuilderCode registry**, for your fees.
 
-Fees are charged on the actions that open or add exposure, at placement time (for limit and TWAP orders that means when the order is placed, not when it fills). Closes, cancels, margin updates, and TP/SL changes never charge a builder fee.
+<CodeGroup>
 
-| Action | SDK methods | Builder fee |
-| --- | --- | --- |
-| Market open | `trade.market_open`, `trade.market_open_coin` | Yes |
-| Limit-order placement | `trade.limit_open` | Yes |
-| Position increase | `trade.increase_position`, `trade.increase_position_coin` | Yes |
-| TWAP open | `trade.twap_open` | Yes |
-| Close / cancel / margin / TP-SL | everything else | No |
+```python Python
+await client.account.approve_usdc()             # collateral -> TradingStorage
+await client.account.approve_builder_fees()     # fees -> BuilderCode registry (unlimited)
+await client.account.approve_builder_fees(100)  # or a fixed amount
+info = await client.account.builder_fee_allowance()
+```
+
+```typescript TypeScript
+await client.account.approveUsdc();             // collateral -> TradingStorage
+await client.account.approveBuilderFees();      // fees -> BuilderCode registry (unlimited)
+await client.account.approveBuilderFees(100);   // or a fixed amount
+const info = await client.account.builderFeeAllowance();
+```
+
+</CodeGroup>
+
+Traders must never approve your app's wallet or their own API key. Allowances go down as fees are charged, even "unlimited" ones, so long-running integrations should watch `builder_fee_allowance()` / `builderFeeAllowance()` and re-approve when it runs low. In React, `useApproveBuilderFees()` and `useBuilderFeeAllowance()` do the same from the connected wallet.
+
+### Which actions charge a fee
+
+Builder fees apply to the market actions that create a pending market order. Limit and stop orders, TWAP, RFQ, cancels, margin changes and TP/SL changes never charge one.
+
+| Action | Python | TypeScript | Cap that applies |
+| --- | --- | --- | --- |
+| Market open | `market_open`, `market_open_coin` | `marketOpen`, `marketOpenCoin` | open cap |
+| Position increase | `increase_position`, `increase_position_coin` | `increasePosition`, `increasePositionCoin` | open cap |
+| Market close | `market_close`, `market_close_coin` | `marketClose`, `marketCloseCoin` | close cap, or the PnL close cap on Upside pairs |
+| Everything else | | | no fee |
 
 ## Check a code
 
-Look a code up before registering: `registered: False` means it's free to claim. The response also carries the protocol caps:
+Look a code up before registering it. `registered: false` means it is free to claim. The response also carries the caps and the governance ceiling.
 
-```python
+<CodeGroup>
+
+```python Python
 info = await client.account.builder_code("MYAPP")
-# {
-#   "code": "0x4d59415050...0000",  # normalized 32-byte form
-#   "registered": False,
-#   "owner": None, "feeCollector": None,
-#   "isPercentFee": False, "feePercentHuman": 0, "fixedFeeUsdc": 0,
-#   "maxFeePercentHuman": 1,        # protocol caps
-#   "maxFixedFeeUsdc": 10,
-# }
+# {"code": "0x4d59415050...", "registered": False, "owner": None, "feeCollector": None,
+#  "maxOpenFeePercent": 0, "maxCloseFeePercent": 0, "maxPnlCloseFeePercent": 0,
+#  "globalCapPercent": 1}
 ```
 
-Codes are `bytes32` on-chain; pass a plain string of 1-31 characters (right-padded, like referral codes) or a 32-byte `0x` hex value.
+```typescript TypeScript
+const info = await client.account.builderCode("MYAPP");
+// { code: "0x4d59415050...", registered: false, owner: null, feeCollector: null,
+//   maxOpenFeePercent: 0, maxCloseFeePercent: 0, maxPnlCloseFeePercent: 0,
+//   globalCapPercent: 1 }
+```
+
+</CodeGroup>
+
+Codes are 32 bytes on-chain. Pass a plain string of 1 to 31 characters, or a 32-byte hex value.
 
 ## Register a code
 
-```python
+<CodeGroup>
+
+```python Python
 await client.account.register_builder_code(
     "MYAPP",
-    fee_collector="0x...",        # receives the fees (defaults make sense: your own wallet)
-    is_percent_fee=True,
-    fee_percent=0.05,             # 0.05% of each trade's collateral (1 = 1%)
+    fee_collector="0x...",            # receives the fees; your own wallet works
+    max_open_fee_percent=0.1,         # cap on per-order open and increase rates
+    max_close_fee_percent=0.05,       # cap on per-order close rates
+    max_pnl_close_fee_percent=0.05,   # cap for closes on Upside pairs
 )
 ```
 
-For a flat fee instead:
-
-```python
-await client.account.register_builder_code(
-    "MYAPP",
-    fee_collector="0x...",
-    is_percent_fee=False,
-    fixed_fee_usdc=0.25,          # 0.25 USDC per trade
-)
+```typescript TypeScript
+await client.account.registerBuilderCode("MYAPP", {
+  feeCollector: "0x...",            // receives the fees; your own wallet works
+  maxOpenFeePercent: 0.1,           // cap on per-order open and increase rates
+  maxCloseFeePercent: 0.05,         // cap on per-order close rates
+  maxPnlCloseFeePercent: 0.05,      // cap for closes on Upside pairs
+});
 ```
 
-The registering wallet becomes the code owner. Registration reverts with `BUILDER_CODE_ALREADY_REGISTERED` if the code is taken, and with `FEE_PERCENT_TOO_HIGH` / `FIXED_FEE_TOO_HIGH` above the caps.
+</CodeGroup>
+
+The registering wallet becomes the owner. Registration reverts with `BUILDER_CODE_ALREADY_REGISTERED` if the code is taken, and with `FEE_RATE_TOO_HIGH` above the governance ceiling. Users see your caps before they approve, so lower caps are an easier sell.
 
 ## Update a code
 
-`modify_builder_code(...)` takes the same parameters and is owner-only. Changes apply to all future trades immediately:
-
-```python
-await client.account.modify_builder_code(
-    "MYAPP",
-    fee_collector="0x...",        # can also re-point the collector
-    is_percent_fee=False,
-    fixed_fee_usdc=0.25,
-)
-```
+`modify_builder_code` / `modifyBuilderCode` takes the same parameters and is owner-only. Changes apply to all future orders right away.
 
 ## Attach your code to your users' trades
 
-Fees are charged by the Avantis EIP-7702 delegation template that executes a trade: a **builder-specific template** carries your code and verifies it against the registry on every fee-eligible call. Wiring your registered code into a template for your order flow is coordinated with the Avantis team, so reach out once your code is registered.
+Configure the code plus a default rate on the client, and override the rate per order when you want to.
 
-Independently of fees, set `builder_code` in the [configuration](/configuration) to tag your order flow: the SDK appends the 32-byte value as a calldata suffix to every EIP-7702 transaction it builds (market opens/closes/increases and all relayer-passthrough actions), which Avantis uses for order-flow attribution:
+<CodeGroup>
 
-```python
-info = await client.account.builder_code("MYAPP")
-
-client = AsyncAvantis(
-    private_key="0x...",              # your user's delegate/API key
-    trader_address="0x...",           # your user's wallet
-    builder_code=info["code"],        # normalized 32-byte value from the lookup
+```python Python
+client = AsyncVeranta(
+    private_key="0x...",          # your user's API key
+    trader_address="0x...",       # your user's wallet
+    builder_code="MYAPP",
+    builder_fee_percent=0.05,     # default rate, percent of notional
 )
+
 await client.trade.market_open("ETH/USD", "long", collateral=100, leverage=10)
+# 100 x 10 = 1,000 notional -> 0.5 USDC to your collector at 0.05%
+
+await client.trade.market_close("ETH/USD", 0, collateral_to_close=100,
+                                builder_fee_percent=0.02)   # per-order override
 ```
 
-Notes on coverage:
+```typescript TypeScript
+const client = new Veranta({
+  privateKey: "0x...",          // your user's API key
+  trader: "0x...",              // your user's wallet
+  builderCode: "MYAPP",
+  builderFeePercent: 0.05,      // default rate, percent of notional
+});
 
-- The suffix rides on every transaction the SDK signs and relays itself (the EIP-7702 route). Intent-only paths that Avantis executes server-side (TWAP intents, the [market-maker fast path](/advanced/mm-fast-path), and global TP/SL triggers) carry no SDK-built calldata.
-- In [direct mode](/advanced/execution-modes) the SDK broadcasts plain transactions from the trader's wallet, which bypasses the delegation template, so no builder fee is charged on those trades.
+await client.trade.marketOpen("ETH/USD", "long", { collateral: 100, leverage: 10 });
+// 100 x 10 = 1,000 notional -> 0.5 USDC to your collector at 0.05%
+
+await client.trade.marketClose("ETH/USD", 0, { collateralToClose: 100, builderFeePercent: 0.02 }); // per-order override
+```
+
+</CodeGroup>
+
+Under the hood the tx-builder appends a signed suffix (`builderCode || feeRate || 0x9481c2bc`) to the trading calldata. The canonical Veranta EIP-7702 template reads it, executes the trade, and charges the fee against the exact order it just placed. There is nothing to deploy and nothing to wire up.
+
+How builder orders route:
+
+- They relay through the blitz passthrough so the fee-charging template always runs. You get a normal receipt but **no lifecycle stream**: `on_event` / `onEvent` does not fire. Confirm fills with [positions](/account/positions).
+- They need a signer that can sign EIP-7702 authorizations: a private key or a session key. Direct mode is refused, and so are browser wallets without a session key, with a clear `ConfigError` instead of a silently fee-less order.
+- Rates above your cap fail fast at the API and revert on-chain with `FEE_RATE_TOO_HIGH`.
+- Paths that never build calldata charge nothing: TWAP, the market-maker fast path and TP/SL triggers.
+
+In React, the trading mutations accept `builderFeePercent`, and `useRegisterBuilderCode`, `useModifyBuilderCode` and `useBuilderCodeInfo` cover the owner side.
 
 ## Track your revenue
 
-Every charge emits `BuilderFeesCharged(trader, feeCollector, builderCode, fee)`. Like all EIP-7702 activity, the event is emitted **from the trader's EOA**, so filter logs by topic across all addresses rather than by a fixed contract address (see [events for indexers](/migration/direct-integrators#indexers-event-migration)). `RegisteredBuilderCode` and `ModifiedBuilderCode` fire on registry changes.
+Every charge emits `BuilderFeesCharged(trader, builderCode, feeCollector, orderId, pairIndex, tradeIndex, notional, feeRate, fee, isOpen)` from the registry. Filter by your code, which is indexed, and reconcile by `orderId`. `RegisteredBuilderCode` and `ModifiedBuilderCode` fire on registry changes.
 
-## API endpoints
+## HTTP endpoints
 
-If you integrate against the HTTP API directly instead of the SDK, the tx-builder exposes a Builder Codes group in the [API reference](/api-reference/overview):
+If you integrate against the API directly, the tx-builder exposes a Builder Codes group in the [API reference](/api-reference/overview):
 
 | Endpoint | Purpose |
 | --- | --- |
-| `GET /v2/builder-code` | Look up a code: owner, fee config, caps |
+| `GET /v2/builder-code` | Look up a code: owner, collector, the three caps, the governance ceiling |
 | `POST /v2/misc/builder-code/register` | Build the registration transaction |
-| `POST /v2/misc/builder-code/modify` | Build the update transaction (owner only) |
+| `POST /v2/misc/builder-code/modify` | Build the update transaction, owner only |
+| `POST /v2/trade/open` and friends | Pass `builderCode` and `builderFeeRate` to get suffix-tagged calldata |
 
-The registry contract address is in `GET /addresses` under `builderCode`.
+The registry address is in `GET /v2/meta` under `addresses.builderCode`, and the canonical EIP-7702 template under `addresses.delegationTemplate`.
 
-Runnable script: [`examples/20_builder_code.py`](https://github.com/Avantis-Labs/avantis_trader_sdk/blob/main/examples/20_builder_code.py).
+Runnable scripts: [Python](https://github.com/Avantis-Labs/avantis_trader_sdk/blob/main/examples/20_builder_code.py) and [TypeScript](https://github.com/Avantis-Labs/avantis-sdk/blob/main/examples/20_builder_code.ts).

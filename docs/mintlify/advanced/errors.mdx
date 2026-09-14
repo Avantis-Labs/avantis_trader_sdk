@@ -1,44 +1,64 @@
 ---
 title: Errors
-description: "Typed exception taxonomy: catch precisely, retry safely."
+description: "Every failure is a typed error with the same name in Python and TypeScript. Catch precisely, retry safely."
 ---
 
-Every failure raises a typed exception from `avantis_trader_sdk.errors`, all descending from `AvantisError`.
+Both SDKs raise typed errors. Python exceptions live in `veranta_sdk.errors`; TypeScript classes are exported from `veranta-sdk`. The names match, so the table below applies to both.
 
-```python
-from avantis_trader_sdk.errors import ValidationError, RelayTimeoutError
+<CodeGroup>
+
+```python Python
+from veranta_sdk.errors import RelayTimeoutError, ValidationError
 
 try:
     await client.trade.market_open("ETH/USD", "long", collateral=100, leverage=10)
 except ValidationError as e:
-    print("rejected:", e.code, e.details)     # fix the order, don't retry as-is
+    print("rejected:", e.code, e.details)   # fix the order; do not retry as-is
 except RelayTimeoutError:
-    ...                                        # poll positions before resubmitting
+    ...                                      # check positions before resubmitting
 ```
 
-## Hierarchy
+```typescript TypeScript
+import { RelayTimeoutError, ValidationError } from "veranta-sdk";
 
-| Exception | Raised when | Retry? |
+try {
+  await client.trade.marketOpen("ETH/USD", "long", { collateral: 100, leverage: 10 });
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.log("rejected:", error.code, error.details); // fix the order; do not retry as-is
+  } else if (error instanceof RelayTimeoutError) {
+    // check positions before resubmitting
+  } else throw error;
+}
+```
+
+</CodeGroup>
+
+## The error types
+
+| Error | When it happens | Should you retry? |
 | --- | --- | --- |
-| `ConfigError` | Missing/invalid configuration (no key, unknown option) | No, fix config |
-| `ApiError` | An Avantis API returned an error envelope (`.code`, `.status`, `.details`, `.url`) | Depends on subclass |
-| &nbsp;&nbsp;`ValidationError` | 400: pre-trade validation or bad request shape | No, fix the order |
-| &nbsp;&nbsp;`SimulationFailedError` | Relay simulation reverted (`.details` may carry the decoded revert) | Usually stale state; re-fetch positions first |
-| &nbsp;&nbsp;`RateLimitedError` | 429 | Yes, with backoff |
-| &nbsp;&nbsp;`GeoRestrictedError` | 451 | No |
-| &nbsp;&nbsp;`UpstreamError` | 502: upstream RPC/API failure on the server side | Yes, with backoff |
-| `SigningError` | Local signing failure | No |
-| &nbsp;&nbsp;`DigestMismatchError` | Local EIP-712 digest ≠ API digest | **Never** (see below) |
-| `RelayError` | Relayer rejected/failed the request (`.request_id`), or the batched-market service declined the fill (`MarketOrderCanceled`, e.g. slippage) or failed it (terminal `Error`; `.code` carries the machine-readable reason: a contract error name like `WrongSl` or a service code like `ATTEMPTS_EXHAUSTED`) | Branch on `.code`; treat unknown codes as generic failures |
-| &nbsp;&nbsp;`RelayTimeoutError` | Not settled within `relay_poll_timeout_s` | Check positions first; it may still land |
-| `RpcError` | JSON-RPC failure in direct mode (`.code`, `.data`) | Depends on code |
-| `TransactionRevertedError` | Transaction mined but reverted (`.tx_hash`) | Inspect on-chain |
-| `DelegationError` | Delegate missing, disabled, or expired | Re-register the delegate |
+| `ConfigError` | Missing or invalid configuration: no key, unknown option, builder params in direct mode | No. Fix the configuration |
+| `ApiError` | A Veranta API returned an error envelope. Fields: `code`, `status`, `details`, `url` | Depends on the subclass |
+| `ValidationError` | 400. Pre-trade validation failed or the request shape was wrong | No. Fix the order |
+| `SimulationFailedError` | The relay simulation reverted. `details` may carry the decoded revert | Usually stale state. Re-fetch positions first |
+| `RateLimitedError` | 429 | Yes, with backoff |
+| `GeoRestrictedError` | 451 | No |
+| `UpstreamError` | 502. An RPC or upstream API failed on the server side | Yes, with backoff |
+| `SigningError` | Local signing failed | No |
+| `DigestMismatchError` | The local EIP-712 hash differs from the one the API reported | Never. See below |
+| `RelayError` | The relayer rejected or failed the request, or the batched-market service declined the fill. `code` carries the machine-readable reason, such as the contract error `WrongSl` or the service code `ATTEMPTS_EXHAUSTED` | Branch on `code` |
+| `RelayTimeoutError` | The order did not settle within the poll timeout | Check positions first. It may still land |
+| `RpcError` | A JSON-RPC call failed in direct mode | Depends on the code |
+| `TransactionRevertedError` | The transaction was mined but reverted. Carries `tx_hash` / `txHash` | Inspect on-chain |
+| `DelegationError` | The API key is missing, disabled or expired | Register the key again |
+
+`RelayTimeoutError` and `TransactionRevertedError` extend `RelayError` and `VerantaError` respectively; everything extends `VerantaError`, so one catch-all is possible.
 
 <Warning>
-`DigestMismatchError` means the SDK's local encoding disagrees with the API, either encoding drift or a tampered response. Nothing was signed or submitted. Do not work around it; upgrade the SDK or report the issue.
+`DigestMismatchError` means the SDK's local encoding disagrees with the API. Either the encoding drifted or a response was tampered with. Nothing was signed or submitted. Do not work around it. Upgrade the SDK or report the issue.
 </Warning>
 
 <Note>
-On `RelayTimeoutError`, the order may still settle after the polling window. Check `client.account.positions()` before resubmitting, or you may end up with a double fill.
+After a `RelayTimeoutError` the order may still settle. Read `positions()` before you resubmit, or you may end up with two positions.
 </Note>

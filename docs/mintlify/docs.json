@@ -1,7 +1,7 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Avantis Python SDK",
+  "name": "Veranta SDK",
   "colors": {
     "primary": "#7D17FF",
     "light": "#B84FF3",
@@ -13,29 +13,21 @@
     "dark": "/logo/dark.svg"
   },
   "banner": {
-    "content": "Avantis v2 is live as of **August 12, 2026**. Migrating from v1? Read the [migration guide](/migration/overview).",
+    "content": "**Avantis is now Veranta.** Same protocol, contracts and API keys. Packages are `veranta-sdk` on PyPI and npm, env vars are `VERANTA_*`, and the old names keep working for now. [What changed](/migration/rename)",
     "dismissible": true
   },
   "navigation": {
     "tabs": [
       {
-        "tab": "Python SDK",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting Started",
+            "group": "Getting started",
             "pages": [
               "index",
               "quickstart",
               "configuration",
               "concepts"
-            ]
-          },
-          {
-            "group": "Migrating from v1",
-            "pages": [
-              "migration/overview",
-              "migration/sdk-migration",
-              "migration/direct-integrators"
             ]
           },
           {
@@ -49,7 +41,7 @@
             ]
           },
           {
-            "group": "Account & Portfolio",
+            "group": "Account",
             "pages": [
               "account/positions",
               "account/portfolio",
@@ -58,23 +50,29 @@
             ]
           },
           {
-            "group": "Data & Compute",
+            "group": "Market data",
             "pages": [
               "data/markets",
-              "data/socket-io",
               "data/prices-and-streams",
+              "data/socket-io",
               "data/compute"
             ]
           },
           {
-            "group": "Earn & Grow",
+            "group": "Frontend",
+            "pages": [
+              "frontend/react"
+            ]
+          },
+          {
+            "group": "Earn and grow",
             "pages": [
               "more/lp-vault",
               "more/referrals"
             ]
           },
           {
-            "group": "For Builders",
+            "group": "For builders",
             "pages": [
               "builders/builder-codes"
             ]
@@ -84,8 +82,18 @@
             "pages": [
               "advanced/execution-modes",
               "advanced/mm-fast-path",
+              "advanced/signers",
               "advanced/security",
               "advanced/errors"
+            ]
+          },
+          {
+            "group": "Migrating",
+            "pages": [
+              "migration/rename",
+              "migration/overview",
+              "migration/sdk-migration",
+              "migration/direct-integrators"
             ]
           }
         ]
@@ -101,7 +109,7 @@
           },
           {
             "group": "Meta",
-            "openapi": "https://tx-builder.avantisfi.com/openapi.json",
+            "openapi": "https://tx-builder.veranta.xyz/openapi.json",
             "pages": [
               "GET /v2/meta",
               "GET /v2/pairs",
@@ -114,7 +122,7 @@
           },
           {
             "group": "Trading",
-            "openapi": "https://tx-builder.avantisfi.com/openapi.json",
+            "openapi": "https://tx-builder.veranta.xyz/openapi.json",
             "pages": [
               "POST /v2/trade/open",
               "POST /v2/trade/open-coin",
@@ -129,7 +137,7 @@
           },
           {
             "group": "Delegate",
-            "openapi": "https://tx-builder.avantisfi.com/openapi.json",
+            "openapi": "https://tx-builder.veranta.xyz/openapi.json",
             "pages": [
               "POST /v2/delegate/set",
               "POST /v2/delegate/remove"
@@ -137,14 +145,14 @@
           },
           {
             "group": "Token",
-            "openapi": "https://tx-builder.avantisfi.com/openapi.json",
+            "openapi": "https://tx-builder.veranta.xyz/openapi.json",
             "pages": [
               "POST /v2/token/approve"
             ]
           },
           {
             "group": "Intents",
-            "openapi": "https://tx-builder.avantisfi.com/openapi.json",
+            "openapi": "https://tx-builder.veranta.xyz/openapi.json",
             "pages": [
               "POST /v2/intents/open",
               "POST /v2/intents/open-coin",
@@ -177,7 +185,7 @@
           },
           {
             "group": "Relay",
-            "openapi": "https://tx-builder.avantisfi.com/openapi.json",
+            "openapi": "https://tx-builder.veranta.xyz/openapi.json",
             "pages": [
               "POST /v2/relay",
               "GET /v2/relay/{hash}"
@@ -185,7 +193,7 @@
           },
           {
             "group": "TWAP",
-            "openapi": "https://tx-builder.avantisfi.com/openapi.json",
+            "openapi": "https://tx-builder.veranta.xyz/openapi.json",
             "pages": [
               "POST /v2/twap/open",
               "POST /v2/twap/close",
@@ -194,7 +202,7 @@
           },
           {
             "group": "Referral",
-            "openapi": "https://tx-builder.avantisfi.com/openapi.json",
+            "openapi": "https://tx-builder.veranta.xyz/openapi.json",
             "pages": [
               "POST /v2/referral/register-code",
               "POST /v2/referral/set-code",
@@ -209,7 +217,7 @@
           },
           {
             "group": "LP",
-            "openapi": "https://tx-builder.avantisfi.com/openapi.json",
+            "openapi": "https://tx-builder.veranta.xyz/openapi.json",
             "pages": [
               "POST /v2/lp/deposit",
               "POST /v2/lp/mint",
@@ -220,7 +228,7 @@
           },
           {
             "group": "Builder Codes",
-            "openapi": "https://tx-builder.avantisfi.com/openapi.json",
+            "openapi": "https://tx-builder.veranta.xyz/openapi.json",
             "pages": [
               "POST /v2/misc/builder-code/register",
               "POST /v2/misc/builder-code/modify"
@@ -228,7 +236,7 @@
           },
           {
             "group": "Misc",
-            "openapi": "https://tx-builder.avantisfi.com/openapi.json",
+            "openapi": "https://tx-builder.veranta.xyz/openapi.json",
             "pages": [
               "POST /v2/misc/claim-keeper-rewards",
               "POST /v2/misc/add-to-buffer"
@@ -236,7 +244,7 @@
           },
           {
             "group": "Reads",
-            "openapi": "https://tx-builder.avantisfi.com/openapi.json",
+            "openapi": "https://tx-builder.veranta.xyz/openapi.json",
             "pages": [
               "GET /v2/nonce",
               "GET /v2/positions",
@@ -251,8 +259,12 @@
   "navbar": {
     "links": [
       {
-        "label": "Examples",
+        "label": "Python examples",
         "href": "https://github.com/Avantis-Labs/avantis_trader_sdk/tree/main/examples"
+      },
+      {
+        "label": "TypeScript examples",
+        "href": "https://github.com/Avantis-Labs/avantis-sdk/tree/main/examples"
       }
     ]
   },
@@ -270,7 +282,8 @@
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/avantisfi",
+      "x": "https://x.com/verantaxyz",
+      "discord": "https://discord.gg/veranta",
       "github": "https://github.com/Avantis-Labs"
     }
   }

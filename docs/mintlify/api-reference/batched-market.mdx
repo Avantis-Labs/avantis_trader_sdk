@@ -12,13 +12,13 @@ response.
 
 This is the transport behind `client.trade.market_open` / `market_close` /
 `increase_position` in the SDK, and, with a locally built intent, the
-[market-maker fast path](/advanced/mm-fast-path): local build + sign →
+[market-maker fast path](/advanced/mm-fast-path): local build + sign ->
 one POST, zero API round-trips before submission.
 
 | Network | Base URL |
 | --- | --- |
-| Mainnet | `https://prod-api.avantisfi.com/batched-market` |
-| Testnet | `https://staging-api.avantisfi.com/batched-market` |
+| Mainnet | `https://prod-api.veranta.xyz/batched-market` |
+| Testnet | `https://staging-api.veranta.xyz/batched-market` |
 
 ## Endpoints
 
@@ -33,10 +33,10 @@ one POST, zero API round-trips before submission.
 {
   "orderType": 0,
   "erc712": {
-    "userIntent": "0x…",
-    "userSignature": "0x…"
+    "userIntent": "0x...",
+    "userSignature": "0x..."
   },
-  "eip7702": { "chainId": "8453", "to": "0x…", "data": "0x…", "gas": "2500000", "authorizationList": [] }
+  "eip7702": { "chainId": "8453", "to": "0x...", "data": "0x...", "gas": "2500000", "authorizationList": [] }
 }
 ```
 
@@ -44,7 +44,7 @@ one POST, zero API round-trips before submission.
 | --- | --- | --- |
 | `orderType` | yes | The sole discriminator: selects the contract entry point, the intent struct the server decodes, and the gas limit (see the table below). |
 | `erc712.userIntent` | yes | `abi.encode(struct)` of the signed intent. The tx-builder's `/v2/intents/*` endpoints return exactly this as `encodedIntent`; the SDK's `LocalIntentBuilder` produces it locally. |
-| `erc712.userSignature` | yes | The 65-byte r‖s‖v EIP-712 signature over the intent (trader or a registered delegate). Domain: `("AvantisTrading", "1", chainId, TradingRouter)`. |
+| `erc712.userSignature` | yes | The 65-byte r||s||v EIP-712 signature over the intent (trader or a registered delegate). Domain: `("AvantisTrading", "1", chainId, TradingRouter)`. |
 | `eip7702` | no | A pre-signed EIP-7702 (type-4) transaction for the same order, relayed as-is. |
 
 <Note>
@@ -97,7 +97,7 @@ zero or more non-terminal `AttemptFailed` events, one initiation event, and
 exactly one terminal event:
 
 ```
-MarketOrderAccepted (seq 0)  →  [AttemptFailed ...]  →  one initiation event  →  one terminal event
+MarketOrderAccepted (seq 0)  ->  [AttemptFailed ...]  ->  one initiation event  ->  one terminal event
 ```
 
 | Order types | Initiation | Terminal (success) |
@@ -119,7 +119,7 @@ event types as non-terminal noise: the server adds informational types
 without a version bump.
 
 `AttemptFailed` and `Error` payloads carry a machine-readable **`code`** next
-to the human `message`: a bare Avantis contract error name (`WrongSl`,
+to the human `message`: a bare Veranta contract error name (`WrongSl`,
 `HighSlippage`, ...) when the failure decoded to a specific revert, or a
 synthetic service code (`NO_PRICE`, `SPREAD_BLOCKED`, `SPREAD_UNAVAILABLE`,
 `SUBMISSION_FAILED`, `ATTEMPTS_EXHAUSTED`, `TX_NOT_EXECUTED`,
@@ -150,19 +150,19 @@ prices/leverage/exposure 1e10); many exceed `Number.MAX_SAFE_INTEGER`.
 `trackingId` minted. Nothing is on-chain yet; save it for reconnects.
 
 ```json
-{ "trackingId": "…" }
+{ "trackingId": "..." }
 ```
 
 **`MarketOrderInitiated`**: the order is registered on-chain with an `orderId`.
 
 ```json
-{ "orderId": 42, "trader": "0x…", "pairIndex": 2, "open": true, "isBuy": true, "isPnl": false, "transactionHash": "0x…" }
+{ "orderId": 42, "trader": "0x...", "pairIndex": 2, "open": true, "isBuy": true, "isPnl": false, "transactionHash": "0x..." }
 ```
 
 **`IncreasePositionRequested`**: the increase is registered on-chain.
 
 ```json
-{ "orderId": 99, "trader": "0x…", "pairIndex": 2, "index": 7, "isBuy": true, "isPnl": false, "addedCollateral": "50000000", "coinExposure": "0", "isCoinExposureFixed": false, "transactionHash": "0x…" }
+{ "orderId": 99, "trader": "0x...", "pairIndex": 2, "index": 7, "isBuy": true, "isPnl": false, "addedCollateral": "50000000", "coinExposure": "0", "isCoinExposureFixed": false, "transactionHash": "0x..." }
 ```
 
 **`MarketOrderExecuted`** (terminal for opens/closes): the final fill. `t` is
@@ -182,11 +182,11 @@ carry the realized outcome.
   "coinExposure": "5000000000",
   "isCoinExposureFixed": true,
   "t": {
-    "trader": "0x…", "pairIndex": 2, "index": 7,
-    "initialPosToken": "…", "positionSizeUSDC": "…", "openPrice": "…",
-    "buy": true, "leverage": "…", "tp": "0", "sl": "0", "timestamp": 1700000000
+    "trader": "0x...", "pairIndex": 2, "index": 7,
+    "initialPosToken": "...", "positionSizeUSDC": "...", "openPrice": "...",
+    "buy": true, "leverage": "...", "tp": "0", "sl": "0", "timestamp": 1700000000
   },
-  "transactionHash": "0x…"
+  "transactionHash": "0x..."
 }
 ```
 
@@ -195,27 +195,27 @@ from a fill: no `price` / `percentProfit` / `usdcSentToTrader`, and `t` is the
 **blended resulting position**.
 
 ```json
-{ "orderId": 99, "isPnl": false, "coinExposureAdded": "…", "isCoinExposureFixed": false, "t": { "…": "…" }, "transactionHash": "0x…" }
+{ "orderId": 99, "isPnl": false, "coinExposureAdded": "...", "isCoinExposureFixed": false, "t": { "...": "..." }, "transactionHash": "0x..." }
 ```
 
 **`MarketOrderCanceled`** (terminal): the protocol declined the fill.
 
 ```json
-{ "orderId": 42, "trader": "0x…", "pairIndex": 2, "transactionHash": "0x…" }
+{ "orderId": 42, "trader": "0x...", "pairIndex": 2, "transactionHash": "0x..." }
 ```
 
 **`AttemptFailed`** (non-terminal): one retryable attempt failed; the
 service is still working the request.
 
 ```json
-{ "attempt": 1, "code": "NO_PRICE", "message": "…", "willRetry": true }
+{ "attempt": 1, "code": "NO_PRICE", "message": "...", "willRetry": true }
 ```
 
 **`Error`** (terminal, except `STREAM_TIMEOUT`, which is this connection's
 view expiring).
 
 ```json
-{ "status": "failed", "code": "ATTEMPTS_EXHAUSTED", "message": "…", "trackingId": "…" }
+{ "status": "failed", "code": "ATTEMPTS_EXHAUSTED", "message": "...", "trackingId": "..." }
 ```
 
 ## Replaying by trackingId
@@ -230,15 +230,15 @@ GET /tracking-id/{trackingId}/status?afterSeq={lastSeenSeq}
 ```json
 {
   "events": [
-    { "seq": 1, "type": "MarketOrderInitiated", "payload": { "…": "…" }, "at": 1700000000000 },
-    { "seq": 2, "type": "MarketOrderExecuted",  "payload": { "…": "…" }, "at": 1700000000500 }
+    { "seq": 1, "type": "MarketOrderInitiated", "payload": { "...": "..." }, "at": 1700000000000 },
+    { "seq": 2, "type": "MarketOrderExecuted",  "payload": { "...": "..." }, "at": 1700000000500 }
   ]
 }
 ```
 
 - `afterSeq` is optional; omit it for the full history.
 - `404` = unknown trackingId. An empty `events` array = accepted but nothing
-  has happened yet; poll again (~1–2s cadence) until a terminal event lands.
+  has happened yet; poll again (~1-2s cadence) until a terminal event lands.
 
 ## Error handling summary
 
@@ -257,32 +257,50 @@ only retry if the POST itself returned 4xx.
 
 ## Using it from the SDK
 
-```python
-from avantis_trader_sdk.types import AggregatorOrderType
+<CodeGroup>
 
-# High-level (signs the intent + optional 7702 leg, streams, settles):
+```python Python
+from veranta_sdk.types import AggregatorOrderType
+
+# High level: signs the intent plus the optional EIP-7702 leg, streams, settles.
 receipt = await client.trade.market_open("ETH/USD", "long", collateral=100, leverage=10)
 
-# Same, but observe the journey live while the SDK settles (on_event fires
-# per streamed event: accepted, AttemptFailed diagnostics, the terminal,
-# even when it raises):
+# Same, but watch the journey live while the SDK settles.
 receipt = await client.trade.market_open(
     "ETH/USD", "long", collateral=100, leverage=10,
-    on_event=lambda ev: log.info("order %s seq=%s %s", ev.type, ev.seq, ev.data),
+    on_event=lambda ev: print("order", ev.type, ev.seq, ev.data),
 )
 
-# MM fast path (local intent, intent-only POST, settle off the hot path):
+# Market-maker fast path: local intent, intent-only POST, settle off the hot path.
 builder = await client.local_intents()
-payload = builder.open_trade_coin(...)                # microseconds, no I/O
+payload = builder.open_trade_coin(...)
 receipt = await client.engine.submit_intent_batch(
     payload, AggregatorOrderType.MARKET_OPEN_WITH_COIN_EXPOSURE, wait=False
 )
-outcome = await client.engine.batched_market.wait(receipt.tracking_id)  # replay by seq
+outcome = await client.engine.batched_market.wait(receipt.tracking_id)   # replay by seq
 ```
 
-`on_event` is available on every layer of the path (`trade.market_*` /
-`increase_position*`, `engine.submit_intent_batch`, and
-`BatchedMarketClient.execute` / `.wait`), as sync or async callables; see
-[Track the order lifecycle](/trading/market-orders#track-the-order-lifecycle).
+```typescript TypeScript
+import { AggregatorOrderType } from "veranta-sdk";
 
-See [MM fast path](/advanced/mm-fast-path) for the full zero-I/O signing loop.
+// High level: signs the intent plus the optional EIP-7702 leg, streams, settles.
+let receipt = await client.trade.marketOpen("ETH/USD", "long", { collateral: 100, leverage: 10 });
+
+// Same, but watch the journey live while the SDK settles.
+receipt = await client.trade.marketOpen("ETH/USD", "long", {
+  collateral: 100, leverage: 10,
+  onEvent: (ev) => console.log("order", ev.type, ev.seq, ev.data),
+});
+
+// Market-maker fast path: local intent, intent-only POST, settle off the hot path.
+const builder = await client.localIntents();
+const payload = builder.openTradeCoin({ /* ... */ });
+receipt = await client.engine.submitIntentBatch(
+  payload, AggregatorOrderType.MARKET_OPEN_WITH_COIN_EXPOSURE, { wait: false },
+);
+const outcome = await client.engine.batchedMarket.wait(receipt.trackingId!);  // replay by seq
+```
+
+</CodeGroup>
+
+The event hook is available on every layer of the path: the trade methods, `submit_intent_batch` / `submitIntentBatch`, and the batched-market client's `execute` and `wait`. See [Follow the order lifecycle](/trading/market-orders#follow-the-order-lifecycle) and the [market-maker fast path](/advanced/mm-fast-path).

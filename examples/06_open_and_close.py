@@ -6,11 +6,11 @@ Also shows coin-exposure sizing: target an exact base-asset amount
 
 import asyncio
 
-from avantis_trader_sdk import AsyncAvantis
+from veranta_sdk import AsyncVeranta
 
 
 async def main() -> None:
-    async with AsyncAvantis() as client:
+    async with AsyncVeranta() as client:
         pair_index = await client.markets.pair_index("ETH/USD")
 
         await client.trade.market_open("ETH/USD", "long", collateral=100, leverage=10)

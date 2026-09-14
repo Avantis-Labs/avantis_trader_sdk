@@ -2,12 +2,12 @@
 
 import asyncio
 
-from avantis_trader_sdk import AsyncAvantis
-from avantis_trader_sdk.compute import position_net_pnl
+from veranta_sdk import AsyncVeranta
+from veranta_sdk.compute import position_net_pnl
 
 
 async def main() -> None:
-    async with AsyncAvantis() as client:
+    async with AsyncVeranta() as client:
         data = await client.account.positions()
         print(f"{len(data.positions)} positions, {len(data.limit_orders)} limit orders\n")
 

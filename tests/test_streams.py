@@ -6,7 +6,7 @@ import httpx
 import pytest
 import respx
 
-from avantis_trader_sdk.streams import LazerPriceStream
+from veranta_sdk.streams import LazerPriceStream
 
 SSE_BODY = (
     b"event: price_update\n"

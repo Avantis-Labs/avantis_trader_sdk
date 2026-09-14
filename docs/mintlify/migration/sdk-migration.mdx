@@ -1,21 +1,21 @@
 ---
 title: "Python SDK: 0.x to 2.x"
-description: "Method-by-method mapping from the v1 TraderClient to the v2 AsyncAvantis client."
+description: "Method-by-method mapping from the v1 TraderClient to the v2 AsyncVeranta client."
 ---
 
-SDK 2.0 is a ground-up rewrite for Avantis v2 and **the 0.x/1.x API is
+SDK 2.0 is a ground-up rewrite for Veranta v2 and **the 0.x/1.x API is
 removed**; there is no compatibility layer. The good news: almost every
 0.x flow collapses into a single call, and the things 0.x made you manage
 (RPC node, ABIs, gas, transaction receipts, USDC allowances before every
 session, trade indexes) are handled for you.
 
-The package name is unchanged (`avantis-trader-sdk` on PyPI); 2.0.0 is the
-v2 release. Pinning the old client is only a stopgap; Avantis v1 is
+The package name is unchanged (`veranta-sdk` on PyPI); 2.0.0 is the
+v2 release. Pinning the old client is only a stopgap; Veranta v1 is
 superseded on-chain, so the 0.x SDK no longer trades:
 
 ```bash
 pip install "avantis-trader-sdk<2"   # v1 (legacy)
-pip install "avantis-trader-sdk>=2"  # v2
+pip install "veranta-sdk>=2"  # v2
 ```
 
 ## The shape of the change
@@ -23,12 +23,12 @@ pip install "avantis-trader-sdk>=2"  # v2
 | | 0.x (v1) | 2.x (v2) |
 | --- | --- | --- |
 | Transport | web3 + vendored ABIs against your RPC node | HTTPS APIs; the SDK signs locally. No web3, no ABIs, no RPC required |
-| Client | `TraderClient(provider_url)` | `AsyncAvantis()`, configured from `AVANTIS_*` env vars (sync facade: `Avantis()`) |
-| Executing an order | `build_*_tx(...)` → `sign_and_get_receipt(...)` | one method call returns an `ExecutionReceipt` |
-| Gas | You hold ETH and pay gas | Gasless by default (relayer). `AVANTIS_EXECUTION=direct` restores self-broadcasting |
+| Client | `TraderClient(provider_url)` | `AsyncVeranta()`, configured from `VERANTA_*` env vars (sync facade: `Veranta()`) |
+| Executing an order | `build_*_tx(...)` -> `sign_and_get_receipt(...)` | one method call returns an `ExecutionReceipt` |
+| Gas | You hold ETH and pay gas | Gasless by default (relayer). `VERANTA_EXECUTION=direct` restores self-broadcasting |
 | Delegated trading | duplicate `*_delegate` methods | gone; the signer identity (API key vs trader key) decides, same methods |
 | Reads | contract reads + multicall fan-outs | typed API clients (`markets`, `account`, `info`) + pure `compute` functions |
-| Errors | printed / raw contract reverts | typed exceptions from `avantis_trader_sdk.errors` |
+| Errors | printed / raw contract reverts | typed exceptions from `veranta_sdk.errors` |
 
 ## Client setup
 
@@ -45,33 +45,33 @@ trader = trader_client.get_signer().get_ethereum_address()
 **After (2.x):**
 
 ```bash
-export AVANTIS_PRIVATE_KEY=0x...      # API key (recommended) or trader key
-export AVANTIS_TRADER_ADDRESS=0x...   # your wallet, only when using an API key
+export VERANTA_PRIVATE_KEY=0x...      # API key (recommended) or trader key
+export VERANTA_TRADER_ADDRESS=0x...   # your wallet, only when using an API key
 ```
 
 ```python
-from avantis_trader_sdk import AsyncAvantis
+from veranta_sdk import AsyncVeranta
 
-async with AsyncAvantis() as client:
+async with AsyncVeranta() as client:
     ...
 ```
 
 Two decisions to make once:
 
 1. **Key type.** The closest thing to 0.x is using your trader key directly
-   (set `AVANTIS_PRIVATE_KEY` to it, leave `AVANTIS_TRADER_ADDRESS` unset).
+   (set `VERANTA_PRIVATE_KEY` to it, leave `VERANTA_TRADER_ADDRESS` unset).
    The recommended setup is an **API key**: a delegate key created with the
-   [Avantis API Key Generator](https://delegate.avantisfi.com/)
+   [Veranta API Key Generator](https://delegate.veranta.xyz/)
    that can trade but never withdraw. See [Delegates](/account/delegates).
 2. **Execution route.** The default **relayer** route is gasless (signed
-   intents, no ETH, no node). `AVANTIS_EXECUTION=direct` with
-   `AVANTIS_RPC_URL` reproduces 0.x behavior: the SDK signs EIP-1559
+   intents, no ETH, no node). `VERANTA_EXECUTION=direct` with
+   `VERANTA_RPC_URL` reproduces 0.x behavior: the SDK signs EIP-1559
    transactions and broadcasts them through your RPC. See
    [Execution modes](/advanced/execution-modes).
 
 Signers: `set_local_signer(key)` is now just the env var;
 `set_aws_kms_signer(...)` became the `KmsSigner` class
-(`pip install "avantis-trader-sdk[kms]"`), passed to the client instead of
+(`pip install "veranta-sdk[kms]"`), passed to the client instead of
 a private key.
 
 ## Trading methods
@@ -149,7 +149,7 @@ await trader_client.sign_and_get_receipt(tx)
 **2.x:**
 
 ```python
-async with AsyncAvantis() as client:
+async with AsyncVeranta() as client:
     receipt = await client.trade.market_open(
         "ETH/USD", "long", collateral=10, leverage=25,
         take_profit=4000, slippage_percent=1,
@@ -170,7 +170,7 @@ The 0.x read namespaces (`pairs_cache`, `snapshot`, `asset_parameters`,
 `category_parameters`, `fee_parameters`, `trading_parameters`, `blended`)
 were RPC multicall fan-outs. In 2.x, one snapshot call carries the full
 100+ pair catalog, and the UI-parity math lives in pure functions under
-`avantis_trader_sdk.compute`:
+`veranta_sdk.compute`:
 
 | 0.x | 2.x |
 | --- | --- |

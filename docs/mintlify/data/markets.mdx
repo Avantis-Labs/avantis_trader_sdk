@@ -1,89 +1,142 @@
 ---
 title: Markets
-description: "Pair catalog, fees, funding, open interest, and spreads."
+description: "The pair catalog: fees, funding, leverage limits, open interest, spreads and candles."
 ---
 
-## Pair catalog
+`client.markets` is the read-only view of every market Veranta lists. It needs no signing key. Everything on this page comes from one snapshot that the SDK caches for five seconds.
 
-```python
+## The pair catalog
+
+<CodeGroup>
+
+```python Python
 pairs = await client.markets.pairs()             # {index: PairInfo}
-eth = await client.markets.pair("ETH/USD")       # by symbol or index
+eth = await client.markets.pair("ETH/USD")       # by symbol or by index
 
 print(eth.index, eth.symbol)
-print("leverage:", eth.leverages.min_leverage, "-", eth.leverages.max_leverage)
+print("leverage:", eth.leverages.min_leverage, "to", eth.leverages.max_leverage)
 print("fees:", eth.open_fee_p, "/", eth.close_fee_p, "%")
-print("funding/h:", eth.funding_fee_per_hour_p, "%")
-print("OI:", eth.open_interest.long, "long /", eth.open_interest.short, "short")
+print("funding per hour:", eth.funding_fee_per_hour_p, "%")
+print("open interest:", eth.open_interest.long, "long /", eth.open_interest.short, "short")
 ```
 
-Everything comes from one `/v2/trading` snapshot, cached for 5 seconds (`snapshot()` with `force=True` refreshes). For a live copy of the same payload (funding, OI, spreads, market hours) subscribe to the data service [Socket.IO feed](/data/socket-io). Useful `PairInfo` fields:
+```typescript TypeScript
+import { pairSymbol } from "veranta-sdk";
 
-| Field | Meaning |
-| --- | --- |
-| `leverages` | Min/max leverage (plus Upside-specific bounds) |
-| `open_fee_p`, `close_fee_p`, `spread_p` | Fees and fixed spread, in % |
-| `min_lev_pos_usdc` | Minimum position notional in USDC |
-| `open_interest`, `pair_oi`, `pair_max_oi`, `max_wallet_oi` | OI state and caps |
-| `funding_rate`, `funding_fee_per_hour_p`, `margin_fee` | Funding and rollover |
-| `values.max_gain_p`, `values.max_sl_p` | TP/SL percent bounds (`2500` = 2500% gain cap) |
-| `twap_params` | Min/max run time, frequency, TWAP fee |
-| `pnl_fees` | Upside profit-share tiers |
-| `is_upside` | `True` for Upside markets (`_UPSIDE`-suffixed pairs) |
-| `is_market_open` | Market-hours check (matters for forex/commodities) |
+const pairs = await client.markets.pairs();       // Map<index, PairInfo>
+const eth = await client.markets.pair("ETH/USD"); // by symbol or by index
 
-The snapshot itself (`await client.markets.snapshot()`) carries protocol-wide state: `total_oi`, `max_open_interest`, `group_info`, `max_trades_per_pair`.
+console.log(eth.index, pairSymbol(eth));
+console.log("leverage:", eth.leverages?.minLeverage, "to", eth.leverages?.maxLeverage);
+console.log("fees:", eth.openFeeP, "/", eth.closeFeeP, "%");
+console.log("funding per hour:", eth.fundingFeePerHourP, "%");
+console.log("open interest:", eth.openInterest?.long, "long /", eth.openInterest?.short, "short");
+```
+
+</CodeGroup>
+
+Useful fields on a pair. Python uses snake_case properties, TypeScript keeps the API's camelCase fields:
+
+| Python | TypeScript | Meaning |
+| --- | --- | --- |
+| `leverages` | `leverages` | Minimum and maximum leverage, plus Upside-specific bounds |
+| `open_fee_p`, `close_fee_p`, `spread_p` | `openFeeP`, `closeFeeP`, `spreadP` | Fees and fixed spread, in percent |
+| `min_lev_pos_usdc` | `minLevPosUSDC` | Minimum position size in USDC notional |
+| `open_interest`, `pair_oi`, `pair_max_oi`, `max_wallet_oi` | `openInterest`, `pairOI`, `pairMaxOI`, `maxWalletOI` | Open interest and its caps |
+| `funding_rate`, `funding_fee_per_hour_p`, `margin_fee` | `fundingRate`, `fundingFeePerHourP`, `marginFee` | Funding and rollover |
+| `values.max_gain_p`, `values.max_sl_p` | `values.maxGainP`, `values.maxSlP` | Take profit and stop loss percent limits (`2500` means a 2500% gain cap) |
+| `twap_params` | `pairTwapParams` | Minimum and maximum run time, frequency, TWAP fee |
+| `pnl_fees` | `pnlFees` | Upside profit-share tiers |
+| `is_upside` | `isUpside(pair)` | `True` for Upside markets |
+| `is_market_open` | `isMarketOpen(pair)` | Market-hours check, matters for forex and commodities |
+
+The snapshot itself carries protocol-wide state: total open interest, the global cap, group info and the per-pair trade limit.
+
+<CodeGroup>
+
+```python Python
+snap = await client.markets.snapshot()          # cached 5s; force=True refreshes
+print(snap.total_oi, snap.max_open_interest, snap.max_trades_per_pair)
+```
+
+```typescript TypeScript
+const snap = await client.markets.snapshot();    // cached 5s; { force: true } refreshes
+console.log(snap.totalOi, snap.maxOpenInterest, snap.maxTradesPerPair);
+```
+
+</CodeGroup>
+
+For a live copy of the same data (funding, open interest, spreads, market hours) subscribe to the [pair data stream](/data/socket-io).
 
 ## Upside markets
 
-Upside markets (formerly "zero-fee"/ZFP) are separate pairs suffixed
-`_UPSIDE`: `BTC_UPSIDE/USD` trades alongside `BTC/USD` with the same price
-feed but no open/close fee and a tiered profit share on gains. Trading
-methods route the order type automatically from the pair; you just pick the
-market:
+Upside markets are separate pairs with an `_UPSIDE` suffix. `BTC_UPSIDE/USD` trades next to `BTC/USD` on the same price feed, but it charges no open or close fee. Instead it takes a tiered share of your profit. You do not pass any flag to trade one: pick the pair and the SDK sends the right order type.
 
-```python
-upside = await client.markets.upside_pairs()          # {index: PairInfo}
+<CodeGroup>
 
-btc_upside = await client.markets.pair("BTC_UPSIDE")  # symbol works too
-twin = await client.markets.upside_pair_for("BTC/USD")  # fixed-fee -> upside twin
+```python Python
+upside = await client.markets.upside_pairs()             # {index: PairInfo}
+btc_upside = await client.markets.pair("BTC_UPSIDE")     # the symbol works too
+twin = await client.markets.upside_pair_for("BTC/USD")   # regular pair -> its Upside twin
 
-print(btc_upside.is_upside)     # True
-print(btc_upside.base_symbol)   # "BTC/USD" (suffix stripped)
+print(btc_upside.is_upside)      # True
+print(btc_upside.base_symbol)    # "BTC/USD", suffix stripped
 ```
 
-Symbol resolution accepts `"BTC_UPSIDE"`, `"BTC_UPSIDE/USD"`, and quote-side
-forms like `"USD/JPY_UPSIDE"`; `upside_pair_for` raises when a market has no
-upside listing. Upside pairs are market-only; see
-[Market orders](/trading/market-orders).
+```typescript TypeScript
+import { baseSymbol, isUpside } from "veranta-sdk";
 
-## Spread
+const upside = await client.markets.upsidePairs();            // Map<index, PairInfo>
+const btcUpside = await client.markets.pair("BTC_UPSIDE");    // the symbol works too
+const twin = await client.markets.upsidePairFor("BTC/USD");   // regular pair -> its Upside twin
 
-Per-order spread quote from the risk engine v2, the same endpoint the Avantis web app uses. Size the request by coin exposure directly, or by `collateral` + `leverage` (converted at `wanted_price`, or the live price when omitted):
-
-```python
-spread = await client.markets.spread(
-    "ETH/USD", collateral=1000, leverage=10, is_long=True,
-)
-print(spread["spreadPct"], spread["spreadMechanism"])   # percent, descaled
+console.log(isUpside(btcUpside));      // true
+console.log(baseSymbol(btcUpside));    // "BTC/USD", suffix stripped
 ```
 
-`spreadPct` is the quoted value (the with-flow estimate when the flow mechanism is active, otherwise the without-flow spread). A `404` means the engine matched a mechanism but could not compute a spread (for example a stale orderbook); treat it as "do not execute", not as zero spread.
+</CodeGroup>
 
-<Note>
-The v2 spread engine serves both networks; it is the production spread source. The legacy `client.markets.dynamic_spread(...)` endpoint was decommissioned on mainnet at the v2 cutover (it raises a `ConfigError` there) and remains available on testnet only.
-</Note>
+Symbols resolve in every form: `"BTC_UPSIDE"`, `"BTC_UPSIDE/USD"`, and quote-side forms like `"USD/JPY_UPSIDE"`. Upside pairs are market-only: no limit orders, no stop-limit orders and no TWAP. See [Market orders](/trading/market-orders).
 
-Related risk reads: `client.markets.open_interests()` (per-pair long/short OI including pending amounts) and `client.markets.orderbook_snapshots()` (cumulative bid/ask coin liquidity per orderbook source).
+## Spread quotes
+
+Ask the risk engine what spread an order would pay right now. This is the same endpoint the Veranta app uses. Size the request in coin units, or in collateral plus leverage and the SDK converts at the live price.
+
+<CodeGroup>
+
+```python Python
+spread = await client.markets.spread("ETH/USD", collateral=1000, leverage=10, is_long=True)
+print(spread["spreadPct"], spread["spreadMechanism"])
+```
+
+```typescript TypeScript
+const spread = await client.markets.spread("ETH/USD", { collateral: 1000, leverage: 10, isLong: true });
+console.log(spread.spreadPct, spread.spreadMechanism);
+```
+
+</CodeGroup>
+
+`spreadPct` is the quoted spread in percent. A `404` from this call means the engine could not compute a spread, for example because the orderbook was stale. Treat that as "do not trade right now", never as zero spread.
+
+Two related reads: `open_interests()` / `openInterests()` gives long and short open interest per pair including pending orders, and `orderbook_snapshots()` / `orderbookSnapshots()` gives cumulative bid and ask liquidity per orderbook source.
 
 ## Candles
 
-OHLCV via the feed's TradingView shim:
+Historical OHLCV data comes from the price feed's TradingView shim. Resolutions follow TradingView conventions: `"1"`, `"5"`, `"60"`, `"D"` and so on.
 
-```python
+<CodeGroup>
+
+```python Python
 import time
-candles = await client.markets.candles("ETH/USD", "60", int(time.time()) - 86400, int(time.time()))
+now = int(time.time())
+candles = await client.markets.candles("ETH/USD", "60", now - 86400, now)
 ```
 
-Resolutions follow TradingView conventions (`"1"`, `"5"`, `"60"`, `"D"`, ...).
+```typescript TypeScript
+const now = Math.floor(Date.now() / 1000);
+const candles = await client.markets.candles("ETH/USD", "60", now - 86400, now);
+```
 
-For live prices and streaming, see [Prices & streams](/data/prices-and-streams).
+</CodeGroup>
+
+For live prices and streaming, continue to [Prices and streams](/data/prices-and-streams).

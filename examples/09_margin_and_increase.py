@@ -2,11 +2,11 @@
 
 import asyncio
 
-from avantis_trader_sdk import AsyncAvantis
+from veranta_sdk import AsyncVeranta
 
 
 async def main() -> None:
-    async with AsyncAvantis() as client:
+    async with AsyncVeranta() as client:
         data = await client.account.positions()
         pos = data.positions[0]
 

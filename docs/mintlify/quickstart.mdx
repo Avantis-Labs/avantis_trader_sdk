@@ -1,68 +1,151 @@
 ---
 title: Quickstart
-description: "From zero to a filled trade."
+description: "Install the SDK, create an API key, and fill your first trade."
 ---
 
-## 1. Install
+This page takes you from nothing to a filled trade. It works the same way in Python and TypeScript. Pick your language in each code block.
 
-```bash
-pip install avantis-trader-sdk
-```
+<Steps>
+  <Step title="Install the SDK">
+    <CodeGroup>
 
-## 2. Create an API key
+    ```bash Python
+    pip install veranta-sdk
+    ```
 
-Open the [Avantis API Key Generator](https://delegate.avantisfi.com/)
-and generate a key. One wallet signature registers it as a trading delegate;
-approve USDC in the same flow if prompted. Copy the key right away, since it
-is only shown once.
+    ```bash TypeScript
+    npm i veranta-sdk viem
+    ```
 
-```bash
-export AVANTIS_PRIVATE_KEY=0x...      # the API key
-export AVANTIS_TRADER_ADDRESS=0x...   # your wallet address
-```
+    </CodeGroup>
 
-<Note>
-The API key can trade on your account but can never withdraw funds, approve
-USDC, or add other delegates. Revoke it anytime from the UI.
-</Note>
+    Python needs version 3.10 or newer. TypeScript needs Node 20 or newer. `viem` is the only runtime dependency of the TypeScript SDK.
+  </Step>
 
-## 3. Trade
+  <Step title="Create an API key">
+    Open the [Veranta API Key Generator](https://delegate.veranta.xyz/) and connect your wallet. One signature registers a new key as a trading delegate for your account. Approve USDC in the same flow if it asks you to. Copy the key right away, because it is only shown once.
 
-```python
-import asyncio
-from avantis_trader_sdk import AsyncAvantis
+    Then export two environment variables:
 
-async def main():
-    async with AsyncAvantis() as client:
-        receipt = await client.trade.market_open(
-            "ETH/USD", "long",
-            collateral=100,      # USDC
-            leverage=10,
-            take_profit=4000,    # optional
-            stop_loss=2800,      # optional
-        )
-        # the receipt reflects the executed fill (batched-market route)
-        print("executed:", receipt.tx_hash, "order:", receipt.order_id)
+    ```bash
+    export VERANTA_PRIVATE_KEY=0x...      # the API key
+    export VERANTA_TRADER_ADDRESS=0x...   # your wallet address
+    ```
 
-        positions = await client.account.positions()
-        for p in positions.positions:
-            print(p.side, float(p.collateral), "USDC at", float(p.open_price))
+    <Note>
+    The API key can open and close positions on your account. It can never withdraw funds, approve USDC, or add other keys. You can revoke it any time from the same page.
+    </Note>
+  </Step>
 
-asyncio.run(main())
-```
+  <Step title="Open a position">
+    <CodeGroup>
 
-## 4. Close
+    ```python Python
+    import asyncio
+    from veranta_sdk import AsyncVeranta
 
-```python
-pos = positions.positions[0]
-await client.trade.market_close(
-    pos.pair_index, pos.index,
-    collateral_to_close=float(pos.collateral),  # full close
-)
-```
+    async def main():
+        async with AsyncVeranta() as client:
+            receipt = await client.trade.market_open(
+                "ETH/USD", "long",
+                collateral=100,      # USDC
+                leverage=10,
+                take_profit=4000,    # optional, a price
+                stop_loss=2800,      # optional, a price
+            )
+            print("filled:", receipt.tx_hash, "order id:", receipt.order_id)
 
-## Next
+    asyncio.run(main())
+    ```
 
-- [Core concepts](/concepts): units, keys, receipts (2-minute read).
-- [Market orders](/trading/market-orders): the full trading surface.
-- [Runnable examples](https://github.com/Avantis-Labs/avantis_trader_sdk/tree/main/examples): one script per flow.
+    ```typescript TypeScript
+    import { Veranta } from "veranta-sdk";
+
+    const client = new Veranta();
+    const receipt = await client.trade.marketOpen("ETH/USD", "long", {
+      collateral: 100,     // USDC
+      leverage: 10,
+      takeProfit: 4000,    // optional, a price
+      stopLoss: 2800,      // optional, a price
+    });
+    console.log("filled:", receipt.txHash, "order id:", receipt.orderId);
+    ```
+
+    </CodeGroup>
+
+    The call returns when the order has **executed**, not just when it was sent. If the protocol declines the fill, for example because the price moved more than your slippage allows, the call raises an error instead of returning a receipt.
+  </Step>
+
+  <Step title="Look at your positions and close">
+    <CodeGroup>
+
+    ```python Python
+    data = await client.account.positions()
+    for p in data.positions:
+        print(p.side, float(p.collateral), "USDC at", float(p.open_price))
+
+    pos = data.positions[0]
+    await client.trade.market_close(
+        pos.pair_index, pos.index,
+        collateral_to_close=float(pos.collateral),   # the full amount closes the position
+    )
+    ```
+
+    ```typescript TypeScript
+    import { positionCollateral, positionOpenPrice, positionSide } from "veranta-sdk";
+
+    const data = await client.account.positions();
+    for (const p of data.positions) {
+      console.log(positionSide(p), positionCollateral(p), "USDC at", positionOpenPrice(p));
+    }
+
+    const pos = data.positions[0];
+    await client.trade.marketClose(pos.pairIndex, pos.index, {
+      collateralToClose: positionCollateral(pos),   // the full amount closes the position
+    });
+    ```
+
+    </CodeGroup>
+  </Step>
+</Steps>
+
+## Try it on testnet first
+
+Veranta runs a testnet that is a fork of Base. It has the same chain id, the same contracts and its own copy of every service. Point the SDK at it with `network="testnet"`.
+
+<Tabs>
+  <Tab title="TypeScript">
+    The TypeScript SDK ships a faucet helper for the testnet fork. This script creates a fresh wallet, funds it with test ETH and USDC, approves USDC and opens a trade. No keys to source, no faucet websites:
+
+    ```typescript
+    import { Veranta, fundTestnetWallet } from "veranta-sdk";
+    import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
+
+    const key = generatePrivateKey();
+    await fundTestnetWallet(privateKeyToAccount(key).address); // 0.05 ETH + 1,000 USDC
+
+    const client = new Veranta({ network: "testnet", signer: key });
+    await client.account.approveUsdc(); // gasless
+    await client.trade.marketOpen("ETH/USD", "long", { collateral: 100, leverage: 5 });
+    ```
+
+    The faucet only exists on the fork. It never touches mainnet.
+  </Tab>
+  <Tab title="Python">
+    Set the network and use a wallet that holds testnet USDC:
+
+    ```python
+    async with AsyncVeranta(network="testnet") as client:
+        await client.trade.market_open("ETH/USD", "long", collateral=100, leverage=5)
+    ```
+
+    Or set `VERANTA_NETWORK=testnet` in the environment. The Python SDK has no faucet helper yet. Fund a wallet with the TypeScript one-liner above and reuse the same key, or ask in [Discord](https://discord.gg/veranta).
+  </Tab>
+</Tabs>
+
+## Next steps
+
+- [Core concepts](/concepts) explains units, keys and receipts in two minutes.
+- [Market orders](/trading/market-orders) covers the full order surface.
+- [Configuration](/configuration) lists every setting.
+- Runnable examples: [Python](https://github.com/Avantis-Labs/avantis_trader_sdk/tree/main/examples) and [TypeScript](https://github.com/Avantis-Labs/avantis-sdk/tree/main/examples), one script per flow.

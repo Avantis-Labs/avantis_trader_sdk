@@ -3,9 +3,9 @@ title: "Pair Data Socket.IO"
 description: "Live pair-catalog diffs from the data service. Same payload as GET /v2/trading, streamed as partial updates."
 ---
 
-The [data service](https://data.avantisfi.com/) serves the pair catalog
+The [data service](https://data.veranta.xyz/) serves the pair catalog
 (`GET /v2/trading`) and broadcasts every change over Socket.IO as `RES:DATA`.
-This is the live feed behind `client.pair_data_stream()` and the Avantis
+This is the live feed behind `client.pair_data_stream()` and the Veranta
 web app: funding, open interest, spreads, market hours, and the rest of
 the snapshot, in **human units**.
 
@@ -14,13 +14,13 @@ anything; connect and listen.
 
 | Network | Standalone host | Gateway (SDK default) |
 | --- | --- | --- |
-| Mainnet | `https://data.avantisfi.com` | `https://prod-api.avantisfi.com/data` |
-| Testnet | `https://testnet-data.avantisfi.com` | `https://staging-api.avantisfi.com/data` |
+| Mainnet | `https://data.veranta.xyz` | `https://prod-api.veranta.xyz/data` |
+| Testnet | `https://testnet-data.veranta.xyz` | `https://staging-api.veranta.xyz/data` |
 
 Both hosts are the same service. The gateway rewrites the `/data` prefix to
 `/` before the backend. Use the standalone origin if you are wiring this up
 without the SDK; the SDK connects to the gateway unless you set
-`AVANTIS_DATA_API_URL`.
+`VERANTA_DATA_API_URL`.
 
 ## Bootstrap, then merge
 
@@ -31,7 +31,7 @@ diffs are not replayed. On every (re)connect:
 2. Deep-merge each `RES:DATA` payload into that snapshot.
 
 ```bash
-curl https://data.avantisfi.com/v2/trading
+curl https://data.veranta.xyz/v2/trading
 ```
 
 The response is the snapshot itself (no `{ok, data}` envelope). Top-level
@@ -40,8 +40,8 @@ shape:
 | Field | Meaning |
 | --- | --- |
 | `dataVersion` | Payload format version (currently `3`) |
-| `pairInfos` | Map of pair index → pair (fees, OI, funding, leverage, feeds, market hours, …) |
-| `groupInfo` | Map of group index → group OI and caps |
+| `pairInfos` | Map of pair index -> pair (fees, OI, funding, leverage, feeds, market hours, ...) |
+| `groupInfo` | Map of group index -> group OI and caps |
 | `pairCount` | Number of listed pairs |
 | `maxTradesPerPair` | Per-pair open-trade cap |
 | `totalOi` | Protocol-wide open interest |
@@ -59,7 +59,7 @@ and `/data/socket.io` on the gateway.
 <Note>
 `socket.io-client` treats the URL path as a **namespace**, not the Engine.IO
 path. Connect to the origin and set `path` explicitly. Do not pass
-`https://prod-api.avantisfi.com/data` as the URL; that joins namespace
+`https://prod-api.veranta.xyz/data` as the URL; that joins namespace
 `/data` and misses the broadcast.
 </Note>
 
@@ -68,7 +68,7 @@ Standalone (recommended for direct integrators):
 ```javascript
 import { io } from "socket.io-client";
 
-const socket = io("https://data.avantisfi.com", {
+const socket = io("https://data.veranta.xyz", {
   path: "/socket.io",
   transports: ["websocket", "polling"],
   reconnection: true,
@@ -78,7 +78,7 @@ const socket = io("https://data.avantisfi.com", {
 Gateway:
 
 ```javascript
-const socket = io("https://prod-api.avantisfi.com", {
+const socket = io("https://prod-api.veranta.xyz", {
   path: "/data/socket.io",
   transports: ["websocket", "polling"],
   reconnection: true,
@@ -93,7 +93,7 @@ import socketio
 
 sio = socketio.AsyncClient(reconnection=True)
 await sio.connect(
-    "https://data.avantisfi.com",
+    "https://data.veranta.xyz",
     transports=["websocket", "polling"],
     socketio_path="socket.io",
 )
@@ -103,7 +103,7 @@ On the gateway, `socketio_path="data/socket.io"`.
 
 ## `RES:DATA`
 
-Server → client, every time the worker publishes a cache diff (incremental
+Server -> client, every time the worker publishes a cache diff (incremental
 pair sync ~1s, market-hours / leverage / spread windows ~1 min, full rebuild
 ~30 min, plus on-chain OI and funding events).
 
@@ -147,14 +147,14 @@ function deepMerge(target, source) {
   return out;
 }
 
-let snapshot = await fetch("https://data.avantisfi.com/v2/trading").then((r) => r.json());
+let snapshot = await fetch("https://data.veranta.xyz/v2/trading").then((r) => r.json());
 
 socket.on("RES:DATA", (diff) => {
   snapshot = deepMerge(snapshot, diff);
 });
 
 socket.on("connect", async () => {
-  snapshot = await fetch("https://data.avantisfi.com/v2/trading").then((r) => r.json());
+  snapshot = await fetch("https://data.veranta.xyz/v2/trading").then((r) => r.json());
 });
 ```
 
@@ -169,23 +169,35 @@ hours live under `pairInfos[i].feed.attributes` (`isOpen`, `nextOpen`,
 
 ## SDK
 
-```python
-# pip install 'avantis-trader-sdk[streams]'
-from avantis_trader_sdk import AsyncAvantis
+Both SDKs wrap this stream. The callback receives the raw `RES:DATA` payload. The SDK does not merge it into `client.markets`, whose snapshot is polled over HTTP with a five-second cache. Treat the stream as its own live copy, or force a snapshot refresh when you need the typed pair models updated.
 
-async with AsyncAvantis() as client:
+<CodeGroup>
+
+```python Python
+# pip install "veranta-sdk[streams]"
+from veranta_sdk import AsyncVeranta
+
+async with AsyncVeranta() as client:
     stream = client.pair_data_stream()
 
     async def on_update(diff: dict) -> None:
-        changed = diff.get("pairInfos", {})
-        print("pairs updated:", list(changed))
+        print("pairs updated:", list(diff.get("pairInfos", {})))
 
-    await stream.run(on_update)   # blocks; stream.stop() to end
+    await stream.run(on_update)    # blocks; stream.stop() to end
 ```
 
-The callback receives the raw `RES:DATA` dict. The SDK does not merge it
-into `client.markets` (that snapshot is HTTP-polled, 5s TTL). Treat the
-stream as its own live copy, or call `markets.snapshot(force=True)` when
-you need the typed `PairInfo` models refreshed.
+```typescript TypeScript
+// npm i socket.io-client
+import { Veranta } from "veranta-sdk";
 
-Runnable sketch: `examples/17_streams.py`.
+const client = new Veranta();
+const stream = client.pairDataStream();
+
+await stream.run((diff) => {
+  console.log("pairs updated:", Object.keys(diff.pairInfos ?? {}));
+});                                // blocks; stream.stop() to end
+```
+
+</CodeGroup>
+
+Runnable scripts: `examples/17_streams.py` in the Python repo and `examples/17_streams.ts` in the TypeScript repo.

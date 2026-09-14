@@ -1,46 +1,92 @@
 ---
-title: Approvals & Claims
-description: "USDC allowances and rebate claims."
+title: Approvals and Claims
+description: "USDC allowances for trading, builder fees and the LP vault, plus rebate claims."
 ---
 
-## USDC approval
+## USDC approval for trading
 
-Trading collateral is pulled from your wallet, so USDC must be approved to the protocol once:
+Trading collateral is pulled from your wallet, so USDC must be approved to the trading contract once.
 
-```python
+<CodeGroup>
+
+```python Python
 await client.account.approve_usdc()          # unlimited, to TradingStorage
 await client.account.approve_usdc(5000)      # or a fixed amount
+
+info = await client.account.allowance()      # balance and allowance, raw and human
 ```
 
-```python
-info = await client.account.allowance()      # {"balance": ..., "allowance": ...} + human floats
+```typescript TypeScript
+await client.account.approveUsdc();          // unlimited, to TradingStorage
+await client.account.approveUsdc(5000);      // or a fixed amount
+
+const info = await client.account.allowance(); // balance and allowance, raw and human
 ```
+
+</CodeGroup>
 
 <Warning>
-Approvals must come from the **trader's own key**; they cannot be routed through a delegate/API key. If you onboarded via the [Avantis API Key Generator](https://delegate.avantisfi.com/), USDC was approved in the same flow and you can skip this.
+Approvals must come from your wallet key. They cannot go through an API key. If you onboarded with the [Veranta API Key Generator](https://delegate.veranta.xyz/), USDC was approved in the same flow and you can skip this.
 </Warning>
 
-### LP vault approval is separate
+In a React app, `useApproveUsdc()` approves from the connected wallet, gaslessly through a permit when the wallet supports it. See [React hooks](/frontend/react#usdc-approvals-from-the-browser).
 
-The LP vault pulls from an allowance on the **tranche**, not TradingStorage:
+## Builder-fee approval
 
-```python
-meta = await client.meta()
-tranche = meta["addresses"]["tranche"]
-await client.account.approve_usdc(1000, spender=tranche)
+Trading through an app that charges [builder fees](/builders/builder-codes) needs a second allowance, to the BuilderCode registry. The registry is the only contract that can pull the fees. Never approve the app's own wallet or your API key.
+
+<CodeGroup>
+
+```python Python
+await client.account.approve_builder_fees()        # unlimited, to the registry
+await client.account.approve_builder_fees(100)     # or a fixed amount
+info = await client.account.builder_fee_allowance()
 ```
+
+```typescript TypeScript
+await client.account.approveBuilderFees();         // unlimited, to the registry
+await client.account.approveBuilderFees(100);      // or a fixed amount
+const info = await client.account.builderFeeAllowance();
+```
+
+</CodeGroup>
+
+Allowances go down as fees are charged, even unlimited ones, so long-running integrations should watch the allowance and re-approve when it runs low.
+
+## LP vault approval
+
+The vault pulls from an allowance on the tranche contract, not the trading contract:
+
+<CodeGroup>
+
+```python Python
+meta = await client.meta()
+await client.account.approve_usdc(1000, spender=meta["addresses"]["tranche"])
+```
+
+```typescript TypeScript
+const meta = await client.meta();
+await client.account.approveUsdc(1000, { spender: meta.addresses.tranche as `0x${string}` });
+```
+
+</CodeGroup>
 
 See [LP vault](/more/lp-vault).
 
 ## Claims
 
-Both are caller-scoped: the signing key must be the account that earned them (no delegate):
+Both claims are caller-scoped: the signing key must be the account that earned them.
 
-```python
-await client.account.claim_rebate()           # referral rebates (you are the referrer)
-await client.account.claim_keeper_rewards()   # keeper rewards
+<CodeGroup>
+
+```python Python
+await client.account.claim_rebate()            # referral rebates, as the referrer
+await client.account.claim_keeper_rewards()    # keeper rewards
 ```
 
-## Builder codes
+```typescript TypeScript
+await client.account.claimRebate();            // referral rebates, as the referrer
+await client.account.claimKeeperRewards();     // keeper rewards
+```
 
-Routing order flow to Avantis as a partner? Register a builder code and earn a per-trade fee. Registration, fee mechanics, and attaching the code to your users' trades are covered on the dedicated [Builder codes](/builders/builder-codes) page.
+</CodeGroup>

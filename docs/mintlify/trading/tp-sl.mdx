@@ -1,103 +1,133 @@
 ---
-title: Take Profit & Stop Loss
-description: "Full-position TP/SL on-chain, partial TP/SL as off-chain trigger orders."
+title: Take Profit and Stop Loss
+description: "Full-position TP and SL levels on-chain, and partial TP and SL as trigger orders."
 ---
 
-Avantis v2 has two distinct TP/SL mechanisms. Pick by whether you want to close the whole position or part of it:
+Veranta has two ways to take profit or stop a loss. Pick by whether you want to close the whole position or just part of it.
 
-| | `update_tp_sl` (global) | `partial_tp_sl` |
+| | Full position | Partial |
 | --- | --- | --- |
-| Closes | Entire position | A slice (coin exposure) |
-| Stored | On-chain | Off-chain, with the Avantis operator |
-| Route | Signed intent to the core API price-triggers endpoint (same path in direct mode) | Signed order stored via core API |
-| Change | Re-set the levels | `update_partial_tp_sl(entity_id, ...)` |
-| Remove | Set the level to `0` | `cancel_partial_tp_sl(order)` |
-| On positions | `price_triggers` entries with `is_global=True` (deterministic `global-*` ids) | `price_triggers` entries with `is_global=False` (stored-order `entityId`) |
+| Method | `update_tp_sl` / `updateTpSl` | `partial_tp_sl` / `partialTpSl` |
+| Closes | The entire position | A slice, sized in coin units |
+| Stored | On-chain | Off-chain, with the Veranta operator |
+| Change it | Set new levels | `update_partial_tp_sl` / `updatePartialTpSl` with the entity id |
+| Remove it | Set the level to `0` | `cancel_partial_tp_sl` / `cancelPartialTpSl` |
+| Shows up as | Global triggers on the position | Partial triggers with an `entityId` |
 
-## Full-position TP/SL
+## Full-position TP and SL
 
-```python
+<CodeGroup>
+
+```python Python
 pos = (await client.account.positions()).positions[0]
 
 await client.trade.update_tp_sl(
     pos.pair_index, pos.index,
     take_profit=4200,
-    stop_loss=2900,     # None keeps a level, 0 clears it
+    stop_loss=2900,       # None keeps a level, 0 clears it
 )
 ```
 
-`None` keeps a leg unchanged (the SDK copies its current value from the
-position; the signed intent always carries both legs). `stop_loss=0` truly
-removes the SL. A position always has a TP on-chain, so `take_profit=0`
-*resets* it to the pair's max-gain cap (typically +2500%) instead of removing
-it.
+```typescript TypeScript
+const pos = (await client.account.positions()).positions[0];
+
+await client.trade.updateTpSl(pos.pairIndex, pos.index, {
+  takeProfit: 4200,
+  stopLoss: 2900,       // undefined keeps a level, 0 clears it
+});
+```
+
+</CodeGroup>
+
+Leaving a level out keeps it unchanged: the SDK copies the current value from the position, because the signed message always carries both legs. A stop loss of `0` removes the stop loss. A position always has a take profit on-chain, so a take profit of `0` resets it to the pair's maximum gain cap, typically +2500%, rather than removing it.
 
 <Note>
-v2 removed the public `updateTpAndSl` contract entry point, so this is
-intent-only: the SDK signs an `UpdateTpSlReq` and submits it to the core API,
-which executes it through the Avantis operator. The same path is used in
-relayer and `execution="direct"` mode. A success response means the update was
-accepted; with `wait=True` (default) the SDK polls the position until the new
-levels are visible.
+Full-position updates are signed intents sent to the core API, which executes them through the Veranta operator. The contracts have no public entry point for them, so this path is the same in relayer and direct mode. With the default wait the SDK polls the position until the new levels are visible.
 </Note>
 
-You can also set TP/SL at open time; see [market orders](/trading/market-orders).
+You can also set both levels when you open. See [Market orders](/trading/market-orders).
 
-## Partial TP/SL (trigger orders)
+## Partial TP and SL
 
-Signs a trigger order and stores it with the operator, who executes it on-chain when the price hits. Keep the returned dict: its `entityId` is your handle for updating and cancelling.
+A partial trigger closes a slice of the position when the price reaches your level. The SDK signs the order and stores it with the operator, who executes it on-chain when it triggers. Keep the returned record: its `entityId` is your handle for updates and cancels.
 
-```python
+<CodeGroup>
+
+```python Python
 order = await client.trade.partial_tp_sl(
     pos.pair_index, pos.index,
-    side=pos.side,               # side of the POSITION being trimmed
-    kind="take_profit",          # or "stop_loss" (shorthands: "tp" / "sl")
-    coin_exposure=0.25,          # amount to close, in coin units
-    trigger="fixed",             # "fixed" (price) or "percentage"
-    price=3900,                  # required for trigger="fixed"
+    side=pos.side,              # side of the position being trimmed
+    kind="take_profit",         # or "stop_loss"; "tp" and "sl" work too
+    coin_exposure=0.25,         # how much to close, in coin units
+    trigger="fixed",            # "fixed" uses price; "percentage" uses percentage
+    price=3900,
 )
 ```
 
-| Parameter | Notes |
-| --- | --- |
-| `trigger` | `"fixed"` uses `price`; `"percentage"` uses `percentage` |
-| `percentage` | Gain/loss percent for percentage triggers |
-| `open_timestamp` | Bind to a specific open when the position was just modified |
+```typescript TypeScript
+import { positionSide } from "veranta-sdk";
 
-Existing triggers appear on `Position.price_triggers` when you fetch
-[positions](/account/positions): partial orders carry `is_global=False` and a
-stored-order `entityId`; the global TP/SL shows up as `is_global=True`
-entries with deterministic `global-tp-*` / `global-sl-*` ids. Passing a
-global id to `update_partial_tp_sl` / `cancel_partial_tp_sl` raises a
-`ValidationError`; manage those levels with `update_tp_sl`.
+const order = await client.trade.partialTpSl(pos.pairIndex, pos.index, {
+  side: positionSide(pos),    // side of the position being trimmed
+  kind: "take_profit",        // or "stop_loss"; "tp" and "sl" work too
+  coinExposure: 0.25,         // how much to close, in coin units
+  trigger: "fixed",           // "fixed" uses price; "percentage" uses percentage
+  price: 3900,
+});
+```
 
-## Update a partial TP/SL
+</CodeGroup>
 
-Replaces the stored order in place (atomic edit) with a freshly signed one. Pass the **full** new order, not a diff:
+| Python | TypeScript | Meaning |
+| --- | --- | --- |
+| `trigger` | `trigger` | `"fixed"` takes a `price`. `"percentage"` takes a gain or loss `percentage` |
+| `percentage` | `percentage` | Signed percent for percentage triggers |
+| `open_timestamp` | `openTimestamp` | Pin the trigger to a specific open if the position was just modified |
 
-```python
+Existing triggers are listed on each position. Partial orders carry `is_global=False` / `isGlobal: false` and an `entityId`. The full-position levels show up as global triggers with deterministic ids such as `global-tp-...`. Passing a global id to the partial update or cancel methods raises `ValidationError`; manage those levels with the full-position method instead.
+
+## Update a partial trigger
+
+An update replaces the stored order with a freshly signed one. Pass the **full** new order, not a diff.
+
+<CodeGroup>
+
+```python Python
 order = await client.trade.update_partial_tp_sl(
     order["entityId"],
     pos.pair_index, pos.index,
-    side=pos.side,
-    kind="take_profit",
-    coin_exposure=0.25,
-    trigger="fixed",
-    price=4100,                  # the new trigger price
+    side=pos.side, kind="take_profit", coin_exposure=0.25,
+    trigger="fixed", price=4100,          # the new level
 )
 ```
 
-<Warning>
-An update mints a **new** `entityId` (the backend deletes the old order and
-stores the replacement atomically). Always adopt the returned dict's
-`entityId`; the one you passed in is gone.
-</Warning>
-
-## Cancel a partial TP/SL
-
-```python
-await client.trade.cancel_partial_tp_sl(order)          # dict with entityId
-await client.trade.cancel_partial_tp_sl("665f1c2a...")  # or the entityId itself
+```typescript TypeScript
+const updated = await client.trade.updatePartialTpSl(order.entityId, pos.pairIndex, pos.index, {
+  side: positionSide(pos), kind: "take_profit", coinExposure: 0.25,
+  trigger: "fixed", price: 4100,        // the new level
+});
 ```
 
-The cancel signs an EIP-712 `CancelOffchainOrder` message over the order's `entityId` as proof of ownership. The trader key or an active delegate key both work.
+</CodeGroup>
+
+<Warning>
+An update mints a **new** `entityId`. The backend deletes the old order and stores the replacement atomically. Always keep the returned record; the id you passed in is gone.
+</Warning>
+
+## Cancel a partial trigger
+
+<CodeGroup>
+
+```python Python
+await client.trade.cancel_partial_tp_sl(order)          # the record
+await client.trade.cancel_partial_tp_sl("665f1c2a...")  # or just the entityId
+```
+
+```typescript TypeScript
+await client.trade.cancelPartialTpSl(order);            // the record
+await client.trade.cancelPartialTpSl("665f1c2a...");    // or just the entityId
+```
+
+</CodeGroup>
+
+The cancel signs a small `CancelOffchainOrder` message over the entity id to prove ownership. Your wallet key or an active API key both work.

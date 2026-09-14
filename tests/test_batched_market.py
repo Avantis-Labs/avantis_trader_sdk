@@ -11,9 +11,9 @@ import httpx
 import pytest
 import respx
 
-from avantis_trader_sdk.errors import ApiError, RelayError
-from avantis_trader_sdk.execution.batched_market import BatchedMarketClient
-from avantis_trader_sdk.transport import HttpTransport
+from veranta_sdk.errors import ApiError, RelayError
+from veranta_sdk.execution.batched_market import BatchedMarketClient
+from veranta_sdk.transport import HttpTransport
 
 BASE = "https://batched.test"
 
@@ -416,7 +416,7 @@ async def test_wait_on_event_delivers_only_newly_replayed_events(client):
             },
         )
     )
-    from avantis_trader_sdk.execution.batched_market import BatchedMarketEvent
+    from veranta_sdk.execution.batched_market import BatchedMarketEvent
 
     seed = [BatchedMarketEvent(type="MarketOrderAccepted", data={"trackingId": "trk-w"}, seq=0)]
     seen = []

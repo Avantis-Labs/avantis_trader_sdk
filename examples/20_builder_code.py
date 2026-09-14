@@ -1,83 +1,92 @@
-"""Builder codes: register a per-trade partner fee and attach it to order flow.
+"""Builder codes: register per-order fee caps and charge a rate per order.
 
-A builder code is an on-chain fee config in the BuilderCode registry: trades
-attached to your code charge a fee (a percent of the trade's collateral or a
-fixed USDC amount per trade), paid by the trader to your fee collector. The
-fee is charged on top of the trade's collateral, as a separate USDC transfer
-from the trader's wallet in the same transaction.
+A builder code is an on-chain identity in the BuilderCode registry carrying
+your fee collector and three PUBLIC per-order fee-rate caps (open/increase,
+close, and PnL-pair close), each a percent of the order's NOTIONAL
+(collateral x leverage). Your integration then chooses the actual rate per
+order, up to the applicable cap; fees are pulled from the trader's USDC
+allowance to the registry (never from an allowance to your wallet) and sent
+to your collector, atomically with the order placement.
 
-Fee-eligible actions (the ones that open or add exposure):
-    market_open / market_open_coin, limit_open,
-    increase_position / increase_position_coin, twap_open
-Closes, cancels, margin updates, and TP/SL changes never charge builder fees.
-
-Registration is caller-scoped (msg.sender becomes the code owner) so it cannot
-be routed through a delegate key; run the register/modify part with the wallet
-that should own the code. Non-developers can use the same flow at
-https://delegate.avantisfi.com. Docs: /builders/builder-codes.
+Registration is caller-scoped (msg.sender becomes the code owner) so it
+cannot be routed through a delegate key; run the register/modify part with
+the wallet that should own the code. Non-developers can use the same flow at
+https://delegate.veranta.xyz. Docs: /builders/builder-codes.
 """
 
 import asyncio
 
-from avantis_trader_sdk import AsyncAvantis
+from veranta_sdk import AsyncVeranta
 
 CODE = "MYAPP"
 
 
 async def register_and_manage() -> str:
     """Owner-side: check, register, and (optionally) update your code."""
-    async with AsyncAvantis() as client:
+    async with AsyncVeranta() as client:
         # 1. Check availability. registered=False means free to claim; the
-        #    response also carries the protocol caps for the fee params.
+        #    response also carries the governance ceiling every cap obeys.
         info = await client.account.builder_code(CODE)
         print(
             f"registered: {info['registered']}  "
-            f"caps: {info['maxFeePercentHuman']}% / {info['maxFixedFeeUsdc']} USDC"
+            f"caps: open {info['maxOpenFeePercent']}% / close {info['maxCloseFeePercent']}% "
+            f"/ pnl-close {info['maxPnlCloseFeePercent']}%  "
+            f"(ceiling {info['globalCapPercent']}%)"
         )
 
-        # 2. Register: 0.05% of each trade's collateral to your collector.
+        # 2. Register with your caps. These are MAXIMA the registry enforces
+        #    per order; you charge any rate up to them (users see the caps
+        #    before approving, so tighter caps build more trust).
         if not info["registered"]:
             await client.account.register_builder_code(
                 CODE,
                 fee_collector=client.trade.trader,
-                is_percent_fee=True,
-                fee_percent=0.05,  # 1 = 1% of collateral
+                max_open_fee_percent=0.1,  # 0.1% of notional per open/increase
+                max_close_fee_percent=0.05,
+                max_pnl_close_fee_percent=0.05,
             )
 
-        # (owner only) fees are read live from the registry, so updates apply
-        # to all future trades immediately, no redeploys:
+        # (owner only) caps/collector are read live from the registry, so
+        # updates apply to all future orders immediately, no redeploys:
         # await client.account.modify_builder_code(
         #     CODE, fee_collector=client.trade.trader,
-        #     is_percent_fee=False, fixed_fee_usdc=0.25,
+        #     max_open_fee_percent=0.1, max_close_fee_percent=0.05,
+        #     max_pnl_close_fee_percent=0,
         # )
 
-        # 3. The normalized 32-byte form is what gets attached to order flow.
         info = await client.account.builder_code(CODE)
         print("bytes32 code:", info["code"])
         return str(info["code"])
 
 
-async def trade_with_code(code_bytes32: str) -> None:
-    """User-side: tag the order flow your integration sends for a user.
+async def trade_with_code(code: str) -> None:
+    """User-side: attach the code + a per-order rate to the flow you route.
 
-    `builder_code` is appended as a calldata suffix to every EIP-7702
-    transaction the SDK builds (market opens/closes/increases and all
-    relayer-passthrough actions) for order-flow attribution. On-chain fee
-    charging runs through a builder-specific delegation template wired by
-    the Avantis team once your code is registered.
+    The tx-builder appends the signed suffix ``code || rate || tag`` to the
+    inner trading calldata; the canonical Veranta EIP-7702 template executes
+    the trade and charges the fee against the exact order it placed. Builder
+    orders relay via blitz (no SSE lifecycle stream), and PnL/Upside pairs
+    auto-zero the open rate (their opens are always fee-free on-chain).
     """
-    async with AsyncAvantis(
+    async with AsyncVeranta(
         # private_key=<your user's delegate/API key>,
         # trader_address=<your user's wallet>,
-        builder_code=code_bytes32,
+        builder_code=code,  # "MYAPP" or the normalized 32-byte value
+        builder_fee_percent=0.05,  # default rate: 0.05% of notional per order
     ) as client:
-        # All fee-eligible actions work unchanged; the code rides along:
+        # One-time onboarding per user: collateral + builder-fee allowances,
+        # both to audited protocol contracts (never to your own wallet):
+        # await client.account.approve_usdc()
+        # await client.account.approve_builder_fees()
+
+        # 100 x 10 = 1,000 USDC notional -> 0.5 USDC fee at 0.05%:
         await client.trade.market_open("ETH/USD", "long", collateral=100, leverage=10)
-        # await client.trade.limit_open("ETH/USD", "long", collateral=100,
-        #                               leverage=10, price=3000)
-        # await client.trade.increase_position("ETH/USD", 0, collateral=50, leverage=10)
-        # await client.trade.twap_open("ETH/USD", "long", collateral=500,
-        #                              leverage=5, run_time_seconds=3600)
+
+        # Per-order override, e.g. a cheaper close (must stay <= your cap):
+        # await client.trade.market_close("ETH/USD", 0, collateral_to_close=100,
+        #                                 builder_fee_percent=0.02)
+        # await client.trade.increase_position("ETH/USD", 0, collateral=50,
+        #                                      leverage=10)  # default rate
 
 
 async def main() -> None:

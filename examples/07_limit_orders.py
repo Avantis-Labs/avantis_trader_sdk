@@ -1,16 +1,16 @@
 """Place, update, and cancel a limit order.
 
 Limit opens escrow USDC on placement. On the relayer route they go through
-the gasless TX_RELAY passthrough (same as the Avantis UI).
+the gasless TX_RELAY passthrough (same as the Veranta UI).
 """
 
 import asyncio
 
-from avantis_trader_sdk import AsyncAvantis
+from veranta_sdk import AsyncVeranta
 
 
 async def main() -> None:
-    async with AsyncAvantis() as client:
+    async with AsyncVeranta() as client:
         price = await client.markets.price("ETH/USD")
 
         await client.trade.limit_open(

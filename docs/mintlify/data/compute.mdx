@@ -1,74 +1,128 @@
 ---
 title: Compute
-description: "Pure, offline math with exact UI parity: PnL, liquidation, fees, validation."
+description: "Offline math that matches the Veranta app: PnL, liquidation prices, fees, and pre-trade validation."
 ---
 
-`avantis_trader_sdk.compute` reimplements the Avantis app's math as pure functions: no I/O, human units in and out. Numbers match what the UI displays.
+Both SDKs ship a `compute` module: pure functions with no network calls that reproduce the numbers the Veranta app shows. Human units in, human units out.
 
-```python
-from avantis_trader_sdk import compute
+<CodeGroup>
+
+```python Python
+from veranta_sdk import compute
 ```
+
+```typescript TypeScript
+import { compute } from "veranta-sdk";
+```
+
+</CodeGroup>
 
 ## PnL
 
-```python
-pnl = compute.position_net_pnl(position, pair_info, current_price)
-# NetPnlBreakdown: gross, closing_fee, rollover_fee, funding_fee,
-#                  loss_protection, profit_share_fee, net
+The quickest path is the position helper. Give it a position, its pair and a current price, and you get the full breakdown:
+
+<CodeGroup>
+
+```python Python
+pair = await client.markets.pair(pos.pair_index)
+price = await client.markets.price(pos.pair_index)
+
+pnl = compute.position_net_pnl(pos, pair, price)
+print(f"net {pnl.net:+.2f} (gross {pnl.gross:+.2f}, closing fee {pnl.closing_fee:.2f})")
 ```
 
-| Function | Purpose |
-| --- | --- |
-| `gross_pnl(current_price, open_price, collateral, leverage, is_long)` | Raw unrealized PnL |
-| `net_pnl(...)` | Full breakdown with fees, funding, loss protection, Upside profit share |
-| `position_net_pnl(position, pair_info, current_price)` | Convenience wrapper over a fetched `Position` |
-| `pnl_type_fee`, `pnl_fee_by_gross_profit_p`, `adjusted_max_gain_p` | Upside tiered profit-share math |
+```typescript TypeScript
+const pair = await client.markets.pair(pos.pairIndex);
+const price = await client.markets.price(pos.pairIndex);
 
-## Liquidation
-
-```python
-liq = compute.estimate_liquidation_price(
-    open_price=3500, collateral=100, leverage=10, is_long=True,
-)
+const pnl = compute.positionNetPnl(pos, pair, price);
+console.log(`net ${pnl.net.toFixed(2)} (gross ${pnl.gross.toFixed(2)}, closing fee ${pnl.closingFee.toFixed(2)})`);
 ```
 
-Pre-trade / what-if estimate (margin edits, increases). For **open** positions, `Position.liquidation_price` from the core API is authoritative.
+</CodeGroup>
 
-## Fees & liquidity
+The breakdown has `gross`, `closing_fee` / `closingFee`, `rollover_fee` / `rolloverFee`, `funding_fee` / `fundingFee`, `loss_protection` / `lossProtection`, `profit_share_fee` / `profitShareFee` and `net`.
 
-| Function | Purpose |
-| --- | --- |
-| `skew_adjusted_open_fee(...)` | Open fee after OI-skew adjustment |
-| `pair_open_maker_taker_fee_p(...)` / `pair_close_maker_taker_fee_p(...)` | Maker/taker/mixed fee classification |
-| `available_liquidity(...)` / `max_position_size(pair_info, snapshot, is_long=...)` | OI headroom for new positions |
+| Python | TypeScript | Purpose |
+| --- | --- | --- |
+| `gross_pnl(...)` | `grossPnl(...)` | Raw unrealized PnL from prices, collateral, leverage and side |
+| `net_pnl(...)` | `netPnl({...})` | Full breakdown with fees, funding, loss protection and the Upside profit share |
+| `position_net_pnl(position, pair, price)` | `positionNetPnl(position, pair, price)` | The same, from a fetched position |
+| `pnl_type_fee`, `pnl_fee_by_gross_profit_p`, `adjusted_max_gain_p` | `pnlTypeFee`, `pnlFeeByGrossProfitP`, `adjustedMaxGainP` | Upside tiered profit-share math |
 
-## TP/SL conversion
+## Liquidation price
 
-Convert between trigger prices and gain/loss percentages, as the UI does:
+Estimate where a position gets liquidated before you open it or change its margin:
 
-```python
-tp_price = compute.tp_percent_to_price(3500, 100, 10, True)   # +100% of collateral, 10x long
-sl_pct = compute.sl_price_to_percent(3500, 3300, 10, True)    # base price, SL price
+<CodeGroup>
+
+```python Python
+liq = compute.estimate_liquidation_price(open_price=3500, collateral=100, leverage=10, is_long=True)
 ```
 
-`pnl_order_min_sl(leverage)` gives the minimum SL percent for Upside positions.
+```typescript TypeScript
+const liq = compute.estimateLiquidationPrice({ openPrice: 3500, collateral: 100, leverage: 10, isLong: true });
+```
+
+</CodeGroup>
+
+For a position that is already open, use the `liquidation_price` / `liquidationPrice` the API returns with [positions](/account/positions). It includes accrued fees and is the authoritative number.
+
+## Fees and liquidity
+
+| Python | TypeScript | Purpose |
+| --- | --- | --- |
+| `skew_adjusted_open_fee(...)` | `skewAdjustedOpenFee({...})` | Opening fee after the open-interest skew adjustment |
+| `pair_open_maker_taker_fee_p(...)`, `pair_close_maker_taker_fee_p(...)` | `pairOpenMakerTakerFeeP({...})`, `pairCloseMakerTakerFeeP({...})` | Whether an order pays the maker or the taker fee |
+| `available_liquidity(...)`, `max_position_size(pair, snapshot, is_long=...)` | `availableLiquidity({...})`, `maxPositionSize(pair, snapshot, { isLong })` | How much open interest room is left for a new position |
+
+## Take profit and stop loss conversions
+
+Convert between trigger prices and gain or loss percentages, exactly like the app does:
+
+<CodeGroup>
+
+```python Python
+tp_price = compute.tp_percent_to_price(3500, 100, 10, True)   # +100% on collateral, 10x long
+sl_pct = compute.sl_price_to_percent(3500, 3300, 10, True)    # entry price, stop price
+```
+
+```typescript TypeScript
+const tpPrice = compute.tpPercentToPrice(3500, 100, 10, true); // +100% on collateral, 10x long
+const slPct = compute.slPriceToPercent(3500, 3300, 10, true);  // entry price, stop price
+```
+
+</CodeGroup>
+
+`pnl_order_min_sl(leverage)` / `pnlOrderMinSl(leverage)` returns the minimum stop loss percent allowed on Upside positions.
 
 ## Pre-trade validation
 
-Run the UI's full pre-trade rulebook locally before submitting:
+Run the app's full rulebook locally before you submit: minimum size, leverage limits, open interest room, market hours and TP/SL bounds.
 
-```python
+<CodeGroup>
+
+```python Python
 snap = await client.markets.snapshot()
 pair = await client.markets.pair("ETH/USD")
 price = await client.markets.price("ETH/USD")
 
-result = compute.validate_order(
-    pair, snap,
-    collateral=100, leverage=10, is_long=True, market_price=price,
-)
+result = compute.validate_order(pair, snap, collateral=100, leverage=10, is_long=True, market_price=price)
 if not result.ok:
-    print(result.errors)     # blocking problems
-print(result.warnings)      # non-blocking notes
+    print(result.errors)      # blocking problems
+print(result.warnings)        # non-blocking notes
 ```
 
-The API performs the same validation on submit unless you pass `skip_validation=True`.
+```typescript TypeScript
+const snap = await client.markets.snapshot();
+const pair = await client.markets.pair("ETH/USD");
+const price = await client.markets.price("ETH/USD");
+
+const result = compute.validateOrder(pair, snap, { collateral: 100, leverage: 10, isLong: true, marketPrice: price });
+if (!result.ok) console.log(result.errors); // blocking problems
+console.log(result.warnings);               // non-blocking notes
+```
+
+</CodeGroup>
+
+The API runs the same validation when you submit, unless you pass `skip_validation=True` / `skipValidation: true`.

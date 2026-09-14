@@ -1,56 +1,94 @@
 ---
-title: Margin & Position Size
-description: "Deposit or withdraw collateral, and add size to open positions."
+title: Margin and Position Size
+description: "Add or remove collateral, and add size to a position you already have."
 ---
 
 ## Adjust margin
 
-Deposit lowers effective leverage and moves the liquidation price away; withdraw does the opposite.
+Depositing collateral lowers the effective leverage and moves the liquidation price further away. Withdrawing does the opposite.
 
-```python
+<CodeGroup>
+
+```python Python
 pos = (await client.account.positions()).positions[0]
 
-await client.trade.update_margin(pos.pair_index, pos.index, "deposit", 50)    # +50 USDC
-await client.trade.update_margin(pos.pair_index, pos.index, "withdraw", 25)   # -25 USDC
+await client.trade.update_margin(pos.pair_index, pos.index, "deposit", 50)    # add 50 USDC
+await client.trade.update_margin(pos.pair_index, pos.index, "withdraw", 25)   # remove 25 USDC
 ```
 
-Preview the effect before committing with [`compute.estimate_liquidation_price`](/data/compute).
+```typescript TypeScript
+const pos = (await client.account.positions()).positions[0];
+
+await client.trade.updateMargin(pos.pairIndex, pos.index, "deposit", 50);     // add 50 USDC
+await client.trade.updateMargin(pos.pairIndex, pos.index, "withdraw", 25);    // remove 25 USDC
+```
+
+</CodeGroup>
+
+Preview the effect first with the liquidation estimate in [Compute](/data/compute#liquidation-price). Margin updates execute against a fresh oracle price, which the SDK attaches for you.
 
 ## Increase position size
 
-Adds collateral at a chosen leverage; the position's average open price is re-weighted.
+Adds collateral at a leverage of your choice. The position's average open price is re-weighted on-chain.
 
-```python
+<CodeGroup>
+
+```python Python
 await client.trade.increase_position(
     pos.pair_index, pos.index,
     collateral=100,          # additional USDC
-    leverage=10,             # leverage applied to the added collateral
+    leverage=10,             # applied to the added collateral only
     slippage_percent=1,
 )
 ```
 
-| Parameter | Default | Notes |
-| --- | --- | --- |
-| `collateral` | required | Additional USDC |
-| `leverage` | required | For the added collateral (not the whole position) |
-| `open_price` | `None` | Resolved from the live feed when omitted |
-| `slippage_percent` | `1` | Max slippage on the increase fill |
+```typescript TypeScript
+await client.trade.increasePosition(pos.pairIndex, pos.index, {
+  collateral: 100,         // additional USDC
+  leverage: 10,            // applied to the added collateral only
+  slippagePercent: 1,
+});
+```
+
+</CodeGroup>
+
+| Python | TypeScript | Default | Meaning |
+| --- | --- | --- | --- |
+| `collateral` | `collateral` | required | Additional USDC |
+| `leverage` | `leverage` | required | Leverage for the added collateral, not for the whole position |
+| `open_price` | `openPrice` | live price | Reference price for the fill |
+| `slippage_percent` | `slippagePercent` | `1` | Maximum slippage on the increase |
+| `on_event` | `onEvent` | none | Lifecycle hook, like market orders |
+
+Increases route through the batched-market service like market orders, so the receipt is fill-aware and ends with a `PositionSizeIncreased` event.
 
 ## Increase sized in coin units
 
-Targets added coin exposure; fill leverage floats within bounds (all three leverage arguments are required):
+Targets extra coin exposure. All three leverage arguments are required here.
 
-```python
+<CodeGroup>
+
+```python Python
 await client.trade.increase_position_coin(
     pos.pair_index, pos.index,
     collateral=100,
     coin_exposure=0.25,      # ETH to add
-    leverage=10,             # reference leverage, contract-required
-    min_leverage=5,
-    max_leverage=20,
+    leverage=10,             # reference leverage
+    min_leverage=5, max_leverage=20,
 )
 ```
 
+```typescript TypeScript
+await client.trade.increasePositionCoin(pos.pairIndex, pos.index, {
+  collateral: 100,
+  coinExposure: 0.25,      // ETH to add
+  leverage: 10,            // reference leverage
+  minLeverage: 5, maxLeverage: 20,
+});
+```
+
+</CodeGroup>
+
 <Note>
-To **reduce** size, use a partial [market close](/trading/market-orders#close). There is no separate decrease method.
+To **reduce** size, close part of the position with a partial [market close](/trading/market-orders#close-a-position). There is no separate decrease method.
 </Note>

@@ -1,0 +1,107 @@
+---
+title: React Hooks
+description: "Build a trading frontend with veranta-sdk/react: wagmi wallets, one-click trading, live prices and TanStack Query hooks."
+---
+
+`veranta-sdk/react` wraps the TypeScript SDK in hooks for wagmi v2 and TanStack Query v5. It works with any wagmi-compatible wallet layer: RainbowKit, ConnectKit, Privy, Reown AppKit or a plain injected wallet.
+
+```bash
+npm i veranta-sdk viem wagmi @tanstack/react-query
+```
+
+## Set up the provider
+
+`VerantaProvider` sits inside your `WagmiProvider` and `QueryClientProvider`. It builds a client from the connected wallet and takes the same options as the `Veranta` constructor.
+
+```tsx
+import { WagmiProvider } from "wagmi";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { VerantaProvider } from "veranta-sdk/react";
+
+const queryClient = new QueryClient();
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <WagmiProvider config={wagmiConfig}>
+      <QueryClientProvider client={queryClient}>
+        <VerantaProvider network="mainnet">{children}</VerantaProvider>
+      </QueryClientProvider>
+    </WagmiProvider>
+  );
+}
+```
+
+Provider options are captured once on mount. To switch networks, remount the provider with a `key`. For testnet, point your wagmi transport at `TESTNET_RPC_URL` from `veranta-sdk` so on-chain reads hit the fork too.
+
+## A trading component
+
+```tsx
+import { useMarketOpen, usePositions, usePrice, useSessionKey } from "veranta-sdk/react";
+
+export function Trade() {
+  const price = usePrice("ETH/USD");           // live, over one shared SSE stream
+  const positions = usePositions();            // refreshed automatically after fills
+  const session = useSessionKey();             // one-click trading, no popups
+  const open = useMarketOpen({ onEvent: (e) => console.log(e.type) });
+
+  return (
+    <button onClick={() => open.mutate({ pair: "ETH/USD", side: "long", collateral: 100, leverage: 10 })}>
+      Long ETH at {price?.price}
+    </button>
+  );
+}
+```
+
+A complete trading panel lives in the [Next.js example](https://github.com/Avantis-Labs/avantis-sdk/tree/main/examples/next-app): wallet connect, one-click trading, USDC approval, live prices, open and close, positions and an order lifecycle log.
+
+## One-click trading with session keys
+
+A session key is an API key created in the browser. `useSessionKey().enable()` generates a fresh local key, asks the wallet for one signature that registers it as a delegate, and relays the registration gaslessly. From then on every order is signed silently by the session key. The key lives in `localStorage`, scoped to the network and the wallet. It can only trade; it cannot move funds.
+
+```tsx
+const session = useSessionKey();
+
+session.status;          // "none" | "pending" | "active" | "expired"
+session.isActive;        // true when orders sign without popups
+session.enable();        // one wallet signature; default expiry 30 days
+session.revoke();        // removes the on-chain delegation and clears the key
+```
+
+Without an active session key, the wallet signs each order intent through its normal popup. Market orders still work that way. Actions that need an EIP-7702 authorization, such as limit orders and approvals, fall back to normal wallet transactions where the user pays gas.
+
+## USDC approvals from the browser
+
+`useApproveUsdc()` approves USDC to the trading contract. By default it tries a gasless permit first: the wallet signs an EIP-2612 permit and a throwaway smart account relays it, so even a wallet with no ETH can approve. If the permit path is unavailable it falls back to a normal approve transaction.
+
+```tsx
+const approve = useApproveUsdc();
+approve.mutate({});                     // unlimited
+approve.mutate({ amount: 5000 });       // fixed amount
+approve.mutate({ strategy: "wallet" }); // skip the permit and send a transaction
+```
+
+`useApproveBuilderFees()` does the same for the BuilderCode registry allowance, and `useBuilderFeeAllowance()` reads it. See [Builder codes](/builders/builder-codes).
+
+## Live prices
+
+`usePrice(pair)` returns the latest tick with `price`, `bestBid` and `bestAsk`. Every component that calls it shares one Lazer stream, and the stream runs in a Web Worker by default so parsing heavy tick traffic never blocks rendering. No bundler configuration is needed. It falls back to the main thread under server rendering or strict content security policies, and `priceTransport="main"` on the provider forces that.
+
+## All hooks
+
+| Hook | What it does |
+| --- | --- |
+| `usePrice`, `usePair`, `usePairs`, `useTradingSnapshot`, `useSpread`, `useOpenInterests` | Market data |
+| `usePositions`, `useTwaps`, `useAllowance`, `useUsdcBalance`, `useDelegationStatus` | Account state, refreshed after every mutation |
+| `useTradeHistory`, `useOrderHistory`, `usePortfolioPnl` | History and analytics |
+| `useMarketOpen`, `useMarketClose`, `useLimitOpen`, `useUpdateLimitOrder`, `useCancelLimitOrder` | Orders |
+| `useUpdateTpSl`, `usePartialTpSl`, `useUpdateMargin`, `useIncreasePosition` | Position management |
+| `useTwapOpen`, `useTwapClose`, `useTwapCancel` | TWAP |
+| `useSessionKey`, `useApproveUsdc`, `useApproveBuilderFees`, `useBuilderFeeAllowance` | Onboarding |
+| `useBuilderCodeInfo`, `useRegisterBuilderCode`, `useModifyBuilderCode` | Builder codes |
+| `useVeranta`, `useVerantaContext`, `useTrader` | The underlying client and the connected trader |
+
+Mutations take `onEvent` for the order lifecycle, `onSuccess` and `onError`. They invalidate positions, balances and allowances when they settle, and again a few seconds later to cover indexer lag.
+
+<Note>
+The React entry point is TypeScript only. Everything the hooks do is also available on the plain `Veranta` client, so a non-React frontend can use `veranta-sdk` directly with a wagmi `WalletClient` as the signer.
+</Note>

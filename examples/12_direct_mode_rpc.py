@@ -6,15 +6,15 @@ still operator-driven (two-step), so poll positions after the tx confirms.
 
 import asyncio
 
-from avantis_trader_sdk import AsyncAvantis
+from veranta_sdk import AsyncVeranta
 
 
 async def main() -> None:
-    async with AsyncAvantis(
+    async with AsyncVeranta(
         execution="direct",
         rpc_url="https://your-base-rpc.example",
-        # trader-key mode: AVANTIS_PRIVATE_KEY is the trader's own key,
-        # AVANTIS_TRADER_ADDRESS unset (or equal to the key's address)
+        # trader-key mode: VERANTA_PRIVATE_KEY is the trader's own key,
+        # VERANTA_TRADER_ADDRESS unset (or equal to the key's address)
     ) as client:
         receipt = await client.trade.market_open(
             "BTC/USD", "short", collateral=250, leverage=5

@@ -1,70 +1,124 @@
 ---
-title: Prices & Streams
-description: "Polled prices and four real-time feeds."
+title: Prices and Streams
+description: "A polled price for scripts, and four real-time feeds for everything else."
 ---
 
 ## Polled price
 
-```python
-price = await client.markets.price("ETH/USD")   # latest feed price, float
+<CodeGroup>
+
+```python Python
+price = await client.markets.price("ETH/USD")   # float
 ```
 
-Good for scripts. For anything latency-sensitive, stream instead.
+```typescript TypeScript
+const price = await client.markets.price("ETH/USD");  // number
+```
 
-## Streams
+</CodeGroup>
 
-| Factory | Transport | Delivers | Notes |
+This is the live price from the same signed feed update that the keeper posts on-chain. It is a good reference price for scripts and for the `open_price` / `openPrice` of locally built orders. For anything latency-sensitive, stream instead.
+
+<Warning>
+Do not use the feed's `last-price` endpoint as a trade reference. It returns an hourly candle from 24 hours ago, and an order signed against it fails on-chain with `HighSlippage`.
+</Warning>
+
+## The four streams
+
+| Stream | Transport | Delivers | Notes |
 | --- | --- | --- | --- |
-| `client.lazer_price_stream(feed_ids)` | SSE | Prices, lowest latency | Feed ids from `pair.lazer_feed.feed_id` |
-| `client.hermes_price_stream(feed_ids)` | Pyth Hermes WS | Prices | 0x-hex Pyth feed ids |
-| `client.pair_data_stream()` | Socket.IO | Funding / OI / spread updates | Needs `pip install 'avantis-trader-sdk[streams]'`. Protocol: [Pair data Socket.IO](/data/socket-io) |
-| `client.order_event_stream(trader=None)` | Pusher WS | Your fills and cancels | Idle unless your orders execute |
+| Lazer price stream | SSE | Prices with the lowest latency | Feed ids come from `pair.lazer_feed.feed_id` / `pair.lazerFeed.feedId` |
+| Hermes price stream | Pyth Hermes WebSocket | Prices | Takes 0x-hex Pyth feed ids |
+| Pair data stream | Socket.IO | Funding, open interest and spread updates | Python needs `pip install "veranta-sdk[streams]"`. TypeScript needs `socket.io-client`. Protocol: [pair data Socket.IO](/data/socket-io) |
+| Order event stream | Pusher WebSocket | Your own fills and cancels | Idle unless your orders execute |
 
-All streams share the same API: `await stream.run(callback)` blocks and invokes the callback per event; `stream.stop()` ends it.
+Every stream has the same shape: `run(callback)` blocks and calls your function once per event, and `stop()` ends it. Streams reconnect on their own.
 
 ### Price stream
 
-```python
+<CodeGroup>
+
+```python Python
 eth = await client.markets.pair("ETH/USD")
 stream = client.lazer_price_stream([eth.lazer_feed.feed_id])
 
-async def on_price(update):        # PriceUpdate
+async def on_price(update):            # PriceUpdate
     print(update.feed_id, update.price, update.best_bid, update.best_ask)
 
-await stream.run(on_price)
+await stream.run(on_price)             # blocks; call stream.stop() to end
 ```
 
-`PriceUpdate` fields: `feed_id`, `price`, `timestamp_ms`, `best_bid`, `best_ask`, `raw`.
+```typescript TypeScript
+const eth = await client.markets.pair("ETH/USD");
+const stream = client.lazerPriceStream([eth.lazerFeed!.feedId!]);
 
-### Pair data
+await stream.run((update) => {         // PriceUpdate
+  console.log(update.feedId, update.price, update.bestBid, update.bestAsk);
+});                                    // blocks; call stream.stop() to end
+```
 
-Live catalog diffs (funding, OI, spread, market hours) from the data
-service. Payloads are **partial**; bootstrap from `GET /v2/trading` and
-deep-merge. Full handshake, hosts, and payload rules:
-[Pair data Socket.IO](/data/socket-io).
+</CodeGroup>
 
-```python
-# pip install 'avantis-trader-sdk[streams]'
+A price update carries `feed_id` / `feedId`, `price`, `timestamp_ms` / `timestampMs`, `best_bid` / `bestBid`, `best_ask` / `bestAsk` and the raw payload.
+
+### Pair data stream
+
+Live changes to the pair catalog: funding, open interest, spreads and market hours. Payloads are partial. Start from a full snapshot and merge each update into it. The [pair data Socket.IO](/data/socket-io) page has the full protocol.
+
+<CodeGroup>
+
+```python Python
+# pip install "veranta-sdk[streams]"
 stream = client.pair_data_stream()
 
-async def on_pairs(diff):          # raw RES:DATA dict
-    print(list(diff.get("pairInfos", {})))
+async def on_pairs(diff):              # the raw RES:DATA dict
+    print("pairs updated:", list(diff.get("pairInfos", {})))
 
 await stream.run(on_pairs)
 ```
 
+```typescript TypeScript
+// npm i socket.io-client
+const stream = client.pairDataStream();
+
+await stream.run((diff) => {           // the raw RES:DATA object
+  console.log("pairs updated:", Object.keys(diff.pairInfos ?? {}));
+});
+```
+
+</CodeGroup>
+
 ### Order events
 
-The reliable way to confirm fills (see [Core concepts](/concepts#receipts-and-fills)):
+The most reliable way to confirm fills from outside the order call itself:
 
-```python
-orders = client.order_event_stream()
+<CodeGroup>
 
-async def on_event(ev):            # OrderEvent
-    print(ev.event, ev.data)       # OrderPickedUpForExecution, ExecutionConfirmedInFlashblock,
-                                   # OrderFilled, OrderCanceled
+```python Python
+orders = client.order_event_stream()   # your trader address by default
+
+async def on_event(ev):                # OrderEvent
+    print(ev.event, ev.data)           # OrderPickedUpForExecution, ExecutionConfirmedInFlashblock,
+                                       # OrderFilled, OrderCanceled
 
 await orders.run(on_event)
 ```
+
+```typescript TypeScript
+const orders = client.orderEventStream(); // your trader address by default
+
+await orders.run((ev) => {                // OrderEvent
+  console.log(ev.event, ev.data);         // OrderPickedUpForExecution, ExecutionConfirmedInFlashblock,
+                                          // OrderFilled, OrderCanceled
+});
+```
+
+</CodeGroup>
+
+The order event stream needs the deployment's Pusher key, which the network profile provides.
+
+### Live prices in a React app
+
+In the browser, `usePrice("ETH/USD")` from `veranta-sdk/react` shares one Lazer stream across every component and runs it in a Web Worker so heavy tick traffic never blocks rendering. See [React hooks](/frontend/react).
 
 For streaming prices straight into locally built orders, see the [market-maker fast path](/advanced/mm-fast-path).

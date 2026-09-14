@@ -12,14 +12,6 @@ import httpx
 import pytest
 import respx
 
-from avantis_trader_sdk import AsyncAvantis
-from avantis_trader_sdk.account.models import Position
-from avantis_trader_sdk.errors import ApiError, ValidationError
-from avantis_trader_sdk.intents_schema import INTENT_TYPES
-from avantis_trader_sdk.markets.models import (
-    TradingSnapshot,
-    strip_upside_suffix,
-)
 from tests.conftest import (
     META,
     TEST_KEY,
@@ -27,6 +19,14 @@ from tests.conftest import (
     TRADING_SNAPSHOT,
     VECTORS,
     mock_data_api,
+)
+from veranta_sdk import AsyncVeranta
+from veranta_sdk.account.models import Position
+from veranta_sdk.errors import ApiError, ValidationError
+from veranta_sdk.intents_schema import INTENT_TYPES
+from veranta_sdk.markets.models import (
+    TradingSnapshot,
+    strip_upside_suffix,
 )
 
 TXB = "https://txb.test"
@@ -43,8 +43,8 @@ def _ok(data):
     return httpx.Response(200, json={"ok": True, "data": data})
 
 
-def _client() -> AsyncAvantis:
-    return AsyncAvantis(
+def _client() -> AsyncVeranta:
+    return AsyncVeranta(
         network="testnet",
         private_key=TEST_KEY,
         trader_address=TRADER,

@@ -1,5 +1,5 @@
 {
-  "description": "Digests computed by the deployed SignatureHelpers library (avantis-contracts-v2). Regenerate with npm run gen:vectors. TwapCancelReq and CancelOffchainOrder are verified off-chain (twap-app / core-backend recover via ethers), so their digests come from ethers TypedDataEncoder under the same domain.",
+  "description": "Digests computed by the deployed SignatureHelpers library (avantis-contracts-v2), plus two ethers-pinned vectors for the off-chain-verified intents (TwapCancelReq, CancelOffchainOrder). Regenerate with npm run gen:vectors.",
   "domain": {
     "name": "AvantisTrading",
     "version": "1",
@@ -236,11 +236,11 @@
         "delegate": "0x2222222222222222222222222222222222222222",
         "expiry": "1760000000",
         "deadline": "1800000000123",
-        "tnc": "I accept the Avantis Terms of Service: https://www.avantisfi.com/docs/tos.I confirm that I am not a resident of any of the following countries/regions: Belarus, Cuba, Iran, North Korea, Russia, Syria, Crimea, United Kingdom, United States of America.",
+        "tnc": "I accept the Veranta Terms of Service: https://www.veranta.xyz/docs/tos. I confirm that I am not a resident of any of the following countries/regions: Belarus, Cuba, Iran, North Korea, Russia, Syria, Crimea, United Kingdom, United States of America.",
         "nonce": "987654321123456789"
       },
-      "structHash": "0xa79a282aa96bade2b65f3151a3910db79d76367986902604addf82abd9552ae1",
-      "digest": "0xe183cfa730399075744cd40a87dc2cd3ed6fb5392103e30160c5259288d7b3a2"
+      "structHash": "0x72f0bc5546ade8333cc8aeb1f0841c2042d4d9355e5f80c8dee10f2e781cb195",
+      "digest": "0xb49bf475e3e43184d96ef03d0e411819c787ab19b1518c472eb6859756803526"
     },
     {
       "kind": "RegisterCodeReq",

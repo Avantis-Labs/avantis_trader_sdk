@@ -3,13 +3,13 @@
 import asyncio
 import time
 
-from avantis_trader_sdk import AsyncAvantis
+from veranta_sdk import AsyncVeranta
 
 
 async def main() -> None:
-    async with AsyncAvantis() as client:
+    async with AsyncVeranta() as client:
         price = await client.markets.price("ETH/USD")
-        print("ETH/USD last price:", price)
+        print("ETH/USD live price:", price)
 
         # risk-engine v2 spread (what the v2 UI quotes; coin-sized request).
         spread = await client.markets.spread(

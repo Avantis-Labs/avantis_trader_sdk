@@ -1,12 +1,12 @@
-"""Provide liquidity to the Avantis vault (ERC-4626 tranche, avUSDC)."""
+"""Provide liquidity to the Veranta vault (ERC-4626 tranche, avUSDC)."""
 
 import asyncio
 
-from avantis_trader_sdk import AsyncAvantis
+from veranta_sdk import AsyncVeranta
 
 
 async def main() -> None:
-    async with AsyncAvantis() as client:  # trader-key mode (LP is caller-scoped)
+    async with AsyncVeranta() as client:  # trader-key mode (LP is caller-scoped)
         state = await client.lp.state()
         print("vault state:", state)
 

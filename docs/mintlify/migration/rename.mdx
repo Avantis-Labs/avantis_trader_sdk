@@ -1,0 +1,51 @@
+---
+title: Avantis is now Veranta
+description: "What the rename changes for SDK users, and what stays exactly the same."
+---
+
+Avantis rebranded to **Veranta** on September 14, 2026. The protocol, the contracts, your API keys, delegations, allowances and positions are all unchanged. Only the names changed.
+
+| | Before | Now |
+| --- | --- | --- |
+| Python package | `avantis-trader-sdk` | `veranta-sdk` |
+| Python import | `from avantis_trader_sdk import AsyncAvantis` | `from veranta_sdk import AsyncVeranta` |
+| Python classes | `AsyncAvantis`, `Avantis`, `AvantisConfig`, `AvantisError` | `AsyncVeranta`, `Veranta`, `VerantaConfig`, `VerantaError` |
+| TypeScript package | none | `veranta-sdk` on npm, with `veranta-sdk/react` and `veranta-sdk/kms` |
+| Environment variables | `AVANTIS_*` | `VERANTA_*` |
+| Service hosts | `*.avantisfi.com` | `*.veranta.xyz` (the testnet RPC and explorer stay on `avantisfi.com` for now) |
+| API Key Generator | delegate.avantisfi.com | [delegate.veranta.xyz](https://delegate.veranta.xyz) |
+| Docs | sdk.avantisfi.com | sdk.veranta.com |
+
+## Upgrading the Python SDK
+
+```bash
+pip uninstall avantis-trader-sdk
+pip install veranta-sdk
+```
+
+```python
+# before
+from avantis_trader_sdk import AsyncAvantis
+# after
+from veranta_sdk import AsyncVeranta
+```
+
+Then rename your `AVANTIS_*` environment variables to `VERANTA_*`. That is the whole migration.
+
+## The compatibility window
+
+You do not have to do it all today:
+
+- **`avantis-trader-sdk` 2.1.0** is the final release under the old name. It only depends on `veranta-sdk` and re-exports everything, so `import avantis_trader_sdk` keeps working and prints a `DeprecationWarning`. No further updates ship under the old name.
+- The old class names stay importable from `veranta_sdk` as deprecated aliases.
+- `AVANTIS_*` environment variables are still read when the `VERANTA_*` name is not set, with a warning. The same applies to the TypeScript SDK.
+- The `avantisfi.com` hosts keep serving. The SDK defaults now point at `veranta.xyz`, and any explicit URL override you configured keeps working.
+
+## What stays Avantis on-chain
+
+- The EIP-712 signing domain is still named `AvantisTrading`. It is a constant in the deployed contracts, so wallet signing prompts keep showing that name. This is expected.
+- Registering an API key signs the **Veranta** Terms of Service text. The contracts accept both the old and the new text, so delegations created before the rename stay valid.
+
+## The TypeScript SDK is new
+
+There was no public Avantis TypeScript SDK, so `veranta-sdk` on npm starts fresh under the new name. It has the same features as the Python SDK. Start with the [quickstart](/quickstart).

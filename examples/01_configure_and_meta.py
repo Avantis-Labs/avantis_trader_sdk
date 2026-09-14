@@ -1,18 +1,18 @@
 """Bootstrap the SDK and inspect protocol metadata.
 
 Environment (the default setup):
-    export AVANTIS_PRIVATE_KEY=0x...      # your API/agent key from the Avantis UI
-    export AVANTIS_TRADER_ADDRESS=0x...   # your wallet address
-    # optional: AVANTIS_NETWORK=mainnet|testnet (default mainnet)
+    export VERANTA_PRIVATE_KEY=0x...      # your API/agent key from the Veranta UI
+    export VERANTA_TRADER_ADDRESS=0x...   # your wallet address
+    # optional: VERANTA_NETWORK=mainnet|testnet (default mainnet)
 """
 
 import asyncio
 
-from avantis_trader_sdk import AsyncAvantis
+from veranta_sdk import AsyncVeranta
 
 
 async def main() -> None:
-    async with AsyncAvantis() as client:
+    async with AsyncVeranta() as client:
         meta = await client.meta()
         print("chainId:", meta["chainId"])
         print("tradingRouter:", meta["addresses"]["tradingRouter"])

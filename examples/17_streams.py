@@ -2,11 +2,11 @@
 
 import asyncio
 
-from avantis_trader_sdk import AsyncAvantis
+from veranta_sdk import AsyncVeranta
 
 
 async def main() -> None:
-    async with AsyncAvantis() as client:
+    async with AsyncVeranta() as client:
         eth = await client.markets.pair("ETH/USD")
         btc = await client.markets.pair("BTC/USD")
 
@@ -27,7 +27,7 @@ async def main() -> None:
         await prices.run(on_price)
 
         # --- pair data stream (funding/OI/spread updates) ---
-        # needs the extra: pip install 'avantis-trader-sdk[streams]'
+        # needs the extra: pip install 'veranta-sdk[streams]'
         # pairdata = client.pair_data_stream()
         # await pairdata.run(lambda payload: print("pairs updated:", list(payload)[:3]))
 

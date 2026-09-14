@@ -1,48 +1,60 @@
 ---
 title: Market Orders
-description: "Open and close positions at the current price."
+description: "Open and close positions at the current price, and follow the order all the way to the fill."
 ---
 
-## Open
+A market order fills at the current price. This page covers opening, closing, coin-sized orders, and how to watch an order's lifecycle.
 
-```python
+## Open a position
+
+<CodeGroup>
+
+```python Python
 receipt = await client.trade.market_open(
     "ETH/USD", "long",
     collateral=100,          # USDC
     leverage=10,
-    take_profit=4200,        # optional, price
-    stop_loss=2900,          # optional, price
+    take_profit=4200,        # optional, a price
+    stop_loss=2900,          # optional, a price
 )
 ```
 
-| Parameter | Default | Notes |
-| --- | --- | --- |
-| `pair` | required | Symbol (`"ETH/USD"`, `"BTC_UPSIDE"`) or pair index |
-| `side` | required | `"long"` or `"short"` |
-| `collateral` | required | USDC |
-| `leverage` | required | Multiplier (`10` = 10x) |
-| `take_profit` / `stop_loss` | `None` | Trigger prices |
-| `open_price` | `None` | Reference price the fill is validated against (± `slippage_percent`); resolved from the live feed when omitted |
-| `slippage_percent` | `1` | Max slippage (`1` = 1%) |
-| `skip_validation` | `False` | Skip the API's pre-trade validation |
-| `wait` | `True` | Poll the relayer until settled |
-| `on_event` | `None` | Callable observing each lifecycle event live ([below](#track-the-order-lifecycle)) |
+```typescript TypeScript
+const receipt = await client.trade.marketOpen("ETH/USD", "long", {
+  collateral: 100,         // USDC
+  leverage: 10,
+  takeProfit: 4200,        // optional, a price
+  stopLoss: 2900,          // optional, a price
+});
+```
+
+</CodeGroup>
+
+| Python | TypeScript | Default | Meaning |
+| --- | --- | --- | --- |
+| `pair` | `pair` | required | Symbol such as `"ETH/USD"` or `"BTC_UPSIDE"`, or the pair index |
+| `side` | `side` | required | `"long"` or `"short"` |
+| `collateral` | `collateral` | required | USDC you put in |
+| `leverage` | `leverage` | required | Multiplier. `10` means 10x |
+| `take_profit`, `stop_loss` | `takeProfit`, `stopLoss` | none | Trigger prices |
+| `open_price` | `openPrice` | live price | The reference price the fill is checked against, plus or minus the slippage |
+| `slippage_percent` | `slippagePercent` | `1` | Maximum slippage. `1` means 1% |
+| `skip_validation` | `skipValidation` | `False` | Skip the API's pre-trade checks |
+| `wait` | `wait` | `True` | Follow the order until it settles |
+| `on_event` | `onEvent` | none | A function that sees each lifecycle event live |
+| `builder_fee_percent` | `builderFeePercent` | config default | Per-order [builder fee](/builders/builder-codes) |
 
 <Info>
-**Upside markets route automatically.** Upside pairs (formerly "zero-fee"/ZFP)
-are separate markets suffixed `_UPSIDE`, e.g. `BTC_UPSIDE/USD` next to
-`BTC/USD`. Opening one sends the PnL (Upside) order type by itself: no
-open/close fee, a tiered profit share on gains instead. There is no flag to
-pass; the pair determines the order type (the contract rejects any
-mismatch). Upside pairs are market-only: no limit/stop opens and no TWAP.
-See [Markets](/data/markets#upside-markets) for discovering them.
+**Upside markets need no flag.** Upside pairs are separate markets with an `_UPSIDE` suffix, for example `BTC_UPSIDE/USD` next to `BTC/USD`. They charge no open or close fee and take a tiered share of profit instead. Open one and the SDK sends the right order type by itself. Upside pairs are market-only: no limit orders and no TWAP. See [Markets](/data/markets#upside-markets).
 </Info>
 
-## Open sized in coin units
+## Open a coin-sized position
 
-`market_open_coin` targets a coin exposure (e.g. 0.5 ETH) instead of a leverage-derived notional. The fill leverage floats within `[min_leverage, max_leverage]`.
+Sometimes you want exactly 0.5 ETH of exposure rather than a USDC notional. `market_open_coin` / `marketOpenCoin` targets a coin amount, and the fill leverage floats between the minimum and maximum you allow.
 
-```python
+<CodeGroup>
+
+```python Python
 await client.trade.market_open_coin(
     "ETH/USD", "long",
     collateral=100,
@@ -52,54 +64,69 @@ await client.trade.market_open_coin(
 )
 ```
 
-<Warning>
-`leverage` is required on coin-sized opens even though the fill leverage floats; the contract struct demands it. `min`/`max` default to the pair's envelope when omitted.
-</Warning>
+```typescript TypeScript
+await client.trade.marketOpenCoin("ETH/USD", "long", {
+  collateral: 100,
+  coinExposure: 0.5,       // ETH
+  leverage: 10,            // reference leverage, required by the contract
+  minLeverage: 5, maxLeverage: 20,
+});
+```
 
-`market_open_coin` also accepts `open_price`, with the same semantics as `market_open`.
+</CodeGroup>
 
-## Close
+`leverage` is required even though the fill leverage floats, because the contract struct demands it. The minimum and maximum default to the pair's leverage limits when you leave them out.
 
-Close by collateral (partial or full) or by coin exposure:
+## Close a position
 
-```python
+Close by collateral, partially or fully, or by coin amount. You need the pair and the position's `index`, both of which come from [positions](/account/positions).
+
+<CodeGroup>
+
+```python Python
 pos = (await client.account.positions()).positions[0]
 
-# full close: pass the entire collateral
-await client.trade.market_close(
-    pos.pair_index, pos.index,
-    collateral_to_close=float(pos.collateral),
-)
+# full close: pass the whole collateral
+await client.trade.market_close(pos.pair_index, pos.index, collateral_to_close=float(pos.collateral))
 
 # or close 0.25 ETH worth
 await client.trade.market_close_coin(pos.pair_index, pos.index, coin_exposure=0.25)
 ```
 
-| Parameter | Default | Notes |
-| --- | --- | --- |
-| `trade_index` | required | `Position.index` from [positions](/account/positions) |
-| `collateral_to_close` / `coin_exposure` | required | Partial amounts allowed |
-| `expected_price` | `None` | Resolved from the live feed when omitted |
-| `open_timestamp` | `None` | Binds the close to a specific open (see below) |
+```typescript TypeScript
+import { positionCollateral } from "veranta-sdk";
 
-Closes route from the pair too: a position on an Upside pair closes with the
-PnL close type automatically (`Position.is_upside` is informational; you
-don't pass it anywhere).
+const pos = (await client.account.positions()).positions[0];
+
+// full close: pass the whole collateral
+await client.trade.marketClose(pos.pairIndex, pos.index, { collateralToClose: positionCollateral(pos) });
+
+// or close 0.25 ETH worth
+await client.trade.marketCloseCoin(pos.pairIndex, pos.index, { coinExposure: 0.25 });
+```
+
+</CodeGroup>
+
+| Python | TypeScript | Meaning |
+| --- | --- | --- |
+| `trade_index` | `tradeIndex` | The position's `index` |
+| `collateral_to_close` or `coin_exposure` | `collateralToClose` or `coinExposure` | How much to close. Partial amounts are fine |
+| `expected_price` | `expectedPrice` | Reference price. Resolved from the live feed when omitted |
+| `open_timestamp` | `openTimestamp` | Pins the close to a specific open. See the warning below |
+
+Positions on Upside pairs close with the Upside close type automatically.
 
 <Warning>
-The close intent binds the position's open timestamp. If you open and close in quick succession and hit a `PositionMismatch`-style simulation failure, pass `open_timestamp=pos.opened_at` explicitly, or re-fetch positions first.
+A close is tied to the position's open timestamp. If you open and close in quick succession and hit a `PositionMismatch` simulation failure, pass `open_timestamp=pos.opened_at` / `openTimestamp: pos.openedAt`, or fetch positions again first.
 </Warning>
 
-## Track the order lifecycle
+## Follow the order lifecycle
 
-Market orders route through the batched-market service, which streams the
-lifecycle back: `MarketOrderAccepted` → `MarketOrderInitiated` (on-chain
-order id + tx hash) → `MarketOrderExecuted`, with zero or more non-terminal
-`AttemptFailed` events in between when an attempt hits a retryable condition
-(see the [batched-market reference](/api-reference/batched-market)). With
-the default `wait=True` the receipt already reflects the executed fill:
+Market orders go through the batched-market service, which streams the lifecycle back: `MarketOrderAccepted`, then `MarketOrderInitiated` with the on-chain order id and transaction, then `MarketOrderExecuted`. In between you may see `AttemptFailed` events when an attempt hit a retryable condition. With the default `wait=True` the receipt already reflects the executed fill:
 
-```python
+<CodeGroup>
+
+```python Python
 receipt = await client.trade.market_open("ETH/USD", "long", collateral=100, leverage=10)
 print(receipt.route)         # "batched-market"
 print(receipt.tx_hash)       # execution transaction
@@ -107,92 +134,89 @@ print(receipt.order_id)      # on-chain order id
 print(receipt.tracking_id)   # lifecycle replay handle
 ```
 
-A fill the protocol declines (e.g. price moved beyond `slippage_percent`)
-raises `RelayError` instead of returning a receipt; on a terminal `Error`
-event the exception's `.code` carries the machine-readable reason (a
-contract error name like `WrongSl`, or a service code like
-`ATTEMPTS_EXHAUSTED`).
-
-### Watch the journey while the SDK settles
-
-Want the SDK's settle logic **and** live visibility of the journey (e.g. to
-log `AttemptFailed` diagnostics for later debugging)? Pass `on_event=` (all
-market open/close/increase methods take it). The hook is called once per
-lifecycle event, in stream order, while the call still blocks until settled:
-
-```python
-from avantis_trader_sdk import BatchedMarketEvent
-
-def journey(ev: BatchedMarketEvent) -> None:          # async def works too
-    log.info("order event seq=%s %s %s", ev.seq, ev.type, ev.data)
-
-receipt = await client.trade.market_open(
-    "ETH/USD", "long", collateral=100, leverage=10, on_event=journey
-)
+```typescript TypeScript
+const receipt = await client.trade.marketOpen("ETH/USD", "long", { collateral: 100, leverage: 10 });
+console.log(receipt.route);       // "batched-market"
+console.log(receipt.txHash);      // execution transaction
+console.log(receipt.orderId);     // on-chain order id
+console.log(receipt.trackingId);  // lifecycle replay handle
 ```
 
-The hook sees everything the SDK sees: `MarketOrderAccepted`, each retryable
-`AttemptFailed` (`{attempt, code, message, willRetry}`), unknown
-informational types the server may add, the initiation event, and the
-terminal, **including when the terminal makes the call raise**, so a
-journey log is complete on failures. If the stream view times out, the hook
-also sees the connection-scoped `STREAM_TIMEOUT` `Error` and then each event
-recovered via status polling, every event exactly once.
+</CodeGroup>
 
-Notes:
+A fill the protocol declines, for example because the price moved past your slippage, raises `RelayError` instead of returning a receipt. The error's `code` carries the reason: a contract error name such as `WrongSl`, or a service code such as `ATTEMPTS_EXHAUSTED`.
 
-- Relayer route only (the direct RPC route has no lifecycle stream).
-- Sync and async callables both work; keep the hook fast (it runs inline on
-  the client's event loop).
-- Exceptions from the hook propagate and abort the local wait; the order
-  keeps executing server-side (settle with
-  `client.engine.batched_market.wait(tracking_id)`).
+### Watch the events while the SDK settles
 
-With `wait=False` the call returns at `MarketOrderAccepted`. At that point
-`tx_hash` is still `None` and you settle later from the `tracking_id`:
+Pass `on_event` / `onEvent` to log every event as it happens while the call still waits for the outcome. The hook sees the accepted event, every retryable `AttemptFailed` with its `attempt`, `code`, `message` and `willRetry`, the initiation event, and the terminal event, even when that terminal event makes the call raise.
 
-```python
-accepted = await client.trade.market_close(pos.pair_index, pos.index,
-                                           collateral_to_close=50, wait=False)
+<CodeGroup>
+
+```python Python
+from veranta_sdk import BatchedMarketEvent
+
+def journey(ev: BatchedMarketEvent) -> None:       # async def works too
+    print("order event", ev.seq, ev.type, ev.data)
+
+receipt = await client.trade.market_open("ETH/USD", "long", collateral=100, leverage=10, on_event=journey)
+```
+
+```typescript TypeScript
+const receipt = await client.trade.marketOpen("ETH/USD", "long", {
+  collateral: 100,
+  leverage: 10,
+  onEvent: (ev) => console.log("order event", ev.seq, ev.type, ev.data),
+});
+```
+
+</CodeGroup>
+
+Keep the hook fast; it runs inline. If it throws, the local wait stops but the order keeps executing on the server, and you can settle it later from the tracking id.
+
+### Settle later
+
+With `wait=False` the call returns as soon as the order is accepted. The transaction hash is still empty at that point. Settle from the tracking id whenever you like:
+
+<CodeGroup>
+
+```python Python
+accepted = await client.trade.market_close(pos.pair_index, pos.index, collateral_to_close=50, wait=False)
 
 outcome = await client.engine.batched_market.wait(accepted.tracking_id)
-print(outcome.tx_hash)                        # settled
-for ev in outcome.events:                     # full persisted lifecycle
+print(outcome.tx_hash)
+for ev in outcome.events:            # the full persisted lifecycle
     print(ev.seq, ev.type, ev.data)
 ```
 
-`client.engine.batched_market.status(tracking_id, after_seq=n)` is the
-non-blocking single poll. Every event carries a `seq`, so you can resume
-replay after a crash without missing or double-processing events. `wait()`
-also takes `on_event=` and delivers each newly replayed event to it live.
+```typescript TypeScript
+const accepted = await client.trade.marketClose(pos.pairIndex, pos.index, { collateralToClose: 50, wait: false });
 
-## The executed fill payload
+const outcome = await client.engine.batchedMarket.wait(accepted.trackingId!);
+console.log(outcome.txHash);
+for (const ev of outcome.events) {   // the full persisted lifecycle
+  console.log(ev.seq, ev.type, ev.data);
+}
+```
 
-The terminal `MarketOrderExecuted` event carries the **final trade as it
-executed on-chain**; no follow-up positions query is needed to learn the
-fill. It's available as `outcome.terminal.data` (and as `receipt.raw` with
-the default `wait=True`):
+</CodeGroup>
+
+`status(tracking_id, after_seq)` / `status(trackingId, afterSeq)` is the single non-blocking poll. Every event has a `seq`, so a process that crashed can resume without missing or double-counting events.
+
+## The fill payload
+
+The terminal `MarketOrderExecuted` event carries the trade exactly as it executed on-chain. It is available as `receipt.raw` with the default wait, or as `outcome.terminal.data` when you settle later.
 
 | Field | Meaning |
 | --- | --- |
 | `orderId`, `transactionHash` | On-chain order id and execution transaction |
-| `open` | `true` for an open fill, `false` for a close |
+| `open` | `true` for an open, `false` for a close |
 | `price` | Execution price (1e10) |
 | `positionSizeUSDC` | Filled notional in USDC (1e6) |
-| `percentProfit` | Realized PnL as a percent (1e10; meaningful on closes) |
-| `usdcSentToTrader` | USDC returned to the trader (1e6; closes) |
-| `isPnl`, `coinExposure`, `isCoinExposureFixed` | Upside (PnL-type) flag, base-asset exposure (1e10), coin-sized flag |
-| `t` | The stored trade tuple: `trader`, `pairIndex`, `index`, `initialPosToken` (final position collateral, 1e6), `positionSizeUSDC` (1e6), `openPrice` (1e10), `buy`, `leverage` (1e10), `tp` / `sl` (1e10), `timestamp` |
+| `percentProfit` | Realized PnL as a percent (1e10), meaningful on closes |
+| `usdcSentToTrader` | USDC returned to the trader on a close (1e6) |
+| `isPnl`, `coinExposure`, `isCoinExposureFixed` | Upside flag, base-asset exposure (1e10), coin-sized flag |
+| `t` | The stored trade: `trader`, `pairIndex`, `index`, `initialPosToken` (final collateral, 1e6), `positionSizeUSDC`, `openPrice`, `buy`, `leverage`, `tp`, `sl`, `timestamp` |
 
-Every numeric field is a **string in raw on-chain units** (several exceed
-float precision); convert with `from_usdc` / `from_1e10` from
-`avantis_trader_sdk.types`.
+Every number in this payload is a **string in raw on-chain units**, because several exceed float precision. Convert with `from_usdc` / `from_1e10` in Python or `fromUsdc` / `from1e10` in TypeScript.
 
-Size increases terminate with `PositionSizeIncreased` instead, which is
-deliberately a different shape: there is no fill `price` /
-`percentProfit` / `usdcSentToTrader`; it reports `coinExposureAdded` plus
-`t` = the **blended resulting position** (open price, leverage and
-collateral recomputed on-chain across the old and new size).
-
-For position-level confirmation, `client.account.positions()` reflects the
-fill after execution; see [Core concepts](/concepts#receipts-and-fills).
+Size increases end with `PositionSizeIncreased` instead. It has no fill `price`, `percentProfit` or `usdcSentToTrader`. It reports `coinExposureAdded` and `t` as the **blended resulting position**, with open price, leverage and collateral recomputed on-chain.

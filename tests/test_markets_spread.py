@@ -12,9 +12,9 @@ import httpx
 import pytest
 import respx
 
-from avantis_trader_sdk import AsyncAvantis
-from avantis_trader_sdk.errors import ApiError
 from tests.conftest import TEST_KEY, TRADER
+from veranta_sdk import AsyncVeranta
+from veranta_sdk.errors import ApiError
 
 CORE = "https://core.test"
 FEED = "https://feed.test"
@@ -38,8 +38,8 @@ SPREAD_RESPONSE = {
 }
 
 
-def _client() -> AsyncAvantis:
-    return AsyncAvantis(
+def _client() -> AsyncVeranta:
+    return AsyncVeranta(
         network="testnet",
         private_key=TEST_KEY,
         trader_address=TRADER,
@@ -140,6 +140,34 @@ async def test_spread_no_spread_available_is_an_error():
     async with _client() as client:
         with pytest.raises(ApiError):
             await client.markets.spread("ETH/USD", is_long=True, coin_size=1)
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_price_uses_live_price_update_data_not_last_price():
+    """last-price is a 24h-ago hourly candle; wantedPrice must be the live update."""
+    _mock_snapshot()
+    last_price = respx.get(f"{FEED}/v1/price-feeds/last-price").mock(
+        return_value=httpx.Response(
+            200, json=[{"pairIndex": 0, "c": 1.0, "t": 0}]
+        )
+    )
+    live = respx.get(url__regex=rf"{FEED}/v2/pairs/\d+/price-update-data").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "core": {"price": None},
+                "pro": {"price": 79675.99341784, "publishTimestampMs": 1},
+            },
+        )
+    )
+
+    async with _client() as client:
+        px = await client.markets.price("ETH/USD")
+
+    assert px == pytest.approx(79675.99341784)
+    assert live.called
+    assert not last_price.called
 
 
 @pytest.mark.asyncio

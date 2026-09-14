@@ -1,9 +1,9 @@
-# Avantis Trader SDK v2 - Cursor Rules
+# Veranta Trader SDK v2 - Cursor Rules
 
 ## About This SDK
-Official Python SDK for Avantis v2 - perpetuals on Base (8453). API-first
+Official Python SDK for Veranta v2 - perpetuals on Base (8453). API-first
 (HyperLiquid-style): NO ABIs, NO web3. Payloads come from the tx-builder API;
-the SDK signs locally and submits via the Avantis relayer (default, gasless)
+the SDK signs locally and submits via the Veranta relayer (default, gasless)
 or the user's own RPC (direct mode).
 
 User-facing docs live in docs/mintlify/ (source of truth; mirrored to the
@@ -15,11 +15,11 @@ reference.
 
 ### Async-first
 ```python
-from avantis_trader_sdk import AsyncAvantis
-async with AsyncAvantis() as client:          # env: AVANTIS_PRIVATE_KEY, AVANTIS_TRADER_ADDRESS
+from veranta_sdk import AsyncVeranta
+async with AsyncVeranta() as client:          # env: VERANTA_PRIVATE_KEY, VERANTA_TRADER_ADDRESS
     await client.trade.market_open("ETH/USD", "long", collateral=100, leverage=10)
 ```
-Sync facade: `Avantis()` (same surface, blocking).
+Sync facade: `Veranta()` (same surface, blocking).
 
 ### Namespaces
 - client.trade    - opens/closes/limits/margin/increase/tpsl/twap/rfq
@@ -27,10 +27,10 @@ Sync facade: `Avantis()` (same surface, blocking).
 - client.markets  - pair catalog, prices, dynamic spread, candles
 - client.info     - history, portfolio, referral stats, vault APY
 - client.referral / client.lp - actions (caller-scoped; trader key only)
-- avantis_trader_sdk.compute  - pure UI-parity math (PnL, liq, validation)
+- veranta_sdk.compute  - pure UI-parity math (PnL, liq, validation)
 
 ### Execution routing (execution/engine.py) — central routing base URL
-Service URLs derive from api_base_url (prod-api/staging-api.avantisfi.com):
+Service URLs derive from api_base_url (prod-api/staging-api.veranta.xyz):
 /core, /twap, /batched-market, /blitz, /data, /risk/v2 (the gateway also
 routes /ws = iris, not consumed by the SDK).
 - relayer mode + market open/close/increase (10 types) -> batched-market
@@ -71,4 +71,4 @@ routes /ws = iris, not consumed by the SDK).
 - Keep methods async; pydantic v2 models; typed errors from errors.py.
 - Add an example for new features; update CHANGELOG.md and docs/mintlify/
   (then re-sync the avantis-python-sdk mirror).
-- Run: pytest && ruff check --fix && mypy avantis_trader_sdk
+- Run: pytest && ruff check --fix && mypy veranta_sdk

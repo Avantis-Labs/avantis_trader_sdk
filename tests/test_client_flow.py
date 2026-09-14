@@ -13,9 +13,9 @@ import httpx
 import pytest
 import respx
 
-from avantis_trader_sdk import AsyncAvantis
-from avantis_trader_sdk.intents_schema import INTENT_TYPES
 from tests.conftest import META, TEST_ADDRESS, TEST_KEY, TRADER, VECTORS, mock_data_api
+from veranta_sdk import AsyncVeranta
+from veranta_sdk.intents_schema import INTENT_TYPES
 
 TXB = "https://txb.test"
 RELAYER = "https://relayer.test"
@@ -24,8 +24,8 @@ FEED = "https://feed.test"
 DATA = "https://data.test"
 BATCHED = "https://batched.test"
 
-def _client() -> AsyncAvantis:
-    return AsyncAvantis(
+def _client() -> AsyncVeranta:
+    return AsyncVeranta(
         network="testnet",
         private_key=TEST_KEY,
         trader_address=TRADER,
@@ -218,7 +218,7 @@ async def test_update_tp_sl_uses_price_triggers_even_in_direct_mode():
         f"{CORE}/price-triggers/global-tp-{TRADER}-1-0"
     ).mock(return_value=httpx.Response(200, json={"success": True}))
 
-    async with AsyncAvantis(
+    async with AsyncVeranta(
         network="testnet",
         execution="direct",
         rpc_url="https://unused-rpc.test",
@@ -304,13 +304,13 @@ async def test_trader_eoa_without_rpc_fails_fast_in_relayer_mode():
     nonce (its nonce is almost never 0; a stale nonce is silently skipped
     on-chain and the tx reverts — found live 2026-07-28). Without one, the SDK
     must raise a clear ConfigError instead of an opaque on-chain revert."""
-    from avantis_trader_sdk.errors import ConfigError
+    from veranta_sdk.errors import ConfigError
 
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
     mock_data_api(DATA)
     respx.post(f"{TXB}/v2/trade/open").mock(return_value=_ok(_calldata_payload()))
 
-    async with AsyncAvantis(
+    async with AsyncVeranta(
         network="testnet",
         private_key=TEST_KEY,  # signer IS the trader: no trader_address
         tx_builder_url=TXB,
@@ -318,7 +318,7 @@ async def test_trader_eoa_without_rpc_fails_fast_in_relayer_mode():
         feed_url=FEED,
         data_api_url=DATA,
     ) as client:
-        with pytest.raises(ConfigError, match="AVANTIS_RPC_URL"):
+        with pytest.raises(ConfigError, match="VERANTA_RPC_URL"):
             await client.trade.limit_open(
                 "ETH/USD", "short", collateral=50, leverage=5, price=3000, wait=False
             )
@@ -346,7 +346,7 @@ async def test_trader_eoa_with_rpc_reads_real_authorization_nonce():
         return_value=httpx.Response(200, json={"requestId": "req-n"})
     )
 
-    async with AsyncAvantis(
+    async with AsyncVeranta(
         network="testnet",
         private_key=TEST_KEY,
         rpc_url=RPC,
@@ -477,7 +477,7 @@ async def test_market_open_on_event_observes_lifecycle():
 @respx.mock
 async def test_batched_market_canceled_raises():
     """MarketOrderCanceled terminal (tx succeeded, fill declined) is a RelayError."""
-    from avantis_trader_sdk.errors import RelayError
+    from veranta_sdk.errors import RelayError
 
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
     mock_data_api(DATA)
@@ -499,7 +499,7 @@ async def test_batched_market_canceled_raises():
 @pytest.mark.asyncio
 @respx.mock
 async def test_relayer_reverted_receipt_raises():
-    from avantis_trader_sdk.errors import RelayError
+    from veranta_sdk.errors import RelayError
 
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
     mock_data_api(DATA)
@@ -528,7 +528,7 @@ async def test_relayer_reverted_receipt_raises():
 @pytest.mark.asyncio
 @respx.mock
 async def test_relayer_failed_status_raises():
-    from avantis_trader_sdk.errors import RelayError
+    from veranta_sdk.errors import RelayError
 
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
     mock_data_api(DATA)
@@ -574,7 +574,7 @@ async def test_relayer_busy_503_retries_then_succeeds():
 @pytest.mark.asyncio
 @respx.mock
 async def test_api_validation_error_maps_to_typed_exception():
-    from avantis_trader_sdk.errors import ValidationError
+    from veranta_sdk.errors import ValidationError
 
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
     mock_data_api(DATA)

@@ -12,11 +12,11 @@ raises a ValidationError before any network call).
 
 import asyncio
 
-from avantis_trader_sdk import AsyncAvantis
+from veranta_sdk import AsyncVeranta
 
 
 async def main() -> None:
-    async with AsyncAvantis() as client:
+    async with AsyncVeranta() as client:
         # -- discover upside markets ------------------------------------
         upside = await client.markets.upside_pairs()
         for index, pair in upside.items():

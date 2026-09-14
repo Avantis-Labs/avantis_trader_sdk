@@ -1,50 +1,61 @@
 ---
-title: Portfolio & History
-description: "Trade history, PnL analytics, and everything the Avantis portfolio page shows."
+title: Portfolio and History
+description: "Trade history, PnL analytics, and everything the Veranta portfolio page shows."
 ---
 
-`client.info` is the read-only analytics surface. All methods take a trader address explicitly (query any account), return human units, and require no signing key.
+`client.info` is the read-only analytics surface. Every method takes a trader address, so you can query any account, returns human units, and needs no signing key.
 
-```python
-trader = client.trade.trader   # or any address
+<CodeGroup>
+
+```python Python
+trader = client.trade.trader      # or any address
 
 history = await client.info.trade_history(trader, page=0, limit=20)
 pnl = await client.info.portfolio_pnl(trader)
 ```
 
+```typescript TypeScript
+const trader = client.trade.trader;  // or any address
+
+const history = await client.info.tradeHistory(trader, 0, 20);
+const pnl = await client.info.portfolioPnl(trader);
+```
+
+</CodeGroup>
+
 ## History
 
-| Method | Returns |
-| --- | --- |
-| `trade_history(trader, page=0, limit=20)` | Fills with full fee breakdown (gross/net PnL, fees, funding) |
-| `order_history(trader, page=0, limit=20)` | Order lifecycle history |
-| `recent_trades(pair_index)` | Recent market-wide trades for a pair |
+| Python | TypeScript | Returns |
+| --- | --- | --- |
+| `trade_history(trader, page, limit)` | `tradeHistory(trader, page, limit)` | Fills with the full fee breakdown: gross and net PnL, fees, funding |
+| `order_history(trader, page, limit)` | `orderHistory(trader, page, limit)` | Order lifecycle history |
+| `recent_trades(pair_index)` | `recentTrades(pairIndex)` | Recent market-wide trades for a pair |
 
 ## Portfolio analytics
 
-| Method | Returns |
-| --- | --- |
-| `portfolio_pnl(trader, grouped=False)` | Total profit/loss (`grouped=True` splits by pair group) |
-| `portfolio_pnl_history(trader, period, date_group="day")` | PnL over time |
-| `portfolio_volume(trader, grouped=False)` | Total traded size |
-| `win_rate(trader, grouped=False)` | Win-rate stats |
-| `total_fees(trader)` | Total fees paid |
-| `loss_protection_received(trader)` | Loss-protection payouts received |
-| `portfolio_highlights(trader)` | Best/worst trade highlights |
-| `leaderboard(trader=None)` | Global leaderboard, optionally centered on a trader |
+| Python | TypeScript | Returns |
+| --- | --- | --- |
+| `portfolio_pnl(trader, grouped=False)` | `portfolioPnl(trader, { grouped })` | Total profit or loss, optionally split by pair group |
+| `portfolio_pnl_history(trader, period, date_group)` | `portfolioPnlHistory(trader, period, dateGroup)` | PnL over time |
+| `portfolio_volume(trader, grouped=False)` | `portfolioVolume(trader, { grouped })` | Total traded size |
+| `win_rate(trader, grouped=False)` | `winRate(trader, { grouped })` | Win-rate statistics |
+| `total_fees(trader)` | `totalFees(trader)` | Total fees paid |
+| `loss_protection_received(trader)` | `lossProtectionReceived(trader)` | Loss-protection payouts received |
+| `portfolio_highlights(trader)` | `portfolioHighlights(trader)` | Best and worst trades |
+| `leaderboard(trader=None)` | `leaderboard(trader?)` | The global leaderboard, optionally centered on a trader |
 
-## Referral & vault reads
+## Referral and vault reads
 
-| Method | Returns |
-| --- | --- |
-| `referral_stats(trader)` | `{asReferrer: {totalFees, totalRebates, totalTraders}, asTrader: {...}}` |
-| `referral_count(trader)` / `referred_fees(trader)` | Referral counts and fee volumes |
-| `vault_returns()` / `vault_share_rate_returns(chart=False)` | LP vault APY and share-rate returns |
-| `user_vault_info(vault_type, trader)` | A trader's vault position |
-| `app_status()` | API/app status |
+| Python | TypeScript | Returns |
+| --- | --- | --- |
+| `referral_stats(trader)` | `referralStats(trader)` | Fees, rebates and referred trader counts, as referrer and as trader |
+| `referral_count(trader)`, `referred_fees(trader)` | `referralCount(trader)`, `referredFees(trader)` | Referral counts and fee volumes |
+| `vault_returns()`, `vault_share_rate_returns(chart=False)` | `vaultReturns()`, `vaultShareRateReturns({ chart })` | LP vault yield and share-rate returns |
+| `user_vault_info(vault_type, trader)` | `userVaultInfo(vaultType, trader)` | A trader's vault position |
+| `app_status()` | `appStatus()` | API and app status |
 
 <Note>
-Endpoints degrade gracefully: one that is missing on a given deployment raises `ApiError` with status 404 rather than crashing the client.
+Endpoints degrade gracefully. One that is missing on a deployment raises `ApiError` with status 404 instead of breaking the client.
 </Note>
 
-For **open** positions and live unrealized PnL, use [`client.account.positions()`](/account/positions). `client.info` covers settled history and aggregates.
+For **open** positions and live unrealized PnL, use [positions](/account/positions). `client.info` covers settled history and aggregates.

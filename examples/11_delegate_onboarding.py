@@ -1,7 +1,7 @@
 """Bring-your-own delegate (API key) onboarding.
 
-Normally you create an API key on the Avantis API Key Generator
-(https://delegate.avantisfi.com/): one wallet signature,
+Normally you create an API key on the Veranta API Key Generator
+(https://delegate.veranta.xyz/): one wallet signature,
 gasless. This example shows the SDK-assisted equivalent for users who
 generate their own delegate keypair. The trader key is used ONCE for the
 DelegateReq signature and must not be persisted.
@@ -12,17 +12,17 @@ import time
 
 from eth_account import Account
 
-from avantis_trader_sdk import AsyncAvantis, LocalSigner
+from veranta_sdk import AsyncVeranta, LocalSigner
 
 
 async def main() -> None:
     trader_key = "0xTRADER_PRIVATE_KEY"       # used transiently, never stored
     delegate = Account.create()               # fresh agent keypair
     print("new delegate:", delegate.address)
-    print("store this as AVANTIS_PRIVATE_KEY:", delegate.key.hex())
+    print("store this as VERANTA_PRIVATE_KEY:", delegate.key.hex())
 
     trader_signer = LocalSigner(trader_key)
-    async with AsyncAvantis(
+    async with AsyncVeranta(
         private_key=delegate.key.hex(),
         trader_address=trader_signer.address,
     ) as client:

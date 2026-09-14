@@ -11,7 +11,7 @@ recommended v2 integration looks like.
 <Note>
 This page is a distillation. A field-accurate delta reference (every event
 signature, struct, formula, and ABI change between v1 and v2) is available
-from the Avantis team on request.
+from the Veranta team on request.
 </Note>
 
 ## What stays the same
@@ -31,9 +31,9 @@ from the Avantis team on request.
 
 | Area | Break |
 | --- | --- |
-| Event ABIs | Most trading events gained fields → **different topic0**. Filters and decoders must be rebuilt (see below). |
+| Event ABIs | Most trading events gained fields -> **different topic0**. Filters and decoders must be rebuilt (see below). |
 | Write entry points | TP/SL updates and TWAP are **signed-intent only**; several function signatures changed; `updateTpAndSl` / `updateSl` public entries removed. |
-| Keeper interfaces | `PriceAggregator.fulfill` takes an `offChainSpreadParams` struct instead of `int spreadP`; `executeMarketOrders` → `executeMarketOrder`. |
+| Keeper interfaces | `PriceAggregator.fulfill` takes an `offChainSpreadParams` struct instead of `int spreadP`; `executeMarketOrders` -> `executeMarketOrder`. |
 | Reverts | String reverts replaced by **custom errors** (4-byte selectors) protocol-wide, with a few residual strings. |
 | Reads | Several views removed or reshaped (`pairLongOI`/`pairShortOI` gone, `walletOI` is per-pair, some views became non-`view`). |
 | Formulas | Funding fees exist now (in liquidation price and trade value); **spread applies on close**; close fee is maker/taker, not flat. |
@@ -42,7 +42,7 @@ from the Avantis team on request.
 ## The recommended v2 write path: signed intents
 
 v1 integrators built calldata and broadcast transactions themselves. In v2
-the primary write path is **EIP-712 signed intents** submitted to Avantis
+the primary write path is **EIP-712 signed intents** submitted to Veranta
 services, which handle price attachment, spread parameters, and execution:
 
 1. **Bootstrap from meta.** `GET {tx-builder}/v2/meta` returns all contract
@@ -91,11 +91,11 @@ entry points revert `OnlyBatchedFlowAllowed()`.
 The `OrderType` enum grew from 9 values to 22. New values in v2:
 
 ```text
-0-8   MARKET_OPEN … LIMIT_CLOSE_PNL          (as in v1)
+0-8   MARKET_OPEN ... LIMIT_CLOSE_PNL          (as in v1)
 9     INCREASE_SIZE
 10    DECREASE_SIZE                          (reserved, not wired)
 11    LIMIT_PARTIAL_CLOSE                    (partial TP/SL)
-12-16 …_WITH_COIN_EXPOSURE family            (coin-sized open/close/increase)
+12-16 ..._WITH_COIN_EXPOSURE family            (coin-sized open/close/increase)
 17-18 TWAP_OPEN / TWAP_CLOSE
 19-20 (reserved, not wired)
 21    TWAP_CANCEL
@@ -110,12 +110,12 @@ v1 signatures. Headline changes:
 
 | Event | Change |
 | --- | --- |
-| `MarketOrderInitiated` | 9 → 13 fields (`minLeverage`, `maxLeverage`, `coinExposure`, `isCoinExposureFixed`, `wantedPrice`) |
-| `MarketExecuted` | 8 → 10 fields (`coinExposure`, `isCoinExposureFixed`) |
-| `LimitExecuted` | 9 → 10 fields (`coinExposure`) |
-| `OIUpdated` | 5 → 9 fields (coin OI and USD OI, both sides) |
-| `MarginUpdated` | 8 → 9 fields (`coinExposure`) |
-| `OpenLimitPlaced` | 10 → 12 fields (`coinExposure`, `timestamp`) |
+| `MarketOrderInitiated` | 9 -> 13 fields (`minLeverage`, `maxLeverage`, `coinExposure`, `isCoinExposureFixed`, `wantedPrice`) |
+| `MarketExecuted` | 8 -> 10 fields (`coinExposure`, `isCoinExposureFixed`) |
+| `LimitExecuted` | 9 -> 10 fields (`coinExposure`) |
+| `OIUpdated` | 5 -> 9 fields (coin OI and USD OI, both sides) |
+| `MarginUpdated` | 8 -> 9 fields (`coinExposure`) |
+| `OpenLimitPlaced` | 10 -> 12 fields (`coinExposure`, `timestamp`) |
 | `TpUpdated` / `SlUpdated` / `SlUpdateInitiated` | gained `tradeOpenTimestamp` |
 | `FeesCharged` (PairInfos) | gained signed `fundingFee` |
 | `PriceReceived` | gained `PriceSourcing` |
@@ -127,7 +127,7 @@ Entirely new event families to decode: funding
 increases (`IncreasePositionRequested`, `PositionSizeIncreased`,
 `PositionIncreaseRegistered`), partial TP/SL (`PartialTpSlInitiated`,
 `TpSlExecuted`), TWAP lifecycles (`Open/CloseTwapInitiated`,
-`…SliceRequested`, `…SliceFilled`, `TwapCanceled`),
+`...SliceRequested`, `...SliceFilled`, `TwapCanceled`),
 whitelists (`WhitelistModified`), and builder codes
 (`RegisteredBuilderCode` etc., plus `BuilderFeesCharged`; note the latter
 emits from the **trader's own EOA address** via the EIP-7702 smart-account
@@ -151,19 +151,19 @@ Semantic traps that survive an ABI update:
 ## Bots, keepers, and on-chain callers
 
 - **`PriceAggregator.fulfill`** now takes
-  `offChainSpreadParams { spreadP, bookDepth, impactParam, byPass, maxSpreadP, … }`
+  `offChainSpreadParams { spreadP, bookDepth, impactParam, byPass, maxSpreadP, ... }`
   instead of `int spreadP`. This is a hard ABI break.
-- **`executeMarketOrders` → `executeMarketOrder`** (singular) on the router.
+- **`executeMarketOrders` -> `executeMarketOrder`** (singular) on the router.
 - **New preflight checks** to avoid surprise reverts: `isCloseOnly(pair)`
   (blocks opens, limit placements, margin deposits, increases),
   `isPairOIHardCapped(pair)`, and per-pair `walletOI(trader, pair)` caps.
 - **Custom errors.** Reverts are 4-byte custom-error selectors
   (`Errors.InvalidNonce()`, `Errors.PositionMismatch()`,
-  `Errors.InvalidDeadline()`, `Errors.OnlyBatchedFlowAllowed()`, …) with a
+  `Errors.InvalidDeadline()`, `Errors.OnlyBatchedFlowAllowed()`, ...) with a
   few residual `Error(string)` cases. Decode both.
 - **View mutability changed.** Some conceptual reads are non-`view` in v2
   because they delegatecall into extensions (`pairCloseFeeP`, `correctTp`,
-  `withinExposureLimits`, …). That is fine over `eth_call` but breaks
+  `withinExposureLimits`, ...). That is fine over `eth_call` but breaks
   strict `staticcall` assumptions. Conversely `Multicall.getPositions` is
   now `view` and returns **compact arrays** (active entries only; key on
   `trade.pairIndex`/`trade.index`, not array offset).

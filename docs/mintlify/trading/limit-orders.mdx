@@ -1,53 +1,84 @@
 ---
 title: Limit Orders
-description: "Place, update, and cancel resting orders."
+description: "Place resting orders that fill at your price, then update or cancel them."
 ---
+
+A limit order waits at your price. A stop-limit order does the same, but triggers once the price moves through your level. Both rest on-chain until they fill or you cancel them.
 
 ## Place
 
-```python
+<CodeGroup>
+
+```python Python
 await client.trade.limit_open(
     "ETH/USD", "long",
     collateral=100,
     leverage=10,
-    price=3200,              # trigger price
+    price=3200,              # your price
     take_profit=4000,        # optional
     stop_loss=3000,          # optional
 )
 ```
 
-| Parameter | Default | Notes |
-| --- | --- | --- |
-| `price` | required | Execution price for the resting order |
-| `stop` | `False` | `True` places a stop-limit instead of a limit |
-| `slippage_percent` | `1` | Max slippage at execution |
-| `take_profit` / `stop_loss` | `None` | Attached to the eventual position |
+```typescript TypeScript
+await client.trade.limitOpen("ETH/USD", "long", {
+  collateral: 100,
+  leverage: 10,
+  price: 3200,             // your price
+  takeProfit: 4000,        // optional
+  stopLoss: 3000,          // optional
+});
+```
+
+</CodeGroup>
+
+| Python | TypeScript | Default | Meaning |
+| --- | --- | --- | --- |
+| `price` | `price` | required | The price the resting order fills at |
+| `stop` | `stop` | `False` | `True` places a stop-limit order instead |
+| `slippage_percent` | `slippagePercent` | `1` | Maximum slippage at execution |
+| `take_profit`, `stop_loss` | `takeProfit`, `stopLoss` | none | Attached to the position once it opens |
 
 <Note>
-Limit opens **escrow the USDC collateral on placement**. Cancelling refunds it. On the relayer route this uses the passthrough (same path as the Avantis UI), so it is still gasless.
+Limit orders **escrow the USDC collateral when you place them**. Cancelling refunds it. On the relayer route this uses the passthrough, the same path the Veranta app uses, so it stays gasless.
 </Note>
 
 <Warning>
-[Upside pairs](/data/markets#upside-markets) are market-only: `limit_open` on one raises a `ValidationError` (`UPSIDE_MARKET_ONLY`) before any network call.
+Upside pairs are market-only. Placing a limit order on one raises `ValidationError` with code `UPSIDE_MARKET_ONLY` before anything is sent.
 </Warning>
 
 ## Update
 
-Standing orders are addressed by `pair` + `order_index` (from `limit_orders` in [positions](/account/positions)):
+Resting orders are addressed by pair plus order index. Both come from the `limit_orders` / `limitOrders` list in [positions](/account/positions).
 
-```python
+<CodeGroup>
+
+```python Python
 orders = (await client.account.positions()).limit_orders
 o = orders[0]
 
-await client.trade.update_limit_order(
-    o.pair_index, o.index,
-    price=3150,
-    take_profit=4100,
-)
+await client.trade.update_limit_order(o.pair_index, o.index, price=3150, take_profit=4100)
 ```
+
+```typescript TypeScript
+const orders = (await client.account.positions()).limitOrders;
+const o = orders[0];
+
+await client.trade.updateLimitOrder(o.pairIndex, o.index, { price: 3150, takeProfit: 4100 });
+```
+
+</CodeGroup>
 
 ## Cancel
 
-```python
-await client.trade.cancel_limit_order(o.pair_index, o.index)   # refunds escrow
+<CodeGroup>
+
+```python Python
+await client.trade.cancel_limit_order(o.pair_index, o.index)   # refunds the escrow
 ```
+
+```typescript TypeScript
+await client.trade.cancelLimitOrder(o.pairIndex, o.index);     // refunds the escrow
+```
+
+</CodeGroup>
