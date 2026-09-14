@@ -1,7 +1,7 @@
 """Testnet MM fast path: KMS trader EOA opens a BTC market order.
 
 The KMS key *is* the trader (no ``trader_address``, no delegate). The order
-is built and signed locally and submitted intent-only — no EIP-7702 leg.
+is built and signed locally and submitted intent-only, no EIP-7702 leg.
 
 Requires ``pip install 'veranta-sdk[kms]'`` and AWS credentials
 (default: profile ``skords``, key ``alias/testnet/mm-avantis``).

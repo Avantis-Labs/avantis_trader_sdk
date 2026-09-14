@@ -4,16 +4,16 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "avantis-trader-sdk"
-version = "2.1.0"
+version = "2.1.1"
 description = "Compatibility shim: avantis-trader-sdk is now veranta-sdk (Avantis is now Veranta)"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
-dependencies = ["veranta-sdk>=2.1.0"]
+dependencies = ["veranta-sdk>=2.1.1"]
 
 [project.optional-dependencies]
-kms = ["veranta-sdk[kms]>=2.1.0"]
-streams = ["veranta-sdk[streams]>=2.1.0"]
+kms = ["veranta-sdk[kms]>=2.1.1"]
+streams = ["veranta-sdk[streams]>=2.1.1"]
 
 [project.urls]
 Homepage = "https://www.veranta.xyz"

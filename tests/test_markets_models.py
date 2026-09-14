@@ -47,7 +47,7 @@ def test_listed_pairs_have_symbols_and_leverage(snapshot):
 
 
 def test_delisted_pairs_parse_without_error(snapshot):
-    # delisted slots (e.g. index 32) come back with empty symbols — must not crash
+    # delisted slots (e.g. index 32) come back with empty symbols: must not crash
     delisted = [p for p in snapshot.pairs.values() if not p.is_pair_listed]
     for p in delisted:
         assert p.index >= 0

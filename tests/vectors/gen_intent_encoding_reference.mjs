@@ -1,5 +1,5 @@
 // Reference abi.encode(struct) bytes for intent structs, using viem from the
-// avantis-ui-v2 node_modules — mirrors the UI's encode*UserIntent helpers.
+// avantis-ui-v2 node_modules, mirrors the UI's encode*UserIntent helpers.
 // Run: node tests/vectors/gen_intent_encoding_reference.mjs <path-to-avantis-ui-v2>
 import { createRequire } from 'module';
 import { writeFileSync, readFileSync } from 'fs';
@@ -16,7 +16,7 @@ const byKind = Object.fromEntries(vectors.map((v) => [v.kind, v.message]));
 
 const out = {};
 
-// OpenTradeReq — same order as typed data
+// OpenTradeReq, same order as typed data
 {
   const m = byKind.OpenTradeReq;
   const t = m._t;
@@ -33,7 +33,7 @@ const out = {};
   );
 }
 
-// CloseTradeReq (contracts HEAD — includes _openTimestamp)
+// CloseTradeReq (contracts HEAD, includes _openTimestamp)
 {
   const m = byKind.CloseTradeReq;
   out.CloseTradeReq = encodeAbiParameters(
@@ -43,7 +43,7 @@ const out = {};
   );
 }
 
-// DelegateReq — Solidity struct order: trader, delegate, expiry, tnc, deadline, nonce
+// DelegateReq, Solidity struct order: trader, delegate, expiry, tnc, deadline, nonce
 {
   const m = byKind.DelegateReq;
   out.DelegateReq = encodeAbiParameters(
@@ -52,7 +52,7 @@ const out = {};
   );
 }
 
-// TpSlReq — typed order (incl. negative int256 percentage)
+// TpSlReq, typed order (incl. negative int256 percentage)
 {
   const m = byKind.TpSlReq;
   out.TpSlReq = encodeAbiParameters(

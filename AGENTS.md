@@ -7,7 +7,7 @@ the SDK signs locally and submits via the Veranta relayer (default, gasless)
 or the user's own RPC (direct mode).
 
 User-facing docs live in docs/mintlify/ (source of truth; mirrored to the
-avantis-python-sdk repo — see docs/mintlify/README.md for the sync). For
+avantis-python-sdk repo, see docs/mintlify/README.md for the sync). For
 endpoint/unit/gotcha details, the docstrings in the modules below are the
 reference.
 
@@ -29,7 +29,7 @@ Sync facade: `Veranta()` (same surface, blocking).
 - client.referral / client.lp - actions (caller-scoped; trader key only)
 - veranta_sdk.compute  - pure UI-parity math (PnL, liq, validation)
 
-### Execution routing (execution/engine.py) — central routing base URL
+### Execution routing (execution/engine.py): central routing base URL
 Service URLs derive from api_base_url (prod-api/staging-api.veranta.xyz):
 /core, /twap, /batched-market, /blitz, /data, /risk/v2 (the gateway also
 routes /ws = iris, not consumed by the SDK).

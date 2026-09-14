@@ -34,5 +34,5 @@ This is the Mintlify site behind https://sdk.veranta.com. It documents both offi
 ## Before you publish
 
 - Every page in `docs.json` exists and every internal link resolves.
-- `grep -rn "—\|–" .` returns nothing.
+- `grep -rnP "\x{2014}|\x{2013}" .` returns nothing.
 - Both code tabs compile against the current SDKs. Method names come from the SDK source, not from memory.

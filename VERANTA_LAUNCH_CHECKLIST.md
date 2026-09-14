@@ -6,7 +6,7 @@ Everything below is prepared locally and verified. Nothing is committed, pushed 
 
 | Repo | State | Verified |
 | --- | --- | --- |
-| `avantis_trader_sdk` (Python) | Renamed to `veranta-sdk` 2.1.0, import `veranta_sdk`. Builder codes v2, price fix, KMS example, rename docs, compat shim in `compat/avantis-trader-sdk/`. New Mintlify docs in `docs/mintlify/`. | 170 tests, ruff, mypy. Both wheels build. |
+| `avantis_trader_sdk` (Python) | Renamed to `veranta-sdk` 2.1.1 (2.1.0 is on PyPI with a dash in its summary; 2.1.1 fixes the metadata), import `veranta_sdk`. Builder codes v2, price fix, KMS example, rename docs, compat shim in `compat/avantis-trader-sdk/`. New Mintlify docs in `docs/mintlify/`. | 170 tests, ruff, mypy. Both wheels build. |
 | `avantis-sdk` (TypeScript) | New package `veranta-sdk` with `veranta-sdk/react` and `veranta-sdk/kms`. Builder codes, KMS signer, rename, version sync on build. | 89 tests, lint, typecheck, publint + attw. |
 | `avantis-tx-builder` | Veranta naming, Veranta ToS constant, golden vectors regenerated from the deployment branch. Builder codes v2 (pre-existing uncommitted work). | 126 tests, typecheck. |
 | `avantis-python-sdk` (docs mirror) | Byte-identical copy of `docs/mintlify` plus its LICENSE. | Mintlify broken-link check passes. |
@@ -32,8 +32,8 @@ cd ~/Work/Avantis/code/avantis-cd
 git add -A && git commit -m "tx-builder mainnet: BuilderCode registry + delegation template addresses"
 
 cd ~/Work/Avantis/code/avantis_trader_sdk
-git add -A && git commit -m "veranta-sdk 2.1.0: rename from avantis-trader-sdk, builder codes v2, KMS example, new docs"
-git tag v2.1.0
+git add -A && git commit -m "veranta-sdk 2.1.1: metadata fix, Veranta docs artwork, no dashes"
+git tag -a v2.1.1 -m "veranta-sdk 2.1.1"      # -m avoids the editor; tags are GPG-signed by your git config
 
 cd ~/Work/Avantis/code/avantis-sdk           # no remote yet: create Avantis-Labs/avantis-sdk on GitHub first
 git remote add origin git@github.com:Avantis-Labs/avantis-sdk.git
@@ -56,11 +56,13 @@ curl -s https://tx-builder.veranta.xyz/v2/meta | jq '.data.addresses | {builderC
 # mainnet: 0xeDA810c70769a7221fB7e640D974534026719975 / 0x92F8ab16f6322a11d9f629baF081094c22A3a362
 curl -s https://tx-builder-testnet.veranta.xyz/v2/meta | jq '.data.addresses | {builderCode, delegationTemplate}'
 # testnet: 0x4edE46D47C1f38d614ADda0BeCF4eBfF7722289d / 0x8Ee65f19929F30F1d85a1dDd4c38a6745483818d
-curl -s "https://tx-builder.veranta.xyz/v2/intents/delegate-set?trader=0x...&delegate=0x...&expiry=1900000000" | jq '.data.message.tnc'
+curl -s "https://tx-builder.veranta.xyz/v2/intents/delegate-set?trader=0x1111111111111111111111111111111111111111&delegate=0x2222222222222222222222222222222222222222&expirySeconds=1900000000" | jq -r '.data.message.tnc'
 # starts with "I accept the Veranta Terms of Service"
 ```
 
-## 3. Publish the Python SDK (`veranta-sdk` 2.1.0)
+## 3. Publish the Python SDK (`veranta-sdk` 2.1.1)
+
+2.1.0 is already on PyPI. Its summary contains an em dash and PyPI never allows editing or re-uploading a released version, so 2.1.1 ships the corrected metadata. Leave 2.1.0 in place; it works, and yanking it is not needed.
 
 ```bash
 cd ~/Work/Avantis/code/avantis_trader_sdk
@@ -74,13 +76,13 @@ twine upload dist/*                 # first upload creates the veranta-sdk proje
 Verify in a clean environment:
 
 ```bash
-python -m venv /tmp/v && /tmp/v/bin/pip install veranta-sdk==2.1.0
+python -m venv /tmp/v && /tmp/v/bin/pip install veranta-sdk==2.1.1
 /tmp/v/bin/python -c "import veranta_sdk; print(veranta_sdk.__version__)"
 ```
 
 Then on pypi.org: add the other maintainers to the new project, and consider Trusted Publishing for future releases (there is no publish workflow in this repo; releases are manual today).
 
-## 4. Publish the final `avantis-trader-sdk` 2.1.0 shim
+## 4. Publish the final `avantis-trader-sdk` 2.1.1 shim
 
 This is the last release under the old name. It only depends on `veranta-sdk` and re-exports it.
 
@@ -95,7 +97,7 @@ Verify:
 ```bash
 /tmp/v/bin/pip install --upgrade avantis-trader-sdk
 /tmp/v/bin/python -W default -c "import avantis_trader_sdk as a; print(a.__version__, a.AsyncAvantis)"
-# prints a DeprecationWarning pointing at veranta_sdk, then 2.1.0 and the AsyncVeranta class
+# prints a DeprecationWarning pointing at veranta_sdk, then 2.1.1 and the AsyncVeranta class
 ```
 
 ## 5. Publish the TypeScript SDK (`veranta-sdk` on npm)
@@ -128,7 +130,7 @@ node -e "import('veranta-sdk/kms').then(m => console.log(typeof m.KmsSigner))"
 
 ## 6. Publish the docs
 
-1. Replace the Avantis artwork: `docs/mintlify/logo/light.svg`, `docs/mintlify/logo/dark.svg`, `docs/mintlify/favicon.svg`. Colors in `docs.json` are still the old purple; change them if the brand palette changed.
+1. Artwork is in place: the Veranta wordmark as `logo/dark.svg` (white) and `logo/light.svg` (dark fill), and the purple app icon as `favicon.png`. The brand purple `#7E18FF` matches the existing `docs.json` colors, so nothing to change there.
 2. Re-sync the mirror and push it (Mintlify deploys from `avantis-python-sdk`):
 
 ```bash

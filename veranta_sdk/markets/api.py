@@ -110,7 +110,7 @@ class MarketsApi:
     async def price(self, pair: str | int) -> float:
         """Latest executable spot for a pair (Lazer/pro, else Hermes/core).
 
-        Reads feed-v3 ``/v2/pairs/{index}/price-update-data`` — the same signed
+        Reads feed-v3 ``/v2/pairs/{index}/price-update-data``, the same signed
         update the keeper posts on-chain. Do **not** use
         ``GET /v1/price-feeds/last-price`` as a trade reference: that endpoint
         returns the 60-minute candle from ``hour`` hours ago (default 24h), so

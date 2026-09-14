@@ -149,7 +149,7 @@ async def test_market_open_batched_market_dual_payload():
 @respx.mock
 async def test_market_open_coin_sends_required_leverage():
     """Coin-exposure opens must carry leverage (contract-required target fill
-    leverage) alongside the [min, max] bounds — regression for the live 400."""
+    leverage) alongside the [min, max] bounds, regression for the live 400."""
     vector = next(
         v for v in VECTORS["vectors"] if v["kind"] == "OpenTradeCoinExposureReq"
     )
@@ -194,7 +194,7 @@ async def test_market_open_coin_sends_required_leverage():
 @pytest.mark.asyncio
 @respx.mock
 async def test_update_tp_sl_uses_price_triggers_even_in_direct_mode():
-    """Global TP/SL always goes through the core-API price-triggers endpoint —
+    """Global TP/SL always goes through the core-API price-triggers endpoint,
     also with execution="direct" (v2 has no public updateTpAndSl entry point,
     so there is nothing to broadcast). No relayer, feed or RPC route is
     mocked: any attempt to use one would fail the test."""
@@ -279,7 +279,7 @@ async def test_limit_open_uses_type4_passthrough():
 async def test_delegate_key_signs_authorization_with_nonce_zero_no_rpc():
     """Delegate/API keys (register in the UI, export the key) are fresh EOAs:
     the EIP-7702 authorization is correctly signed over nonce 0 and the SDK
-    needs no RPC at all — the normal setup."""
+    needs no RPC at all, the normal setup."""
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
     mock_data_api(DATA)
     respx.post(f"{TXB}/v2/trade/open").mock(return_value=_ok(_calldata_payload()))
@@ -302,7 +302,7 @@ async def test_delegate_key_signs_authorization_with_nonce_zero_no_rpc():
 async def test_trader_eoa_without_rpc_fails_fast_in_relayer_mode():
     """Signing with the trader EOA directly needs an RPC for the authorization
     nonce (its nonce is almost never 0; a stale nonce is silently skipped
-    on-chain and the tx reverts — found live 2026-07-28). Without one, the SDK
+    on-chain and the tx reverts, found live 2026-07-28). Without one, the SDK
     must raise a clear ConfigError instead of an opaque on-chain revert."""
     from veranta_sdk.errors import ConfigError
 

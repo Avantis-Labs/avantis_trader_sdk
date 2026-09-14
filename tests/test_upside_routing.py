@@ -158,7 +158,7 @@ async def test_markets_upside_helpers():
 @respx.mock
 async def test_market_open_on_upside_pair_routes_pnl():
     """Open on BTC_UPSIDE (by index): orderType market_pnl in the tx-builder
-    request, MARKET_OPEN_PNL (6) on the batched-market body — no user flag."""
+    request, MARKET_OPEN_PNL (6) on the batched-market body, no user flag."""
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
     mock_data_api(DATA)
     intent_route = respx.post(f"{TXB}/v2/intents/open").mock(
@@ -236,7 +236,7 @@ async def test_market_open_coin_on_upside_pair():
 @respx.mock
 async def test_market_close_routes_from_pair():
     """Closes derive the aggregator type from the pair: PNL close (7) on the
-    upside pair, plain close (1) on the fixed pair — is_pnl param is gone."""
+    upside pair, plain close (1) on the fixed pair, is_pnl param is gone."""
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
     mock_data_api(DATA)
     respx.post(f"{TXB}/v2/intents/close").mock(
@@ -388,7 +388,7 @@ def test_position_parses_price_triggers_and_is_upside():
 
     (partial,) = pos.partial_triggers
     assert not partial.is_global and partial.kind == "partial_tp"
-    # Fed via the legacy `documentId` wire name — the validation alias maps it.
+    # Fed via the legacy `documentId` wire name: the validation alias maps it.
     assert partial.entity_id == "665f1c2ab7a1b2c3d4e5f601"
     assert partial.document_id == partial.entity_id  # deprecated property
     assert float(partial.final_trigger_price) == pytest.approx(58000.0)

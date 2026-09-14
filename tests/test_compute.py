@@ -251,7 +251,7 @@ def test_validate_order_failures():
 
 def test_validate_order_upside_rules_derive_from_pair():
     """is_upside=None (default) derives the Upside rule set from the pair
-    itself — matching the SDK's automatic order-type routing."""
+    itself, matching the SDK's automatic order-type routing."""
     import json
 
     upside_raw = json.loads(json.dumps(ETH_PAIR))

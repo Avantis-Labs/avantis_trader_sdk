@@ -1,6 +1,19 @@
 # Changelog
 
-## 2.1.0 (unreleased)
+## 2.1.1 (2026-09-14)
+
+Metadata and docs only, no code changes:
+
+- The PyPI project summary is now "Python SDK for Veranta v2: API-first
+  perpetuals trading on Base". The 2.1.0 release shipped it with an em dash,
+  and PyPI shows the latest release's summary, so this release replaces it.
+- Removed em and en dashes from all shipped text (README, changelog,
+  docstrings, comments, docs).
+- Docs carry the Veranta wordmark and app icon.
+- `avantis-trader-sdk` 2.1.1 is the final compatibility release under the old
+  name; it depends on `veranta-sdk>=2.1.1`.
+
+## 2.1.0 (2026-09-14)
 
 ### Renamed: Avantis is now Veranta
 
@@ -25,25 +38,25 @@ the naming is new:
   the new text). The EIP-712 domain name stays `AvantisTrading`: it is a
   deployed on-chain constant, so wallet prompts keep showing it.
 - User-Agent is now `veranta-sdk/<version>`.
-- `avantis-trader-sdk` 2.1.0 ships as a final compatibility release that only
+- `avantis-trader-sdk` 2.1.1 ships as a final compatibility release that only
   depends on `veranta-sdk` and re-exports it (see `compat/avantis-trader-sdk/`),
   so existing `import avantis_trader_sdk` code keeps working. New work lands
   under the Veranta name only.
 
 
-### Changed (breaking): builder codes v2 — canonical template, per-order rates
+### Changed (breaking): builder codes v2: canonical template, per-order rates
 
 The BuilderCode contracts were redesigned (registry / canonical EIP-7702
 template: testnet `0x4edE46D47C1f38d614ADda0BeCF4eBfF7722289d` /
 `0x8Ee65f19929F30F1d85a1dDd4c38a6745483818d`, Base mainnet
 `0xeDA810c70769a7221fB7e640D974534026719975` /
-`0x92F8ab16f6322a11d9f629baF081094c22A3a362`; the SDK never hardcodes them —
+`0x92F8ab16f6322a11d9f629baF081094c22A3a362`; the SDK never hardcodes them,
 both come from `/v2/meta`). Fees are now a
 **per-order rate on notional** (collateral x leverage, `0.05` = 0.05%), chosen
 by the builder up to three public registered caps, charged by the registry
 against the exact pending order the trade created (replay-guarded,
 template-gated), and pulled from the trader's USDC allowance **to the
-registry** — never to the builder's 1CT wallet. SDK changes:
+registry**, never to the builder's 1CT wallet. SDK changes:
 
 - **`builder_code` config semantics changed.** It is no longer a raw 32-byte
   calldata suffix appended to the outer EIP-7702 `execute()` envelope (that
@@ -72,7 +85,7 @@ registry** — never to the builder's 1CT wallet. SDK changes:
   `maxCloseFeeRate/-Percent`, `maxPnlCloseFeeRate/-Percent`,
   `globalCapRate/-Percent`).
 - **New onboarding helpers**: `account.approve_builder_fees(amount=None)`
-  (USDC allowance to the registry — the second approval builder-fee trading
+  (USDC allowance to the registry, the second approval builder-fee trading
   requires next to TradingStorage) and `account.builder_fee_allowance()`.
 
 ### Added
@@ -309,7 +322,7 @@ machine-readable error codes.
 ### Upside pairs (2026-08-06)
 
 Upside markets (the rebranded ZFP / zero-fee product) are separate pairs
-suffixed `_UPSIDE` (testnet 115–122, e.g. `BTC_UPSIDE/USD` = 116) whose
+suffixed `_UPSIDE` (testnet 115-122, e.g. `BTC_UPSIDE/USD` = 116) whose
 `storagePairParams.isPnlTypeAllowed` = 1; the contract enforces strict
 equality between that flag and the PnL order type, so the pair fully
 determines how an order must route.
@@ -373,7 +386,7 @@ on 2026-07-30 (`d5eab0c0`).
   zero address (`trader` is required and checksummed server-side). Response
   adds descaled floats: `spreadPct` (quoted; with-flow when available),
   `spreadPctWithoutFlow`, `estimatedSpreadPctWithFlow`, alongside the raw
-  `spreadMechanism` (SM001–SM006), `byPass` and `flowParams`. Error
+  `spreadMechanism` (SM001-SM006), `byPass` and `flowParams`. Error
   semantics: 400 malformed, 403 blocked (roll/closed market/wallet), 404 =
   no spread computable: "do not execute", never zero.
 - New config field `risk_v2_api_url` (`VERANTA_RISK_V2_API_URL`): testnet

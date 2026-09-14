@@ -106,7 +106,7 @@ async def test_offchain_partial_tpsl_submit():
 @respx.mock
 async def test_offchain_partial_tpsl_update_puts_to_entity():
     """PUT /price-triggers/{entityId} replaces the order atomically and mints
-    a NEW id — the SDK adopts the response's newEntityId."""
+    a NEW id, the SDK adopts the response's newEntityId."""
     respx.get(f"{TXB}/v2/meta").mock(return_value=_ok(META))
     mock_data_api(DATA)
     respx.post(f"{TXB}/v2/intents/tpsl-partial").mock(
@@ -140,7 +140,7 @@ async def test_offchain_partial_tpsl_update_puts_to_entity():
 @respx.mock
 async def test_offchain_partial_tpsl_cancel_signs_entity_id():
     """Cancel signs an EIP-712 CancelOffchainOrder over the entityId and
-    DELETEs /price-triggers with a JSON body — proven against the ethers
+    DELETEs /price-triggers with a JSON body, proven against the ethers
     golden vector."""
     from eth_account import Account
 

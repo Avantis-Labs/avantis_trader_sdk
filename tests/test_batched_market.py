@@ -198,7 +198,7 @@ async def test_enqueue_failure_error_raises_immediately(client):
 @respx.mock
 async def test_attempt_failed_events_are_non_terminal(client):
     """AttemptFailed reports one retryable attempt while the backend keeps
-    working the request — the stream must continue to the real terminal, and
+    working the request, the stream must continue to the real terminal, and
     the failures stay inspectable on the outcome."""
     respx.post(f"{BASE}/market/execute-batched").mock(
         return_value=_sse_response(
@@ -241,7 +241,7 @@ async def test_unknown_event_types_are_ignored(client):
 @respx.mock
 async def test_terminal_error_carries_machine_code(client):
     """Persisted terminal Errors now carry a machine-readable ``code`` (bare
-    contract error name or synthetic backend code) — surfaced on RelayError."""
+    contract error name or synthetic backend code), surfaced on RelayError."""
     respx.post(f"{BASE}/market/execute-batched").mock(
         return_value=_sse_response(
             (0, "MarketOrderAccepted", {"trackingId": "trk-code"}),
@@ -257,7 +257,7 @@ async def test_terminal_error_carries_machine_code(client):
 @pytest.mark.asyncio
 @respx.mock
 async def test_stream_timeout_code_falls_back_to_status_replay(client):
-    """code=STREAM_TIMEOUT means only this connection's view expired — the
+    """code=STREAM_TIMEOUT means only this connection's view expired, the
     client must recover via the status endpoint even though the payload no
     longer matches the old 'timed out' message sniff exactly."""
     respx.post(f"{BASE}/market/execute-batched").mock(
@@ -300,7 +300,7 @@ async def test_enqueue_failed_code_raises_with_code(client):
 async def test_on_event_streams_journey_while_waiting(client):
     """wait=True + on_event: the hook sees every lifecycle event live (the
     accepted event, AttemptFailed diagnostics, the terminal) while execute()
-    still settles and returns the outcome — the MM journey-log use case."""
+    still settles and returns the outcome, the MM journey-log use case."""
     respx.post(f"{BASE}/market/execute-batched").mock(
         return_value=_sse_response(
             (0, "MarketOrderAccepted", {"trackingId": "trk-j"}),
@@ -369,7 +369,7 @@ async def test_on_event_sees_terminal_before_raise(client):
 @respx.mock
 async def test_on_event_covers_stream_timeout_fallback(client):
     """When the stream view expires the hook also sees the (non-terminal)
-    STREAM_TIMEOUT Error and then each event recovered via status polling —
+    STREAM_TIMEOUT Error and then each event recovered via status polling,
     every event exactly once."""
     respx.post(f"{BASE}/market/execute-batched").mock(
         return_value=_sse_response(
