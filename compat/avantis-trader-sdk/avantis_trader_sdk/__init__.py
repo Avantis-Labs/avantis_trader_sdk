@@ -3,7 +3,7 @@
 Avantis is now Veranta. This package re-exports ``veranta_sdk`` and aliases
 every ``avantis_trader_sdk.<module>`` import to ``veranta_sdk.<module>`` so
 existing integrations keep working. It is the final release under the old
-name; migrate with https://sdk.veranta.com/migration/rename.
+name; migrate with https://sdk.veranta.xyz/migration/rename.
 """
 
 # ruff: noqa: E402  -- imports must run after the alias finder is installed
@@ -58,7 +58,7 @@ if not any(isinstance(finder, _AliasFinder) for finder in sys.meta_path):
 warnings.warn(
     "avantis_trader_sdk is now veranta_sdk (Avantis is now Veranta). This package is a "
     "compatibility shim and receives no further updates; switch your imports to "
-    "veranta_sdk. See https://sdk.veranta.com/migration/rename",
+    "veranta_sdk. See https://sdk.veranta.xyz/migration/rename",
     DeprecationWarning,
     stacklevel=2,
 )

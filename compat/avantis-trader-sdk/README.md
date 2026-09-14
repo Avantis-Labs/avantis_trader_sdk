@@ -12,4 +12,4 @@ from veranta_sdk import AsyncVeranta
 
 Submodule imports (`avantis_trader_sdk.signing`, `avantis_trader_sdk.compute`, ...)
 resolve to their `veranta_sdk` twins. No further updates ship under this name.
-See https://sdk.veranta.com/migration/rename.
+See https://sdk.veranta.xyz/migration/rename.

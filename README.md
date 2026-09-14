@@ -35,13 +35,13 @@ new names: package `veranta-sdk`, import `veranta_sdk`, classes
 `VERANTA_*`. The old package name ships one final compatibility release that
 re-exports this package, the old class names stay as deprecated aliases, and
 `AVANTIS_*` env vars are still read with a warning. Details:
-[sdk.veranta.com/migration/rename](https://sdk.veranta.com/migration/rename).
+[sdk.veranta.xyz/migration/rename](https://sdk.veranta.xyz/migration/rename).
 
 ## Upgrading from v1 (0.8.x)
 
 v2 is a ground-up, **breaking** rewrite for the Veranta v2 protocol (live
 August 12, 2026); the v1 `TraderClient` API is removed. Follow the
-[migration guide](https://sdk.veranta.com/migration/sdk-migration). Veranta
+[migration guide](https://sdk.veranta.xyz/migration/sdk-migration). Veranta
 v1 is superseded on-chain by the upgrade, so staying on the old SDK is only a
 stopgap; pin `avantis-trader-sdk<2` if you need time to migrate.
 

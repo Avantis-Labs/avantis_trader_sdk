@@ -30,7 +30,7 @@ the naming is new:
   new one is unset, with a `DeprecationWarning`.
 - Default service hosts move from `*.avantisfi.com` to `*.veranta.xyz` (same
   deployments, both domains serve); the delegate UI is at
-  https://delegate.veranta.xyz and the docs at https://sdk.veranta.com. The
+  https://delegate.veranta.xyz and the docs at https://sdk.veranta.xyz. The
   testnet RPC (`base-testnet-rpc-ovh.avantisfi.com`) stays on the old domain
   for now.
 - `DelegateReq` intents carry the Veranta Terms-of-Service text
@@ -145,7 +145,7 @@ upgrade. **Breaking: the v1 SDK API (0.x releases, last 0.8.17) is removed**;
 Upgrading from 0.8.x:
 
 - `pip install --upgrade veranta-sdk` moves you to the new API; follow
-  the [migration guide](https://sdk.veranta.com/migration/sdk-migration).
+  the [migration guide](https://sdk.veranta.xyz/migration/sdk-migration).
 - Veranta v1 is superseded on-chain by the upgrade, so staying on 0.8.x is
   only a stopgap; pin `veranta-sdk<2` if you need time to migrate.
 

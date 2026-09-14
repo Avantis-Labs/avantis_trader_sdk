@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "veranta-sdk"
-version = "2.1.1"
+version = "2.1.2"
 description = "Python SDK for Veranta v2: API-first perpetuals trading on Base"
 readme = "README.md"
 license = "MIT"
@@ -60,7 +60,7 @@ dev = [
 
 [project.urls]
 Homepage = "https://www.veranta.xyz"
-Documentation = "https://sdk.veranta.com"
+Documentation = "https://sdk.veranta.xyz"
 Source = "https://github.com/Avantis-Labs/avantis_trader_sdk"
 Changelog = "https://github.com/Avantis-Labs/avantis_trader_sdk/blob/main/CHANGELOG.md"
 

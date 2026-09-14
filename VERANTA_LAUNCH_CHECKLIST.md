@@ -12,13 +12,13 @@ Everything below is prepared locally and verified. Nothing is committed, pushed 
 | `avantis-python-sdk` (docs mirror) | Byte-identical copy of `docs/mintlify` plus its LICENSE. | Mintlify broken-link check passes. |
 | `avantis-cd` | Mainnet tx-builder gets `ADDR_BUILDER_CODE` and `ADDR_DELEGATION_TEMPLATE`. Blitz allowlist changes were already there. | Reviewed, not applied. |
 
-Host status today: every `*.veranta.xyz` service resolves and serves. `delegate.veranta.xyz` is live. `sdk.veranta.com` has DNS but no site yet. The testnet RPC and explorer (`base-testnet-rpc-ovh` / `base-testnet-ovh`) stay on `avantisfi.com` by decision.
+Host status today: every `*.veranta.xyz` service resolves and serves. `delegate.veranta.xyz` is live. `sdk.veranta.xyz` has DNS but no site yet. The testnet RPC and explorer (`base-testnet-rpc-ovh` / `base-testnet-ovh`) stay on `avantisfi.com` by decision.
 
 ## 0. Before you start
 
 1. Confirm the mainnet contracts accept the Veranta ToS. The `v2/testnet_deployment` branch has `_TNC_TO_SIGN_V2`; check mainnet by registering a throwaway delegate with the new SDK on mainnet, or read the constant from the deployed `SignatureHelpers` library with `cast call <address> "_TNC_TO_SIGN_V2()(bytes32)"`.
 2. Decide the first TypeScript version. `pnpm changeset version` will produce `0.2.0` from the two pending changesets. If you want `1.0.0`, set it in `package.json` before publishing; the build syncs `src/version.ts` for you.
-3. Have at hand: a PyPI account that owns `avantis-trader-sdk`, an npm account (and ideally the `veranta` org to hold the `@veranta` scope), the GitHub `NPM_TOKEN` secret, Mintlify dashboard access, DNS control for `sdk.veranta.com`.
+3. Have at hand: a PyPI account that owns `avantis-trader-sdk`, an npm account (and ideally the `veranta` org to hold the `@veranta` scope), the GitHub `NPM_TOKEN` secret, Mintlify dashboard access, DNS control for `sdk.veranta.xyz`.
 
 ## 1. Commit and push, in this order
 
@@ -140,8 +140,8 @@ diff -rq avantis_trader_sdk/docs/mintlify avantis-python-sdk --exclude=.git   # 
 cd avantis-python-sdk && git add -A && git commit -m "Veranta docs" && git push
 ```
 
-3. In the Mintlify dashboard set the custom domain to `sdk.veranta.com` and add the DNS record it asks for. Keep `sdk.avantisfi.com` pointed at the same site for a while so old links keep working.
-4. Verify `https://sdk.veranta.com`, the API Reference tab (it renders `https://tx-builder.veranta.xyz/openapi.json` live), and `https://sdk.veranta.com/llms.txt`.
+3. In the Mintlify dashboard set the custom domain to `sdk.veranta.xyz` and add the DNS record it asks for. Keep `sdk.avantisfi.com` pointed at the same site for a while so old links keep working.
+4. Verify `https://sdk.veranta.xyz`, the API Reference tab (it renders `https://tx-builder.veranta.xyz/openapi.json` live), and `https://sdk.veranta.xyz/llms.txt`.
 
 ## 7. Hosts still on `avantisfi.com`, flip later
 
@@ -152,17 +152,29 @@ When `base-testnet-rpc-ovh.veranta.xyz` and `base-testnet-ovh.veranta.xyz` exist
 - `avantis_trader_sdk/examples/21_kms_testnet_mm_open.py`
 - `avantis_trader_sdk/docs/mintlify/configuration.mdx` and `migration/rename.mdx`, then re-sync the mirror
 
-## 8. Not covered here
+## 8. Push the API Key Generator (`avantis-delegate-ui`)
 
-- The API Key Generator UI (`avantis-delegate-ui`) and the web app copy: brand text and the ToS link, if they still say Avantis.
+Renamed and verified locally (typecheck, production build, and the DelegateReq digest check against the regenerated golden vector). It now signs the Veranta ToS text, points at `veranta.xyz` services and `api.veranta.xyz`, carries the Veranta logo, mark and favicon, and shows both SDKs in the post-issuance instructions.
+
+```bash
+cd ~/Work/Avantis/code/avantis-delegate-ui
+git add -A && git commit -m "Veranta rename: ToS v2 text, veranta.xyz services, brand assets, builder codes v2"
+git push
+```
+
+After the deploy: in the Vercel project, rename `NEXT_PUBLIC_AVANTIS_NETWORK` to `NEXT_PUBLIC_VERANTA_NETWORK` (the old name is still read as a fallback, so nothing breaks in between), and make sure `delegate.veranta.xyz` is in the Privy app's allowed domains.
+
+## 9. Not covered here
+
+- The web app copy (`avantis-ui-v2`): brand text and the ToS link, if they still say Avantis.
 - GitHub org display name (the `Avantis-Labs` slug and repo names stay, as decided). Update repo descriptions and topics.
 - Infra names (Kubernetes, images, metrics, alert names) stay `avantis-*` by decision.
 - The old Sphinx docs repo `avantis_trader_sdk_docs` is not hosted anywhere. Archive it.
 - Contracts: nothing to change. The rename only relies on the Veranta ToS constant already deployed.
 
-## 9. After launch
+## 10. After launch
 
-- Announce with a link to `https://sdk.veranta.com/migration/rename`.
+- Announce with a link to `https://sdk.veranta.xyz/migration/rename`.
 - Watch for `DeprecationWarning` reports from `AVANTIS_*` env vars and the old class names.
 - Plan Python 3.0.0 (drop the deprecated aliases and the `AVANTIS_*` fallback) after a couple of releases. Do the same in the TypeScript SDK at its next major.
 
@@ -177,4 +189,4 @@ When `base-testnet-rpc-ovh.veranta.xyz` and `base-testnet-ovh.veranta.xyz` exist
 | Hosts | `*.avantisfi.com` | `*.veranta.xyz`, except the testnet RPC and explorer |
 | Delegate ToS text | Avantis | Veranta (contracts accept both) |
 | EIP-712 domain | `AvantisTrading` | unchanged, on-chain constant |
-| Docs | sdk.avantisfi.com, Python only | sdk.veranta.com, Python and TypeScript side by side |
+| Docs | sdk.avantisfi.com, Python only | sdk.veranta.xyz, Python and TypeScript side by side |
