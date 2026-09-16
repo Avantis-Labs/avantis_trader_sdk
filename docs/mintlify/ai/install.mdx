@@ -1,0 +1,148 @@
+---
+title: Install
+description: "Hosted in one paste, local in one command: Claude Desktop, Claude Code, claude.ai, Claude mobile, ChatGPT, Cursor, Windsurf and VS Code."
+---
+
+Two ways in. Pick the one your client needs; both give you the same tools, the same quotes and the same guardrails. Not sure what you get? [Features](/ai/features) is the tour.
+
+<CardGroup cols={2}>
+  <Card title="Hosted: nothing to install" icon="cloud" href="#hosted-connector">
+    claude.ai, the Claude mobile app, ChatGPT and any client that accepts a connector URL. Paste one URL, sign once with your wallet.
+  </Card>
+  <Card title="Local: one command" icon="terminal" href="#local-install">
+    Claude Desktop, Claude Code, Cursor, Windsurf, VS Code and agent frameworks. Needs Node 20 or newer. The key never leaves your machine.
+  </Card>
+</CardGroup>
+
+## Hosted connector
+
+Add one of these URLs as a custom connector in your client:
+
+| URL | What you get |
+| --- | --- |
+| `https://mcp.veranta.xyz/mcp` | Every market, funding, hours, calendar and any wallet's positions by address. No login, nothing can trade. |
+| `https://mcp.veranta.xyz/mcp/trade` | Trading. The client sends you to delegate.veranta.xyz once; your wallet signs a single request and you are connected. |
+
+<Tabs>
+  <Tab title="claude.ai and Claude mobile">
+    Add a custom connector with `https://mcp.veranta.xyz/mcp/trade` in the connector settings, then finish the sign-in the client opens. The connector follows your Claude login, so the phone app is connected too.
+  </Tab>
+  <Tab title="ChatGPT">
+    Create a connector with `https://mcp.veranta.xyz/mcp/trade` and complete the wallet sign-in it opens. ChatGPT cannot pop up confirmation dialogs, so the AI repeats each confirmation sentence in the chat and waits for your yes.
+  </Tab>
+  <Tab title="Claude Code (remote)">
+    ```bash
+    claude mcp add --transport http veranta https://mcp.veranta.xyz/mcp/trade
+    ```
+
+    Then run `/mcp` to sign in: the browser opens the connect page, your wallet signs once, and the token returns to the client.
+  </Tab>
+</Tabs>
+
+Read [Hosted connector](/ai/hosted) for how the key travels, confirmations without dialogs, and alerts on your phone through `link_telegram`.
+
+## Local install
+
+<Steps>
+  <Step title="Create a session key">
+    Run this in a terminal and follow the link it prints. Start on testnet if you want to try things with test money first.
+
+    ```bash
+    npx -y veranta-mcp init --network=mainnet --trader=0xYourWallet --expiry=30d
+    ```
+
+    The key is created on your computer and stored encrypted under `~/.veranta`. The link opens the Veranta API Key Generator, where your wallet signs once to register the key as a delegate. The page hands the signature back to the waiting command, which finishes the registration gaslessly. If your wallet has never traded on Veranta, approve USDC on the same page.
+
+    Then check everything is ready:
+
+    ```bash
+    npx -y veranta-mcp doctor
+    ```
+  </Step>
+
+  <Step title="Add the server to your client">
+    <Tabs>
+      <Tab title="Claude Desktop">
+        Download the `.mcpb` bundle from the [latest release](https://github.com/Avantis-Labs/veranta-mcp/releases) and open it. Claude Desktop asks for the network and your wallet address; leave the session key field empty to use the key created by `init`, or paste one from `veranta-mcp keys export --reveal`.
+
+        Or add the server by hand to `claude_desktop_config.json`:
+
+        ```json
+        { "mcpServers": { "veranta": { "command": "npx", "args": ["-y", "veranta-mcp"] } } }
+        ```
+      </Tab>
+      <Tab title="Claude Code">
+        ```text
+        /plugin marketplace add Avantis-Labs/veranta-mcp
+        /plugin install veranta@veranta
+        ```
+
+        The plugin adds the server, four trading skills (safety rules, crypto, tradfi, macro) and the commands `/veranta:brief` and `/veranta:risk`.
+      </Tab>
+      <Tab title="Cursor, Windsurf, VS Code">
+        Cursor and VS Code have install buttons in the [README](https://github.com/Avantis-Labs/veranta-mcp#readme). Any of the three also takes this entry in its MCP settings:
+
+        ```json
+        { "mcpServers": { "veranta": { "command": "npx", "args": ["-y", "veranta-mcp"] } } }
+        ```
+      </Tab>
+      <Tab title="Agent frameworks">
+        ```ts
+        import { callTool, createContext, loadConfig, toOpenAITools, toVercelTools } from "veranta-mcp";
+
+        const ctx = await createContext(loadConfig());
+        const tools = toVercelTools(ctx);        // Vercel AI SDK generateText({ tools })
+        const functions = toOpenAITools(ctx);    // OpenAI chat.completions / responses
+        const result = await callTool(ctx, "get_markets", { search: "eth" });
+        ```
+
+        Policy, journal and validation apply exactly as they do over MCP.
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Say hello">
+    Ask your client: "Check my Veranta setup and show my positions." The first call is `check_setup`; it reports anything missing with the exact fix.
+  </Step>
+</Steps>
+
+## Start at any level
+
+Each level is one setting. Move up when you are comfortable.
+
+| Level | How | What can happen |
+| --- | --- | --- |
+| Watch | Set only `VERANTA_TRADER_ADDRESS` to any wallet | Every read and quote tool works; the trade tools are not even listed |
+| Paper | `init --network=testnet`, then fund the wallet with `faucet` | Everything works with test money |
+| Capped mainnet | `init` with a short expiry and a policy preset | The AI trades within your caps |
+| Hosted | Add the connector URL in claude.ai or ChatGPT | Same tools, conservative preset, nothing installed |
+
+```bash
+npx -y veranta-mcp faucet --network=testnet --address=0xYourWallet
+```
+
+## Configuration
+
+Settings come from the environment, then `~/.veranta/config.json` (written by `init`), then defaults. CLI flags override both.
+
+| Setting | Meaning | Default |
+| --- | --- | --- |
+| `VERANTA_NETWORK` | `mainnet`, `testnet` or `devnet` | `mainnet` |
+| `VERANTA_TRADER_ADDRESS` | The wallet the key trades for; alone it selects read-only mode | from `init` |
+| `VERANTA_PRIVATE_KEY` | Session key; leave unset to use the encrypted key store | key store |
+| `VERANTA_KEY_PASSPHRASE` | Passphrase for a passphrase-protected key store | none |
+| `VERANTA_PROFILE` | `crypto`, `tradfi`, `macro` or `all` | `all` |
+| `VERANTA_TOOLSETS` | Comma list of `core`, `analysis`, `alerts`, `approvals`, `lp`, `referral`; add `lp` and `referral` for vault and referral tools | `core,analysis,alerts,approvals` |
+| `VERANTA_POLICY_FILE` | The policy file | `~/.veranta/policy.json` |
+| `VERANTA_HOME` | State directory: keys, policy, journals, alerts | `~/.veranta` |
+| `VERANTA_QUOTE_TTL_SECONDS` | How long a quote can be executed | `30` |
+| `VERANTA_EXECUTE_TIMEOUT_SECONDS` | How long `execute_trade` waits for a fill before reporting `submitted` | `75` |
+| `VERANTA_DATA_URL` | Hosted data service for rate history and regimes; `none` disables | `https://mcp.veranta.xyz` on mainnet |
+| `VERANTA_BUILDER_CODE`, `VERANTA_BUILDER_FEE_PERCENT` | Builder code attached to orders and its fee; none ships by default | none |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Telegram notifications | none |
+
+<Note>
+One file for every network. Any variable may carry a `_MAINNET`, `_TESTNET` or `_DEVNET` suffix: the suffixed value replaces the plain one when the server runs on that network, and a blank suffixed value switches the setting off there. `VERANTA_DATA_URL_TESTNET=` keeps the data service on mainnet only, for example.
+</Note>
+
+`~/.veranta/config.json` accepts `network`, `trader`, `privateKey`, `kmsKeyId`, `awsRegion`, `profile`, `toolsets`, `builderCode`, `builderFeePercent`, `telegram` (`botToken` and `chatId`), `quoteTtlSeconds`, `executeTimeoutSeconds` and `dataUrl`. Everything else, including the policy file path, is environment only.

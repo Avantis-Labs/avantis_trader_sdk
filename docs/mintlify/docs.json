@@ -99,6 +99,49 @@
         ]
       },
       {
+        "tab": "Trade with AI",
+        "icon": "sparkles",
+        "groups": [
+          {
+            "group": "Start",
+            "pages": [
+              "ai/overview",
+              "ai/features",
+              "ai/install",
+              "ai/session-keys"
+            ]
+          },
+          {
+            "group": "Trading",
+            "pages": [
+              "ai/tools",
+              "ai/prompts",
+              "ai/profiles",
+              "ai/safety"
+            ]
+          },
+          {
+            "group": "Alerts and intelligence",
+            "pages": [
+              "ai/alerts",
+              "ai/telegram"
+            ]
+          },
+          {
+            "group": "Hosting",
+            "pages": [
+              "ai/hosted"
+            ]
+          },
+          {
+            "group": "Help",
+            "pages": [
+              "ai/faq"
+            ]
+          }
+        ]
+      },
+      {
         "tab": "API Reference",
         "groups": [
           {

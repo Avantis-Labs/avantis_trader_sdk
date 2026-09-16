@@ -1,0 +1,50 @@
+---
+title: Session keys for agents
+description: "What the agent's key can do, where it lives, and how to renew or revoke it."
+---
+
+A session key is a separate wallet registered as a delegate of your trading wallet. The contract lets it open, close and modify positions, add and withdraw margin (withdrawals always pay your own wallet), sign referral intents in your name, and trigger builder fees up to the registered code's cap against a USDC allowance you granted. It cannot withdraw USDC from your account, grant allowances, or add or remove delegates. It expires at the time you choose and can be revoked from your wallet at any moment.
+
+## Creating one
+
+```bash
+npx -y veranta-mcp init --network=mainnet --trader=0xYourWallet --expiry=30d --preset=standard
+```
+
+`init` does four things:
+
+1. Generates the key on your computer and stores it encrypted in `~/.veranta/keys/<network>.json`. In the default machine mode the encryption is bound to your machine and user account, so a copied file is useless elsewhere. Set `VERANTA_KEY_PASSPHRASE` for a passphrase instead.
+2. Writes `~/.veranta/config.json` (network, wallet, profile) and a policy file from the preset.
+3. Prints a link to the Veranta API Key Generator and waits. Open it, connect the wallet, pick the expiry, sign once. The page sends the signature back to your terminal, and the command relays the registration through the Veranta relayer. No gas is needed. If the hand-off cannot reach your terminal, the page shows a payload to paste into `veranta-mcp register --payload=...`.
+4. Confirms the delegation on-chain and prints the client configuration.
+
+Expiry presets: `24h`, `7d`, `30d`, `90d`, `1y`, or any whole number of hours, days, weeks or years up to ten years. Shorter is safer for an AI agent; 7 days is the default for local keys, 30 days on the hosted connect page. Sessions last 30 days by default; pass `--expiry=1y` for a year, and the registration page prefills whatever the link says and lets you change it before signing.
+
+<Tip>
+Use `--network=testnet` first. The same command creates a testnet key, `veranta-mcp faucet` funds the wallet with test USDC, and nothing is real money.
+</Tip>
+
+## Renewing and revoking
+
+```bash
+npx -y veranta-mcp renew --expiry=30d
+```
+
+Renewal reuses the same key with a new expiry, so nothing in your client changes. `check_setup` and `get_account` warn three days before the key expires, and the Telegram daemon sends a reminder.
+
+To revoke, open the [API Key Generator](https://delegate.veranta.xyz/), connect the wallet and remove the key in the Manage keys card. Any order signed by that key stops immediately, and every hosted login token for it stops with it. `veranta-mcp keys forget --yes` deletes the local file; `veranta-mcp keys show` describes it without revealing it.
+
+## Where the key lives
+
+| Setup | Where the key is | Who can use it |
+| --- | --- | --- |
+| Local, key store (default) | Encrypted file under `~/.veranta`, bound to your machine | Programs running as your user on that machine |
+| Local, environment variable | Your client's configuration | Anyone who can read that configuration |
+| Claude Desktop bundle | The operating system keychain (the field is marked sensitive) | Claude Desktop |
+| Hosted connector | Encrypted inside your login token, held by the AI client | The hosted server, for the request that signs an order |
+
+Whatever the setup, the key can only trade, expires, and is capped by your [policy](/ai/safety).
+
+## Approvals still come from your wallet
+
+Trading pulls USDC from your wallet through the Veranta trading contract, so the wallet itself must have approved USDC once. Builder fees need a second approval to the BuilderCode registry; grant a bounded amount rather than an unlimited one. A session key cannot grant either. `check_setup` tells you when one is missing and links to the approval page, and the `approve` tool prepares the same approval when the signer is your own wallet.

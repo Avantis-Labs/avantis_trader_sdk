@@ -1,0 +1,192 @@
+---
+title: Features
+description: "Everything your AI can do on Veranta, group by group: the tools involved, prompts to try and what comes back."
+---
+
+This is the complete tour. Each section names the tools your AI calls, gives you prompts to try word for word, and says what comes back. You never call a tool yourself; you talk, the AI picks the tool. Reads need no approval. Anything that trades is quoted first and waits for your yes.
+
+A few conventions hold everywhere: amounts are US dollars (USDC), leverage is a plain multiplier, percentages are plain numbers (10 means 10 percent). Everything except crypto has market hours and closes at the weekend. Take profit and stop loss are trigger levels, not fill prices.
+
+## Markets and prices
+
+Ask about any market the way you would ask a colleague. Common names work: gold, nasdaq, bitcoin, nvda. Every answer carries the net carry per side (funding plus borrow, percent per hour) so you see what it costs to hold before you open.
+
+Tools: `get_markets`, `get_market`, `scan_markets`, `get_market_hours`, `manage_watchlist`
+
+- "What is gold doing?"
+- "Show me the biggest crypto movers today, and where funding is richest."
+- "Is NVDA open? When does it close?"
+
+What comes back: live price and 24h change, funding and borrow per side with the net rate, open interest and skew, the spread quoted right now for your size and side, headroom left to open, maker and taker fees, leverage range with any temporary cap, minimum position, market hours with the next open or close, and notes such as the ETF a US500 or US100 price tracks. A market that was closed for more than 30 hours shows its change since the last close, not over 24 hours.
+
+## Quotes and orders
+
+Every trade is two steps. `quote_trade` prices it and returns a `quoteId`; `execute_trade` runs that exact quote once. The quote lives 30 seconds, and if the price moves past the slippage bound in between, the AI has to quote again instead of filling at a surprise price.
+
+Tools: `quote_trade`, `execute_trade`, `check_order`
+
+- "Long 500 dollars of ETH at 5x with a 10 percent stop."
+- "Rest a limit to buy 1,000 dollars of NVDA at 180 with 3x."
+- "Sell 2,000 dollars of BTC over the next hour as a TWAP."
+- "Close half my SOL long."
+
+What comes back from a quote: the expected entry (mark plus live spread) or exit, collateral, leverage and notional, every fee (maker or taker open fee, estimated close fee, builder fee if one is configured), liquidation price and distance, take profit and stop loss prices, expected PnL on closes, validation against the pair's rules and your balance, market context, and the policy verdict: `allow`, `confirm` or `block`. On execution: the fill price, realized PnL on closes, order id, transaction link and the resulting position.
+
+| Order | How it behaves |
+| --- | --- |
+| Market | Fills now. The quoted entry is sent as the reference price with a 1 percent slippage bound by default. |
+| Limit | Rests until your price (longs below market, shorts above). Collateral is escrowed while it waits; cancel to release it. |
+| Stop-limit | Triggers through your price in the other direction (longs above market, shorts below). |
+| TWAP | Spreads the order over a run time that is a whole multiple of the pair's slice frequency. Cannot carry a take profit or stop loss; the AI sets them with `set_risk` after the first slice fills. |
+| Basket | Several legs in one quote. The policy applies to the sum, and a named hedge leg is quoted with the rest. |
+
+Give two of collateral, notional and leverage; the AI works out the third. Stops can be a price or a percent of collateral ("a 10 percent stop" means lose about 10 percent of collateral). A fill that does not confirm within 75 seconds is reported as `submitted` with a `trackingId`; `check_order` looks it up, and retrying the same quote never opens a second trade.
+
+## Positions and risk
+
+Your book in one call, then changes in plain words. Tightening (a closer stop, a take profit, more margin) always works, even while trading is paused. Loosening (withdrawing margin, removing or widening a stop) is checked like a new trade, so the policy caps and the pause apply.
+
+Tools: `get_account`, `set_risk`, `close_positions`, `cancel_order`, `pause_trading`
+
+- "Show my positions sorted by distance to liquidation."
+- "Move the stop on my gold short to 4,350 and take profit at 4,100."
+- "Trail a 2 percent stop on my ETH long and add 100 dollars of margin."
+- "Close my losers." / "Cancel every resting order." / "Stop trading."
+
+What comes back from `get_account`: USDC balance and allowance, every open position with entry, live price, net PnL after fees and funding, health, liquidation price and distance, take profit and stop loss, standing limit orders, running TWAPs, session key expiry, exposure by asset class, and alerts such as collateral 60 percent consumed (warning) or 75 percent (critical), no stop loss, key expiring, market closed. Position ids look like `3:0`.
+
+`set_risk` moves take profit and stop loss by price or percent, trails the stop (`trailStopPercent` places it a distance behind the current price only when that is tighter than the stop you have), adds or withdraws margin, and manages partial take profit and stop loss triggers that close a fraction. `close_positions` closes everything, only losers, only winners, one pair or a list of ids, fully or by fraction; each close is quoted, the policy is applied to the whole set, and positions on a closed market are skipped and named with the reopen time. `cancel_order` cancels a limit or stop-limit order, a running TWAP, a partial trigger, or all of them at once. `pause_trading` is the kill switch: new positions, increases, margin withdrawals and stop removal stop immediately, closing and cancelling keep working, and only you can resume it from a terminal. It is a local tool; the hosted connector has the automatic daily loss pause instead. See [Safety](/ai/safety).
+
+## Alerts and Telegram
+
+Alerts reach your phone while no AI client is open. Ask for a rule in plain words and it is stored; the local watch daemon or the hosted alert service evaluates it and posts to Telegram. Fills and closes from any client are always reported, including take profit, stop loss and liquidation.
+
+Tools: `manage_alerts`, `send_telegram`, `link_telegram` (hosted)
+
+- "Tell me on Telegram when gold crosses 4,400."
+- "Warn me when any position has lost 50 percent of its collateral."
+- "Trail a 3 percent stop on my BTC long while I sleep."
+- "Send me a daily summary at 8 in the morning."
+
+What you get: price crossings, funding above a level, a market you hold closing soon, collateral warnings at 60 and 75 percent consumed (liquidation is at 85), key expiry, a daily summary, and `trailing_stop` automations that move a stop behind the price with your session key on your machine, never loosening. When the daily loss limit pauses trading, that arrives too. Locally, `veranta-mcp watch` polls every 15 seconds and picks up new rules on the next tick. Hosted, one Veranta bot serves everyone; ask for `link_telegram`, open the link, press Start, and rules are evaluated every 30 seconds. [Alerts and trailing stops](/ai/alerts) covers every trigger and the delivery details.
+
+## Intelligence
+
+Context before you commit. Regimes tell you what conditions a market is in, your own record tells you where you make money, correlations tell you whether two legs are the same bet, and sizing tools turn a risk budget into collateral and leverage. All of it is read-only and none of it is advice: the AI presents numbers, you decide.
+
+Tools: `get_regime`, `get_trade_intelligence`, `get_insights`, `scan_markets`, `get_correlations`, `plan_hedge`, `size_position`, `simulate_portfolio`, `get_rate_history`, `get_market_hours`
+
+- "Run a risk check on a 5x long on SOL with 400 dollars."
+- "Risk 1 percent of my balance short on gold, stop at 4,350."
+- "What happens to my book if everything drops 5 percent?"
+- "Hedge my crypto exposure." / "What has it cost to hold ETH longs this week?"
+
+What comes back:
+
+- `get_regime`: the regime each pair is in right now (trending up, trending down, breakout, high volatility, consolidation) with confidence, volatility level, how long it has held and how old the label is. Market context, never a trade filter.
+- `get_trade_intelligence`: your performance record over 7 days, 30 days, 90 days, year to date or all time: cumulative net PnL with peak and max drawdown, win rate and profit factor by position, average hold time, and net PnL by market, leverage bucket, regime and side, plus how trades ended (take profit, stop loss, liquidation, market close and more).
+- `get_insights`: the personalized brief: tier and style, best and worst regime, side bias, a headline on what your markets are doing now, the regime and volatility of each market you trade, and upcoming events.
+- `get_correlations`: a correlation matrix for 2 to 12 pairs over a window you choose, on hourly, four-hour or daily candles. Gaps across market closes are skipped, not treated as one period.
+- `plan_hedge`: an offsetting leg for the whole book, one asset class or one position, sized from recent co-movement, with ranked candidates, the residual exposure and a ready quote. Nothing executes.
+- `size_position`: from a risk amount or percent of balance and a stop level to notional, collateral and leverage, with leverage kept low enough that liquidation sits beyond the stop, the stop distance in pips, points or dollars, fees and reward to risk. It hands the AI a ready `quote_trade` input.
+- `simulate_portfolio`: each position's PnL now and in your scenario, which ones would be liquidated or closed at a stop on the way, and the total change against collateral.
+- `get_rate_history`: realized funding and borrow per hour for one pair over the days you ask, the net rate each side paid, and why the latest realized hour differs from the live rate.
+
+## Calendar
+
+Scheduled events with the markets that usually react, as structured data. The hosted calendar is refreshed every 6 hours from Nasdaq's public economic and earnings calendars through a fixed rule table, so only the server's own event labels, New York times and short consensus, previous and actual figures reach the model. The bundled FOMC schedule fills gaps, and local installs use the bundled copy when the hosted one is unreachable.
+
+Tools: `get_calendar`, plus the `veranta://calendar` resource and the `ny_open_plan`, `earnings_watch` and `event_playbook` prompts
+
+- "What is on the calendar this week that could move my gold position?"
+- "Any earnings for the stocks I hold in the next 7 days?"
+- "Prepare me for the next FOMC."
+
+What comes back: central bank decisions (FOMC, ECB, BoE, BoJ and others), CPI, PPI, PCE, jobs, GDP, retail sales, ISM, oil inventories, OPEC meetings and earnings dates for every listed equity pair, filtered by look-ahead window, kind or pair, with the last 7 days on request to explain a move. `get_insights` also lists the upcoming events for your markets.
+
+## History and journal
+
+Two records live side by side. The trading journal is your notebook: every open and close the AI executes lands there with size, prices, PnL, the thesis you gave and the market regime at the time. The activity log is the audit trail of what the server did on your behalf.
+
+Tools: `get_history`, `trade_journal`, `get_activity_log`, `get_leaderboard`
+
+- "Write my weekly review."
+- "Note on my ETH long: breakout above 2,550, stop below the range. Tag it breakout."
+- "What did you do today?" / "Show my PnL by day for the last 30 days."
+- "Where do I rank on the leaderboard?"
+
+What comes back: `get_history` gives the portfolio summary, the portfolio page for a period (PnL, portfolio value, volume, the split into gross, funding and fees, win rate, trade count, biggest win, most traded market, cumulative chart), paged fills with their fee breakdown, order history and realized PnL by day. `trade_journal` lists entries, adds notes and lessons with tags, and its review aggregates closes by pair, tag and regime and lists the trades that still lack a lesson. `get_activity_log` returns quotes, executions and their results, policy blocks and pauses, risk changes, cancels and alerts; keys and signatures are never recorded. `get_leaderboard` ranks the top traders by all-time net profit with volume, trade count and win rate, plus your own rank.
+
+## Earn and grow
+
+The rest of the Veranta app, readable from the chat: the LP vault, AVNT staking, buybacks and the referral program. Moving funds is different from trading. A session key cannot deposit, withdraw or approve for you, so those actions hand you a prepared link to finish in your own wallet.
+
+Tools: `get_vault`, `manage_liquidity`, `get_staking`, `get_buybacks`, `manage_referral`, `approve`
+
+- "What is the vault paying right now, and what is my deposit worth?"
+- "How much AVNT do I have staked, and what is my fee discount tier?"
+- "Show the last 5 buyback transactions." / "Approve 2,000 dollars of USDC for trading."
+
+What comes back: `get_vault` shows APY over 1, 7 and 30 days, year to date and 12 months, total deposits, utilization, deposit cap, share price, buffer ratio, protocol fees over 60 days and your position (shares, deposit value, earnings, max withdraw). `get_staking` shows APR, emission rate, total staked, cooldown and unstake window, the fee discount tiers, and your stake, claimable rewards and tier (mainnet only). `get_buybacks` shows all-time AVNT bought and burnt with the USDC spent, a daily series, recent transactions with explorer links and the revenue milestones. `manage_referral` reads your referral stats and registers, sets or claims codes; `manage_liquidity` reads your vault position and prepares deposits and withdrawals within the cap and the utilization gate. Both are opt-in toolsets (`lp`, `referral`) and are switched off in the policy presets until you enable them. `approve` grants a bounded USDC allowance for trading, builder fees or vault deposits; an unlimited allowance needs your explicit yes.
+
+## Prompts library
+
+Prompts are ready-made requests your client can offer as buttons or slash commands. Each one tells the model which tools to call and how to present the result, so a morning brief comes out the same every day. Which ones appear depends on your [profile](/ai/profiles); `all` shows everything.
+
+| Prompt | What it does |
+| --- | --- |
+| `morning_brief` | Account status, open positions, overnight moves on the watchlist, funding and market hours in one summary |
+| `risk_check` | Size a trade against caps, liquidation distance, fees, funding, correlation with open positions and market hours, then quote it without executing |
+| `explain_position` | One open position in plain language: entry, costs so far, distance to take profit, stop loss and liquidation |
+| `close_losers` | Review losing positions, propose closes and tighter stops on winners, execute after your yes |
+| `weekly_review` | PnL, win rate, fees, best and worst trades from the journal, policy events from the activity log |
+| `regime_review` | Where you make and lose money by market regime, and what regime your markets are in now |
+| `funding_scan` | Rank the pairs of one asset class by net funding, with the funding and borrow parts per side, skew and open interest |
+| `momentum_scan` | Biggest 24h movers with open interest and funding context |
+| `london_open_plan` | FX, index and metal markets around the London session with spreads and exposure |
+| `ny_open_plan` | US equities and indices around the New York open with event risk from the calendar |
+| `size_by_risk` | From risk percent, entry and stop to a quoted trade |
+| `earnings_watch` | Equity positions against the event calendar, with stops or size cuts to confirm |
+| `cross_asset_dashboard` | BTC, ETH, gold, oil, US indices and major FX with correlations and your exposure |
+| `build_basket` | Turn a thesis into legs with sizes and a hedge, quoted as one basket |
+| `hedge_portfolio` | Propose offsets for the current exposure by asset class |
+| `event_playbook` | Positions, stops and alerts to set around the next scheduled macro event |
+
+In Claude Code the plugin adds `/veranta:brief` (the morning brief) and `/veranta:risk ETH/USD long 500 5 2400` (a risk check for pair, side, collateral, leverage and stop). Neither executes anything. [Prompts and resources](/ai/prompts) has the details.
+
+## Resources
+
+Resources are documents your client can attach to the conversation without a tool call.
+
+| URI | Content |
+| --- | --- |
+| `veranta://markets` | Every tradeable pair with funding, open interest, leverage, fees and hours, sorted by open interest |
+| `veranta://account` | Balances, positions with PnL and liquidation distance, orders and alerts |
+| `veranta://policy` | Your policy: preset, limits, pause state and what is left of today's notional and loss budgets |
+| `veranta://calendar` | Scheduled central bank decisions, inflation and jobs releases and earnings, as structured data |
+| `veranta://watchlists` | The profile default watchlist and lists made with `manage_watchlist` |
+| `veranta://glossary` | Collateral, notional, funding, skew, spread, liquidation, TWAP, upside markets, regimes, session keys, builder codes |
+
+## Profiles and toolsets
+
+A profile changes how the server talks, not what it can do: the instructions the model receives, the default watchlist and which prompts show up. Every market stays available in every profile.
+
+| `VERANTA_PROFILE` | Default watchlist | Prompts added |
+| --- | --- | --- |
+| `crypto` | BTC/USD, ETH/USD, SOL/USD, BNB/USD, DOGE/USD | `funding_scan`, `momentum_scan` |
+| `tradfi` | US500/USD, US100/USD, NVDA/USD, TSLA/USD, EUR/USD, USD/JPY, XAU/USD, WTI/USD | `london_open_plan`, `ny_open_plan`, `size_by_risk`, `earnings_watch` |
+| `macro` | BTC/USD, ETH/USD, XAU/USD, WTI/USD, US500/USD, US100/USD, EUR/USD, USD/JPY | `cross_asset_dashboard`, `build_basket`, `hedge_portfolio`, `event_playbook` |
+| `all` (default) | The union of the three | Everything |
+
+Toolsets decide which tools are registered. `core`, `analysis`, `alerts` and `approvals` are on by default; `lp` and `referral` are opt-in through `VERANTA_TOOLSETS=core,analysis,alerts,approvals,lp,referral`.
+
+| Toolset | Tools |
+| --- | --- |
+| `core` | `check_setup`, `get_markets`, `get_market`, `get_account`, `get_history`, `quote_trade`, `execute_trade`, `check_order`, `set_risk`, `cancel_order`, `close_positions`, `pause_trading`, `trade_journal`, `get_activity_log` |
+| `analysis` | `scan_markets`, `get_market_hours`, `get_rate_history`, `get_trade_intelligence`, `get_insights`, `get_regime`, `size_position`, `simulate_portfolio`, `get_correlations`, `plan_hedge`, `get_calendar`, `get_leaderboard`, `get_buybacks`, `get_vault`, `get_staking`, `manage_watchlist` |
+| `alerts` | `manage_alerts`, `send_telegram`, `link_telegram` (hosted connector only) |
+| `approvals` | `approve` |
+| `lp` | `manage_liquidity` |
+| `referral` | `manage_referral` |
+
+What is listed also depends on where the server runs. A server without a session key lists no trade or funds tool, so your client never sees a tool that can only fail. The hosted read-only connector lists the read tools that need no account. The hosted trading connector leaves out the machine-local tools (`pause_trading`, `manage_watchlist`) and the opt-in toolsets. [Tools reference](/ai/tools) has every input for every tool.

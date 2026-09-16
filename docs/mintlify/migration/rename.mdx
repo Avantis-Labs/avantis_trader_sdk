@@ -12,7 +12,7 @@ Avantis rebranded to **Veranta** on September 14, 2026. The protocol, the contra
 | Python classes | `AsyncAvantis`, `Avantis`, `AvantisConfig`, `AvantisError` | `AsyncVeranta`, `Veranta`, `VerantaConfig`, `VerantaError` |
 | TypeScript package | none | `veranta-sdk` on npm, with `veranta-sdk/react` and `veranta-sdk/kms` |
 | Environment variables | `AVANTIS_*` | `VERANTA_*` |
-| Service hosts | `*.avantisfi.com` | `*.veranta.xyz` (the testnet RPC and explorer stay on `avantisfi.com` for now) |
+| Service hosts | `*.avantisfi.com` | `*.veranta.xyz` (testnet RPC `devnet-rpc.veranta.xyz`, explorer `devnet-explorer.veranta.xyz`) |
 | API Key Generator | delegate.avantisfi.com | [delegate.veranta.xyz](https://delegate.veranta.xyz) |
 | Docs | sdk.avantisfi.com | sdk.veranta.xyz |
 
@@ -39,7 +39,7 @@ You do not have to do it all today:
 - **`avantis-trader-sdk` 2.1.0** is the final release under the old name. It only depends on `veranta-sdk` and re-exports everything, so `import avantis_trader_sdk` keeps working and prints a `DeprecationWarning`. No further updates ship under the old name.
 - The old class names stay importable from `veranta_sdk` as deprecated aliases.
 - `AVANTIS_*` environment variables are still read when the `VERANTA_*` name is not set, with a warning. The same applies to the TypeScript SDK.
-- The `avantisfi.com` hosts keep serving. The SDK defaults now point at `veranta.xyz`, and any explicit URL override you configured keeps working.
+- The `avantisfi.com` hosts keep serving for now. The SDK defaults point at `veranta.xyz`, including the testnet RPC and explorer since 0.2.1, and any explicit URL override you configured keeps working.
 
 ## What stays Avantis on-chain
 

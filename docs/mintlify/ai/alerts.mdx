@@ -1,0 +1,107 @@
+---
+title: Alerts and trailing stops
+description: "Create alerts by talking, get them on Telegram while no AI client is open, let a trailing stop follow the price, and know what happens when the daily loss limit pauses trading."
+---
+
+Your AI client is open for minutes a day. Your positions are open around the clock. Alerts close that gap: you describe a rule in plain words, it is stored, and a daemon evaluates it and posts to Telegram whether or not any AI client is running. Trailing stops go one step further and act on your behalf, with your session key, on your machine.
+
+## Create alerts by talking
+
+Ask, and the AI calls `manage_alerts` for you. Pairs resolve from common names, so "gold" is fine.
+
+- "Tell me on Telegram when gold crosses 4,400."
+- "Alert me every time BTC crosses 100,000, not just once."
+- "Warn me when any position has lost 50 percent of its collateral."
+- "Tell me if ETH longs pay more than 0.01 percent an hour."
+- "Remind me 30 minutes before NVDA closes."
+- "Send me a daily summary at 8 in the morning."
+- "Trail a 3 percent stop on my BTC long while I sleep."
+
+"Show my alerts" lists them with their ids; "delete the gold alert" removes one. Two default rules are seeded the first time the watch daemon runs: a health warning at 60 percent of collateral consumed for every position, and a session key expiry reminder at three days. `send_telegram` sends you any message right now ("send my positions to my phone").
+
+## What triggers exist
+
+| Kind | Fires when | Defaults |
+| --- | --- | --- |
+| `price` | A pair crosses a level, above or below | Once, then the rule disarms; `repeat` fires on every crossing |
+| `health` | Losses have consumed a share of a position's collateral | 60 percent, all positions; marked critical from 75 |
+| `funding` | The hourly rate paid by one side of a pair rises above a level | Once per six hours while it stays above |
+| `key_expiry` | The session key expires within a number of days | 3 days, once a day |
+| `daily_summary` | A local time of day is reached | 08:00 on the machine running the daemon |
+| `market_hours` | A market closes within a number of minutes | 15 minutes; says how many positions you hold on it |
+| `trailing_stop` | The price moves in your favor far enough to tighten the stop | Step 0.1 percent, at least 60 seconds between moves |
+
+Some things arrive without any rule: position opens and closes seen by the daemon, from any client, including take profit, stop loss and liquidation (an alert can trail the fill by up to one poll interval, since there is no order stream), and a notice when trading is paused. Every alert is also written to the activity log.
+
+## Health alerts
+
+Health is the share of a position's collateral that losses, fees and funding have consumed: 0 for a fresh position, 85 at liquidation. The default rule warns at 60 percent and marks the message critical from 75, with the liquidation price, the current price and the distance between them. It fires once per level per position every six hours, and again when a position crosses into critical. `get_account` shows the same warnings in the chat, so "how healthy is my book" gets the answer without waiting for a tick. Liquidation returns no collateral, so treat 75 as the moment to add margin, tighten or close.
+
+## Trailing stops
+
+There are two ways to trail a stop, and they suit different moments.
+
+**In the conversation.** `set_risk` with `trailStopPercent` (or `trailStopDistance`) places the stop that far behind the current price, only if that is tighter than the stop you have. It is a ratchet: it never loosens. Ask again later and it moves again. Good when you are at the keyboard.
+
+**Automated.** A `trailing_stop` rule created with `manage_alerts` lets the watch daemon do it every tick with the session key on your machine. The rules:
+
+- It only ever tightens, and it stays outside the liquidation price.
+- One rule per position. An `all` rule covers every position, and you cannot add a second rule on top of it.
+- The rule is bound to the position's lifecycle: when the position closes, the rule disables itself and tells you. A new position that reuses the same id does not inherit it.
+- It respects a step (the new stop must be at least `stepPercent` of price tighter) and a minimum interval between moves.
+- Every move passes the policy check, so a pause blocks it.
+- Moves are submitted without waiting and confirmed on a later tick. You get "submitted" and then "confirmed", and a notice if the position still does not show the new stop after three ticks.
+- Every move is reported to Telegram and recorded in the activity log.
+- It runs only on your machine. The hosted server never holds your key, so it cannot move stops for you; run `veranta-mcp watch` locally for that.
+
+Markets outside crypto have hours, and the keeper does not execute stops while a market is closed. A trailing stop does not move either while its market is closed.
+
+## How alerts reach Telegram
+
+<Tabs>
+  <Tab title="Hosted connector">
+    One Veranta bot serves everyone. Say "link my Telegram" and the AI calls `link_telegram`, which returns a one-time `https://t.me/...?start=...` link valid for ten minutes. Open it and press Start; the bot ties the chat to your wallet and confirms. From then on the hosted alert service evaluates your positions and rules every 30 seconds and sends fills and closes, collateral warnings at 60 and 75 percent, funding and market close alerts, key expiry and whatever you create with `manage_alerts`. `send_telegram` works too. Send `/stop` to the bot, or ask for `link_telegram` with `unlink`, to stop. Alert text never includes keys or tokens.
+
+    Trailing stops are the one thing the hosted service does not do, because it never holds your key.
+  </Tab>
+  <Tab title="Local daemon">
+    You run your own bot and your own daemon. Create a bot with @BotFather, then link it and start watching:
+
+    ```bash
+    TELEGRAM_BOT_TOKEN=<token> npx -y veranta-mcp telegram setup
+    npx -y veranta-mcp watch
+    ```
+
+    The daemon polls your account and the markets every 15 seconds, keeps one live price stream open over the pairs it watches, reloads your alert rules every tick (a rule the AI adds takes effect within 15 seconds), runs the trailing stop automations and posts to Telegram. Keep it running with launchd, pm2, systemd or Docker; [Telegram setup](/ai/telegram) has the recipes. When Telegram is configured, `execute_trade` and `close_positions` also post their receipts directly from the MCP server, without the daemon.
+  </Tab>
+</Tabs>
+
+### Delivery and the retry queue
+
+Telegram goes down and rate-limits like anything else, so delivery is built to delay alerts rather than drop them. Each message is tried up to three times, waiting the time Telegram asks for, or two and then four seconds, between attempts. Messages are spaced about a second apart. What still fails is handled by kind:
+
+- Fills, closes and trailing stop reports cannot be regenerated, so they go to an on-disk queue (`~/.veranta/pending-notifications-<network>.json`, up to 100 messages) and are sent oldest first at the start of the next delivery, as soon as the channel is back.
+- Rule alerts (price, health, funding and the rest) are held instead: the rule's state is not committed, so it fires again on the next tick and you get the alert once the channel is back.
+- A message Telegram refuses for good (a blocked bot, a bad token) is logged and dropped.
+
+The hosted service uses the same delivery path with its own retries per linked trader.
+
+## Pause and resume
+
+Two things pause trading, and both are visible in the chat, in `check_setup`, in `get_account` and in the `veranta://policy` resource.
+
+**The daily loss limit.** When the day's realized plus unrealized loss reaches `maxDailyLossUsd` (100 dollars on `conservative`, 500 on `standard`, 10,000 on `pro`), the policy pauses trading by itself. New positions, increases, margin withdrawals and stop removal are blocked; closing, cancelling, adding margin and tightening stops keep working, so the AI can still reduce risk. The pause lifts on its own at the next UTC day.
+
+**The kill switch.** "Stop trading" makes the AI call `pause_trading`, which blocks the same actions immediately and stays paused until a human resumes it. The AI cannot undo it, by design. Locally, resume from a terminal:
+
+```bash
+npx -y veranta-mcp policy resume
+```
+
+On the hosted connector the kill switch works the same way, and the way out is the resume page instead of a terminal command: the reply to "stop trading" carries the link.
+
+**The resume page for hosted accounts.** A hosted pause can be lifted before the UTC day turns. Every block message carries the link to the resume page on delegate.veranta.xyz with your server and network filled in. Open it, connect the wallet that owns the account, and sign a one-time message. The hosted server verifies the signature and resumes that wallet's policy; nobody else can, and the AI cannot. The same page tells you whether trading is paused right now and why.
+
+<Note>
+Loosening a position counts as an increase. While trading is paused, withdrawing margin or removing a stop is blocked like a new trade, and a trailing stop rule stops moving. Tightening always works.
+</Note>

@@ -1,0 +1,36 @@
+---
+title: Trader profiles
+description: "How the server adapts to crypto, tradfi and macro traders: watchlists, units and habits."
+---
+
+Set `VERANTA_PROFILE` to `crypto`, `tradfi`, `macro` or `all` (the default). A profile changes the instructions the model receives, the default watchlist and which prompts show up. It never hides a market: a crypto trader can still buy gold.
+
+| Profile | Default watchlist | Prompts added |
+| --- | --- | --- |
+| `crypto` | BTC/USD, ETH/USD, SOL/USD, BNB/USD, DOGE/USD | `funding_scan`, `momentum_scan` |
+| `tradfi` | US500/USD, US100/USD, NVDA/USD, TSLA/USD, EUR/USD, USD/JPY, XAU/USD, WTI/USD | `london_open_plan`, `ny_open_plan`, `size_by_risk`, `earnings_watch` |
+| `macro` | BTC/USD, ETH/USD, XAU/USD, WTI/USD, US500/USD, US100/USD, EUR/USD, USD/JPY | `cross_asset_dashboard`, `build_basket`, `hedge_portfolio`, `event_playbook` |
+
+## Crypto
+
+Markets trade around the clock. Funding accrues continuously at the quoted hourly rate and settles when a position closes, is increased or is rolled; over days it can dominate the cost of holding a leveraged position, so the model quotes it per hour and annualized for the side being opened, next to the borrow part and the net rate. Alt and meme pairs carry lower maximum leverage and smaller open-interest caps; `get_market` reports the remaining headroom before sizing.
+
+Useful asks: "scan funding on crypto", "what moved most today", "open a 5x long on SOL with 300 dollars and a 10 percent stop", "close my losers".
+
+## TradFi
+
+Everything except crypto has market hours and closes at the weekend: equity megacaps trade Sunday 20:00 to Friday 20:00 New York, other stocks 09:30 to 16:00 New York, FX pauses for 15 minutes at 17:00 New York each day, metals and USD/CNH pause 17:00 to 18:00 New York, and oil trades 01:00 to 23:00 London. The model checks `get_market_hours` before market orders and offers a limit order or an alert when a market is closed.
+
+<Warning>
+The keeper does not execute take profit, stop loss or liquidation while a market is closed, so the first tick after a reopen can be far past your level. The model mentions this gap risk for positions held over a daily break, a weekend or a scheduled release.
+</Warning>
+
+Units follow the desk: FX prices carry five decimals and moves are described in pips (0.0001, or 0.01 for JPY pairs). US500 and US100 are the SPY and QQQ ETF prices, so their moves are in dollars and percent, never in index points. Gold and silver are dollars per ounce, WTI and Brent dollars per barrel.
+
+Sizing from risk is the core workflow: "risk 1 percent on gold with a stop at 4,250" calls `size_position`, which returns collateral and leverage with liquidation kept beyond the stop, then quotes it.
+
+## Macro
+
+Thinking happens in exposure by asset class and direction. `get_account` reports net long and short notional per class; `get_correlations` (up to 12 symbols) shows whether two legs are the same bet; `simulate_portfolio` stress-tests the book around an event; `plan_hedge` sizes the offsetting leg from recent co-movement; `quote_trade` with `legs` prices a whole basket and applies the policy to the sum. Around scheduled events the model points out which positions carry event risk and suggests stops or smaller size rather than new leverage.
+
+Useful asks: "build my cross-asset dashboard", "turn 'dollar weakens' into a hedged basket with 500 dollars of risk", "what happens to my book if everything drops 5 percent", "prepare me for the next FOMC".

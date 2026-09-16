@@ -1,0 +1,123 @@
+---
+title: Trade with AI
+description: "Tell Claude, ChatGPT, Cursor or your phone what to trade on Veranta. One sentence gets a full quote. Your yes executes it."
+---
+
+Say it. It's traded. One sentence in the AI app you already use comes back as a full quote with fees, liquidation price and a policy verdict, and fills the moment you say yes. Crypto, US stocks and indices, FX, gold and oil, from any MCP client, with nothing to install in hosted mode.
+
+## What your AI can do
+
+## Get started in a minute
+
+No install, no code. Three steps in Claude (web, desktop or phone):
+
+1. Open Settings, then Connectors, then Add custom connector.
+2. Paste the trading address: `https://mcp.veranta.xyz/mcp/trade` (want play money first? `https://testnet-mcp.veranta.xyz/mcp/trade`).
+3. Click connect and sign once with your wallet. The key lasts 30 days, can never withdraw, and you can revoke it any time.
+
+Then just talk: "What can I trade?" or "Long 100 USDC of ETH at 3x with a 10 percent stop." The trading address includes every read tool, so one connector is all you need. ChatGPT: the same steps under Settings, Connectors, Developer mode. Other apps and local installs: [Install](/ai/install).
+
+<CardGroup cols={3}>
+  <Card title="Trade by talking" icon="comments" href="/ai/features#quotes-and-orders">
+    Market, limit, stop-limit and TWAP orders, single legs or whole baskets. Quote first, fill on your yes.
+
+    "Long 500 dollars of ETH at 5x with a 10 percent stop."
+  </Card>
+  <Card title="Quotes with real numbers" icon="receipt" href="/ai/features#quotes-and-orders">
+    Every quote shows entry with live spread, every fee, liquidation price and distance, warnings and the policy verdict.
+
+    "Quote a 3x short on gold with 300 dollars. Don't execute."
+  </Card>
+  <Card title="Positions, risk and stops" icon="shield-halved" href="/ai/features#positions-and-risk">
+    Move take profit and stop loss by price or percent, trail a stop, add or withdraw margin, close by filter, cancel orders.
+
+    "Trail a 2 percent stop on my ETH long and add 100 dollars of margin."
+  </Card>
+  <Card title="Alerts on Telegram" icon="bell" href="/ai/alerts">
+    Price crossings, funding, market closes, collateral warnings, daily summaries and trailing stops that follow the price while you sleep.
+
+    "Tell me on Telegram when gold crosses 4,400."
+  </Card>
+  <Card title="Market intelligence" icon="chart-line" href="/ai/features#intelligence">
+    Regimes, realized funding, correlations, hedge sizing, risk-based position sizing and portfolio stress tests.
+
+    "Which of my markets are trending, and where do I actually make money?"
+  </Card>
+  <Card title="Calendar" icon="calendar" href="/ai/features#calendar">
+    Central bank decisions, inflation and jobs releases and earnings, with New York times, consensus figures and the pairs that react.
+
+    "What is on the calendar this week that could move my gold position?"
+  </Card>
+  <Card title="History and journal" icon="book" href="/ai/features#history-and-journal">
+    Fills, orders, PnL by day, a trading notebook with your thesis and the market regime on every trade, and the audit log of what the AI did.
+
+    "Write my weekly review."
+  </Card>
+  <Card title="Earn" icon="coins" href="/ai/features#earn-and-grow">
+    Vault APY and your deposit, AVNT staking and fee tiers, buybacks, the leaderboard and your referral stats.
+
+    "What is the vault paying, and how much AVNT have buybacks burnt?"
+  </Card>
+  <Card title="Works where you are" icon="plug" href="/ai/install">
+    Claude, ChatGPT, Cursor, Windsurf, VS Code, Claude Code and any MCP client. Hosted with no install, or local on your machine.
+
+    "Check my Veranta setup and show my positions."
+  </Card>
+</CardGroup>
+
+Every card maps to real tools: 36 of them, plus 16 ready-made prompts and 6 resources. [Features](/ai/features) walks through all of it with example prompts. [Tools reference](/ai/tools) has every input.
+
+## Two ways to connect
+
+<Tabs>
+  <Tab title="Hosted: paste one URL">
+    Add `https://mcp.veranta.xyz/mcp/trade` as a custom connector in claude.ai, the Claude mobile app or ChatGPT. Your client opens delegate.veranta.xyz once, a session key is created in your browser and your wallet signs one request. OAuth carries the connection to every device that client runs on. Nothing to install, nothing to keep running.
+
+    Want to look before you trade? `https://mcp.veranta.xyz/mcp` answers every market question and shows any wallet's positions with no login at all.
+  </Tab>
+  <Tab title="Local: run one command">
+    For Claude Desktop, Claude Code, Cursor, Windsurf and VS Code, create a session key on your machine and register it with one wallet signature:
+
+    ```bash
+    npx -y veranta-mcp init --network=mainnet --trader=0xYourWallet --expiry=7d
+    ```
+
+    Then add the server to your client:
+
+    ```json
+    { "mcpServers": { "veranta": { "command": "npx", "args": ["-y", "veranta-mcp"] } } }
+    ```
+
+    Your key and your policy file stay with you. Use `--network=testnet` for paper trading with test money.
+  </Tab>
+</Tabs>
+
+Then say the trade: "Check my Veranta setup, then long 500 dollars of ETH at 5x with a 10 percent stop." You get the quote. It fills when you say yes. [Install](/ai/install) has the exact steps per client.
+
+## What keeps you safe
+
+- **The key can trade, not withdraw.** Your AI signs with a session key your wallet registers as a delegate. The contract lets it open, close and manage positions and margin (margin withdrawals only ever pay your own wallet). It cannot withdraw USDC from your account, grant allowances or add delegates. You pick the expiry and revoke it any time.
+- **Policy limits you choose.** A policy file caps leverage, collateral and notional per trade, notional per day, open positions and daily loss. Presets `conservative`, `standard` and `pro`; hosted runs on `conservative` (3x, 250 dollars per trade, 100 dollars daily loss). The AI cannot edit it.
+- **Every trade is quoted, then confirmed.** The quote shows collateral, leverage, notional, fees, liquidation price, warnings and the verdict. It executes once, within 30 seconds, and only after your go-ahead. Trades above your threshold ask for an explicit yes.
+- **Pause and daily loss stop.** "Stop trading" blocks new positions while closing keeps working, and only you can resume. The daily loss limit pauses on its own until the next UTC day. Everything the AI does lands in an activity log you can read.
+
+<CardGroup cols={3}>
+  <Card title="Features" icon="sparkles" href="/ai/features">
+    The complete tour, group by group, with prompts to try.
+  </Card>
+  <Card title="Install" icon="download" href="/ai/install">
+    Hosted in one paste, local in one command, per client.
+  </Card>
+  <Card title="Session keys" icon="key" href="/ai/session-keys">
+    What the key can do, where it lives, how to renew and revoke.
+  </Card>
+  <Card title="Safety and policy" icon="shield" href="/ai/safety">
+    The policy file, confirmations, the kill switch and the journals.
+  </Card>
+  <Card title="Alerts and trailing stops" icon="bell" href="/ai/alerts">
+    Every trigger, how to create one by talking, and how it reaches your phone.
+  </Card>
+  <Card title="Hosted connector" icon="cloud" href="/ai/hosted">
+    How the hosted server works, how your key travels, caps and the resume page.
+  </Card>
+</CardGroup>

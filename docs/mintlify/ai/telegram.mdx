@@ -1,0 +1,102 @@
+---
+title: Telegram setup
+description: "Link a Telegram chat for alerts: the shared Veranta bot on the hosted connector, or your own bot and the watch daemon on your machine."
+---
+
+Alerts are delivered to Telegram. On the hosted connector you link a chat to the shared Veranta bot in one tap. Locally you create your own bot once and run a small daemon that keeps watching after your AI client closes. [Alerts and trailing stops](/ai/alerts) explains what arrives and how to create rules; this page is the setup.
+
+## Hosted connector
+
+<Steps>
+  <Step title="Ask for the link">
+    "Link my Telegram" makes the AI call `link_telegram`. It returns a one-time `https://t.me/...?start=...` link that is valid for ten minutes and works once.
+  </Step>
+  <Step title="Open it and press Start">
+    The Veranta bot ties the chat to your wallet and replies with a confirmation. Opening a new link later moves the alerts to the new chat.
+  </Step>
+  <Step title="Done">
+    Fills, closes, collateral warnings, key expiry, market closes and your `manage_alerts` rules arrive in that chat, evaluated every 30 seconds. "Send my positions to my phone" uses `send_telegram`. Send `/stop` to the bot, or ask for `link_telegram` with `unlink`, to stop.
+  </Step>
+</Steps>
+
+The shared bot's token never leaves the hosted server, and alert text never includes keys, tokens or codes. Trailing stops are not run hosted because the server never holds your key; for those, run the local daemon below.
+
+## Local: your own bot and the watch daemon
+
+The MCP server only runs while your AI client is open. `veranta-mcp watch` is a separate process that polls your account and the markets every 15 seconds, evaluates your alert rules, runs trailing stop automations and posts to Telegram.
+
+<Steps>
+  <Step title="Create a bot">
+    In Telegram, open @BotFather, send `/newbot` and copy the token it gives you.
+  </Step>
+  <Step title="Link it to your chat">
+    ```bash
+    TELEGRAM_BOT_TOKEN=<token> npx -y veranta-mcp telegram setup
+    ```
+
+    Open your new bot, send it any message, and the command records the chat and sends a test message. The token and chat id are saved in `~/.veranta/config.json`; `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in the environment work too.
+  </Step>
+  <Step title="Start the daemon">
+    ```bash
+    npx -y veranta-mcp watch
+    ```
+
+    `--interval=15` sets the poll interval in seconds (5 at minimum), `--once` runs one evaluation, `--dry-run` prints instead of sending. The daemon reads the same `~/.veranta` configuration as the MCP server and reloads the alert rules from disk every tick, so a rule the AI adds takes effect within 15 seconds.
+  </Step>
+</Steps>
+
+The daemon loads the same key store as the MCP server, so it can sign trailing stop updates. Without a key it still runs, reports alerts, and tells you what a trailing stop would have done instead of doing it.
+
+### Keep it running
+
+Pick one. Full recipes, including Docker Compose, are in the repository under [docs/watch.md](https://github.com/Avantis-Labs/veranta-mcp/blob/main/docs/watch.md).
+
+<Tabs>
+  <Tab title="macOS (launchd)">
+    Save as `~/Library/LaunchAgents/xyz.veranta.mcp.watch.plist` and load it with `launchctl load ~/Library/LaunchAgents/xyz.veranta.mcp.watch.plist`.
+
+    ```xml
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+    <plist version="1.0"><dict>
+      <key>Label</key><string>xyz.veranta.mcp.watch</string>
+      <key>ProgramArguments</key><array>
+        <string>/usr/local/bin/npx</string><string>-y</string><string>veranta-mcp</string><string>watch</string>
+      </array>
+      <key>RunAtLoad</key><true/>
+      <key>KeepAlive</key><true/>
+      <key>StandardOutPath</key><string>/tmp/veranta-mcp-watch.log</string>
+      <key>StandardErrorPath</key><string>/tmp/veranta-mcp-watch.log</string>
+    </dict></plist>
+    ```
+  </Tab>
+  <Tab title="pm2">
+    ```bash
+    pm2 start "npx -y veranta-mcp watch" --name veranta-watch && pm2 save
+    ```
+  </Tab>
+  <Tab title="Linux (systemd)">
+    Save as `~/.config/systemd/user/veranta-mcp-watch.service`, then `systemctl --user enable --now veranta-mcp-watch`.
+
+    ```ini
+    [Unit]
+    Description=Veranta MCP watch daemon
+
+    [Service]
+    ExecStart=/usr/bin/npx -y veranta-mcp watch
+    Restart=always
+    RestartSec=10
+
+    [Install]
+    WantedBy=default.target
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+The key store is bound to the machine and user that created it. Inside a container, create the key there with `veranta-mcp init`, or use a passphrase-protected key (`VERANTA_KEY_PASSPHRASE`) so the same file works on both sides.
+</Note>
+
+## What arrives, in short
+
+Position opens and closes from any client (including take profit, stop loss and liquidation), collateral warnings at 60 and 75 percent consumed, price crossings, funding levels, market closes for pairs you hold, the session key expiring within three days, a daily summary at the time you choose, trading pauses, and every trailing stop move. Delivery retries and queues, so a Telegram outage delays alerts instead of dropping them. When Telegram is configured, `execute_trade` and `close_positions` also post their receipts directly from the MCP server. The full list of triggers and their defaults is in [Alerts and trailing stops](/ai/alerts).

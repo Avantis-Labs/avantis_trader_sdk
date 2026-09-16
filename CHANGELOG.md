@@ -1,5 +1,24 @@
 # Changelog
 
+## 2.2.0 (2026-09-16)
+
+- `compute.net_pnl` and `compute.position_net_pnl` charge the close fee on the
+  leveraged position by default, as the contract does. The previous figure, the
+  web app's estimate that adds the gross PnL to the fee base, is one keyword
+  away: `close_fee_base="notional_plus_pnl"`. Net PnL moves by the gross PnL
+  times the close fee rate.
+- `compute.pair_close_maker_taker_fee_p` clamps the closed coin size to the
+  closing side's open interest before blending maker and taker rates, matching
+  `PairStorageExtension.pairCloseFeeP` on chain.
+- `markets.spread()` sends `leverage10` whenever a leverage is given, also
+  next to `coin_size`, so the risk engine applies the pair's leverage-tiered
+  spread cap instead of the flat cap. The docstring no longer says the
+  mainnet route is not serving; it has been live since the 2026-08-12
+  cutover, and `dynamic_spread()` is testnet only.
+- The KMS testnet example and the docs point testnet at
+  `https://devnet-rpc.veranta.xyz`. The SDK itself has no default RPC;
+  `VERANTA_RPC_URL` is only needed for direct execution.
+
 ## 2.1.1 (2026-09-14)
 
 Metadata and docs only, no code changes:

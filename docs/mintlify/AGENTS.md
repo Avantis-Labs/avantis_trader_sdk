@@ -29,7 +29,7 @@ This is the Mintlify site behind https://sdk.veranta.xyz. It documents both offi
 
 - The EIP-712 domain name is `AvantisTrading`. It is a deployed on-chain constant.
 - Contract, service and repo names: `Avantis-Labs` GitHub org and repo URLs, `avantis-contracts-v2`, `avantis-python-sdk` (the docs mirror repo).
-- Hosts are `*.veranta.xyz` for services, `delegate.veranta.xyz` for the API Key Generator, `sdk.veranta.xyz` for these docs. Exception: the testnet RPC `base-testnet-rpc-ovh.avantisfi.com` and explorer `base-testnet-ovh.avantisfi.com` stay on `avantisfi.com` until told otherwise.
+- Hosts are `*.veranta.xyz` for services, `delegate.veranta.xyz` for the API Key Generator, `sdk.veranta.xyz` for these docs, `devnet-rpc.veranta.xyz` for the testnet RPC and `devnet-explorer.veranta.xyz` for its explorer. Nothing new points at `avantisfi.com`.
 
 ## Before you publish
 

@@ -1,0 +1,86 @@
+---
+title: FAQ and troubleshooting
+description: "Common questions and the fixes check_setup will point you to."
+---
+
+<AccordionGroup>
+  <Accordion title="Does the AI trade on its own?">
+    No. It quotes first and stops; nothing executes until your next message says go. If you tell it in the conversation to execute without asking, it will, and even then every quote passes the policy caps, the confirmation threshold and the pause.
+  </Accordion>
+
+  <Accordion title="Can the AI take my money?">
+    No. It signs with a delegate key that the contract limits to trading: positions, margin (withdrawals only ever pay your own wallet), referral intents and builder fees up to a cap you allowed. It cannot withdraw USDC from your account, approve spending or add other keys. Losses from trades are bounded by your policy caps and the daily loss limit.
+  </Accordion>
+
+  <Accordion title="Why did a trade need confirmation?">
+    The quote was at or above `confirmAboveNotionalUsd` in your policy, or a bulk close touched more than three positions. The model shows the sentence and only proceeds after your yes.
+  </Accordion>
+
+  <Accordion title="check_setup says the session key is not an active delegate.">
+    The key was never registered, expired, or was revoked. Run `veranta-mcp renew`, or `veranta-mcp init --force` for a new key, and sign in the page it opens. Hosted users reconnect from the client, which reopens the connect page.
+  </Accordion>
+
+  <Accordion title="check_setup says USDC is not approved.">
+    Approvals come from your wallet, never from the session key. Open the link in the message, connect the wallet and approve USDC for trading (and a bounded builder-fee allowance if you use a builder code).
+  </Accordion>
+
+  <Accordion title="The quote says the market is closed.">
+    Equities, indices, FX, metals and energy have hours and close at the weekend. Ask for a limit order or an alert for the next open, or wait. Crypto is always open. Stops do not execute while a market is closed either.
+  </Accordion>
+
+  <Accordion title="The quote expired.">
+    Quotes live for 30 seconds by default so you never fill at a stale price. Ask for a new one.
+  </Accordion>
+
+  <Accordion title="execute_trade says the price moved.">
+    More than the leg's slippage bound since the quote: 1 percent by default on market opens and increases, 3 percent on closes. A fresh quote shows the new numbers.
+  </Accordion>
+
+  <Accordion title="execute_trade reported submitted instead of a fill.">
+    The order was sent but did not confirm within the timeout (75 seconds by default). It is not a failure and not a second trade: `check_order` looks the leg up by its `trackingId` and reports whether it filled, was cancelled by the protocol, or failed. Retrying the same quote returns the same result.
+  </Accordion>
+
+  <Accordion title="Trading is paused and the AI cannot resume it.">
+    By design. Locally, run `veranta-mcp policy resume` in a terminal. On the hosted connector, open the resume page on delegate.veranta.xyz (every block message and the pause reply link to it) and sign with your wallet. A daily-loss pause also lifts on its own at the next UTC day; a manual pause never does.
+  </Accordion>
+
+  <Accordion title="Can a TWAP carry a take profit or stop loss?">
+    No. A TWAP order cannot carry either; ask for them with `set_risk` once the first slice has filled. The run time must also be a whole multiple of the pair's slice frequency, and the quote tells you the nearest valid value.
+  </Accordion>
+
+  <Accordion title="close_positions skipped some positions.">
+    Positions whose market is closed cannot be traded right now; they are skipped and named with the reopen time while the rest still close. Ids that match nothing are named too, so nothing is closed by accident.
+  </Accordion>
+
+  <Accordion title="How do I get alerts on my phone?">
+    Say what you want: "tell me when gold crosses 4,400" creates a rule with `manage_alerts`. Hosted, ask to link Telegram (`link_telegram`) and open the link the AI returns. Locally, run `veranta-mcp telegram setup` once and keep `veranta-mcp watch` running. [Alerts and trailing stops](/ai/alerts) lists every trigger.
+  </Accordion>
+
+  <Accordion title="Can the AI move my stop while I sleep?">
+    Yes, locally. A `trailing_stop` rule lets `veranta-mcp watch` tighten the stop behind the price with your session key on your machine, never loosening, one rule per position. The hosted server never holds your key, so it does not do this.
+  </Accordion>
+
+  <Accordion title="Where does the event calendar come from?">
+    On the hosted server, from Nasdaq's public economic and earnings calendars, refreshed every 6 hours and passed through a fixed rule table so only the server's own event labels, times and consensus figures reach the model. Local installs read that document when reachable and a copy bundled with the server otherwise.
+  </Accordion>
+
+  <Accordion title="Do I need ETH for gas?">
+    No. Registration is relayed gaslessly and orders go through the Veranta relayer, which pays the gas. You only need USDC on Base for collateral.
+  </Accordion>
+
+  <Accordion title="How do I switch to testnet?">
+    Run `veranta-mcp init --network=testnet`, fund the wallet with `veranta-mcp faucet`, and set `VERANTA_NETWORK=testnet` in your client. Nothing on testnet is real money. One configuration can serve both networks: any variable with a `_TESTNET` suffix replaces the plain value when the server runs on testnet.
+  </Accordion>
+
+  <Accordion title="Where are my keys and logs?">
+    Under `~/.veranta`: encrypted keys in `keys/`, the policy, per-network activity logs and trading journals, alerts and watchlists. `veranta-mcp keys show` describes the key without revealing it.
+  </Accordion>
+
+  <Accordion title="Which clients support the confirmation dialog?">
+    Clients that implement MCP form elicitation show a dialog. Others, including every hosted client, rely on the model repeating the sentence in the chat and on their own tool-approval prompt.
+  </Accordion>
+
+  <Accordion title="Something else is wrong.">
+    `veranta-mcp doctor --json` prints the full report. Ask in the Veranta [Discord](https://discord.gg/veranta) with that output (it contains no keys).
+  </Accordion>
+</AccordionGroup>

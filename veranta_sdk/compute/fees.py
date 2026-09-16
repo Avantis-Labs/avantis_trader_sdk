@@ -121,16 +121,17 @@ def pair_close_maker_taker_fee_p(
     close_maker_fee_p: float,
     close_taker_fee_p: float,
 ) -> MakerTakerFee:
+    # The contract clamps the closed coin size to the closing side's open
+    # interest before the blend (PairStorageExtension.pairCloseFeeP), so a stale
+    # or partial snapshot never produces a size larger than the side being reduced.
+    closing_side = initial_coin_oi_long if is_long else initial_coin_oi_short
+    size = min(position_size_coin_oi, closing_side)
     return maker_or_taker_fee_p(
-        max(initial_coin_oi_long - position_size_coin_oi, 0)
-        if is_long
-        else initial_coin_oi_long,
-        initial_coin_oi_short
-        if is_long
-        else max(initial_coin_oi_short - position_size_coin_oi, 0),
+        initial_coin_oi_long - size if is_long else initial_coin_oi_long,
+        initial_coin_oi_short if is_long else initial_coin_oi_short - size,
         initial_coin_oi_long,
         initial_coin_oi_short,
-        position_size_coin_oi,
+        size,
         close_maker_fee_p,
         close_taker_fee_p,
     )

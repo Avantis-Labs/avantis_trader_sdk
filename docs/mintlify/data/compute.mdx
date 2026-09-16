@@ -48,6 +48,8 @@ The breakdown has `gross`, `closing_fee` / `closingFee`, `rollover_fee` / `rollo
 | `gross_pnl(...)` | `grossPnl(...)` | Raw unrealized PnL from prices, collateral, leverage and side |
 | `net_pnl(...)` | `netPnl({...})` | Full breakdown with fees, funding, loss protection and the Upside profit share |
 | `position_net_pnl(position, pair, price)` | `positionNetPnl(position, pair, price)` | The same, from a fetched position |
+
+The close fee in these breakdowns is charged on the leveraged position, which is what the contract bills. The web app's estimate adds the gross PnL to the base, so its figure runs a little higher on winners and lower on losers; pass `close_fee_base="notional_plus_pnl"` (`closeFeeBase: "notional_plus_pnl"`) when you need to match it.
 | `pnl_type_fee`, `pnl_fee_by_gross_profit_p`, `adjusted_max_gain_p` | `pnlTypeFee`, `pnlFeeByGrossProfitP`, `adjustedMaxGainP` | Upside tiered profit-share math |
 
 ## Liquidation price

@@ -23,7 +23,7 @@ os.environ.setdefault("AWS_DEFAULT_REGION", "us-east-1")
 
 KMS_KEY_ID = "alias/testnet/mm-avantis"
 # Testnet rpc-proxy (EIP-7702 nonce for USDC approve; not used on the hot path).
-RPC_URL = "https://base-testnet-rpc-ovh.avantisfi.com"
+RPC_URL = "https://devnet-rpc.veranta.xyz"
 
 PAIR = "BTC/USD"
 COLLATERAL_USDC = 300  # positionSizeUSDC = collateral, not notional

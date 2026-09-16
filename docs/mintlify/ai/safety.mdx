@@ -1,0 +1,101 @@
+---
+title: Safety and policy
+description: "The policy file, confirmations, the kill switch and the audit journal."
+---
+
+Three layers keep an AI trader inside the lines. The contract limits what the session key can sign. The policy file caps what the key may do. The two-step quote and execute keeps every trade visible before it happens. Convenience comes first, but none of it depends on the AI behaving: every check runs inside the tools.
+
+## What the session key can and cannot do
+
+The session key is a delegate your wallet registers. It can open, close and modify positions, add and withdraw margin (withdrawals always pay your own wallet), sign referral intents in your name, and trigger builder fees up to the registered code's cap (at most 1 percent of notional per order side) against whatever USDC allowance you granted the BuilderCode contract. It cannot withdraw USDC from your account, grant allowances, or add or remove delegates. Grant a bounded builder-fee allowance rather than an unlimited one, pick a short expiry, and revoke from your wallet whenever you like.
+
+## The policy file
+
+`~/.veranta/policy.json` is created by `init` from a preset and enforced inside every trading tool, so the model cannot route around it. Change it with `veranta-mcp policy preset <name>` or by editing the file; an unknown key fails loudly instead of silently leaving a preset value in force.
+
+| Field | Meaning | conservative | standard | pro |
+| --- | --- | --- | --- | --- |
+| `maxLeverage` | Highest leverage per trade | 3 | 10 | 100 |
+| `maxCollateralPerTradeUsd` | Collateral per trade | 250 | 1,000 | 25,000 |
+| `maxNotionalPerTradeUsd` | Size per trade | 750 | 10,000 | 250,000 |
+| `maxDailyNotionalUsd` | Size opened per day | 2,000 | 50,000 | 2,000,000 |
+| `maxOpenPositions` | Open positions at once | 3 | 8 | 25 |
+| `maxDailyLossUsd` | Pause when the day's loss passes this | 100 | 500 | 10,000 |
+| `cooldownSeconds` | Wait between opening trades | 60 | 20 | 0 |
+| `confirmAboveNotionalUsd` | Trades at or above this need your yes; 0 disables | 500 | 5,000 | 50,000 |
+| `allowedAssetClasses` | `crypto`, `equity`, `fx`, `metal`, `commodity` | all | all | all |
+| `allowedPairs`, `blockedPairs` | Optional whitelist and blacklist | none | none | none |
+| `assetClassLimits` | Caps for one asset class (`crypto`, `equity`, `fx`, `metal`, `commodity`): `maxLeverage`, `maxCollateralPerTradeUsd`, `maxNotionalPerTradeUsd`, `maxOpenPositions` | none | none | none |
+| `pairLimits` | The same caps for one pair, for example `BTC/USD`; a pair rule wins over its class rule, which wins over the global figure | none | none | none |
+
+Caps per market let one file say "5x on stocks, 20x on bitcoin, everything else at the preset":
+
+```json
+{
+  "preset": "standard",
+  "assetClassLimits": { "equity": { "maxLeverage": 5, "maxOpenPositions": 2 } },
+  "pairLimits": { "BTC/USD": { "maxLeverage": 20, "maxCollateralPerTradeUsd": 2000 } }
+}
+```
+
+A market rule may be looser or tighter than the global cap; the block message names the rule that applied ("above the policy maximum of 5x for equity markets"). Margin deposits use the same caps and draw on the daily notional budget.
+| `tradingWindow` | Optional start, end and timezone, for example 09:00 to 17:00 America/New_York | none | none | none |
+| `allowCloseAll`, `allowLp`, `allowReferral` | Bulk closes, vault moves, referral actions | yes, no, no | yes, no, no | yes, no, no |
+
+Daily counters survive restarts and reset at midnight on the machine running the server. Pair maximums from the exchange still apply on top. `check_setup` and `get_account` show the preset, the pause state and what is left of today's budgets, and the `veranta://policy` resource exposes the same.
+
+Loosening counts as an increase. Withdrawing margin, removing a stop or widening one passes through the same caps and the pause as opening a position; tightening always works. Stop losses are checked against the contract's 80 percent cap and take profits against the pair's maximum gain.
+
+## Confirmations
+
+When a quote is at or above `confirmAboveNotionalUsd`, or a bulk close touches more than three positions or that much notional, the quote's verdict is `confirm` and carries a sentence. Moving USDC into or out of the vault and granting an unlimited allowance ask for confirmation the same way. Clients that support MCP form elicitation show it as a dialog; a client that declares elicitation but cannot answer falls back to the conversation. Others must show it in the conversation; the model then calls `execute_trade` with `confirmed: true` only after a clear yes. The hosted connector always uses the conversation, because it never sees the client's capabilities. Most clients also ask before any tool that changes state, which is a second gate.
+
+## The kill switch
+
+`pause_trading` blocks new positions, increases, margin withdrawals and stop removal immediately. Closing, cancelling and tightening stops keep working, so the AI can still reduce risk. A manual pause lasts until a human resumes it:
+
+```bash
+veranta-mcp policy resume
+```
+
+The daily-loss rule pauses the same way on its own when the day's realized plus unrealized loss reaches `maxDailyLossUsd`, and that pause lifts at the next UTC day. On the hosted connector the same tool is available, and both kinds of pause are lifted from the resume page on delegate.veranta.xyz by signing with the wallet. Every block message and the pause reply link to it. [Alerts and trailing stops](/ai/alerts) has the details.
+
+## Orders
+
+| Order | How it behaves |
+| --- | --- |
+| Market | Fills now. The quoted entry (mark plus spread) is sent as the reference price with a 1 percent slippage bound by default. |
+| Limit and stop-limit | Rest until the trigger; collateral is escrowed while they wait. Cancel with `cancel_order`. |
+| TWAP | Spreads the order over a run time that must be a whole multiple of the pair's slice frequency. A TWAP cannot carry a take profit or stop loss: set them with `set_risk` after the first slice. |
+| Basket | Several legs in one quote; the policy applies to the sum, and a named hedge leg is quoted with the rest. |
+| Bulk close | `close_positions` by filter. Positions whose market is closed are skipped and named with the reopen time; the rest still close. |
+
+## Quotes execute once
+
+A quote lives for 30 seconds by default (`VERANTA_QUOTE_TTL_SECONDS`) and executes exactly once. If the price has moved more than the leg's slippage since the quote (3 percent on closes), execution asks for a fresh quote instead of filling at a surprise price, and it refuses rather than guessing when the price cannot be read. Retrying an executed quote returns the same result, never a second trade. A fill that is not confirmed within the timeout (75 seconds by default, `VERANTA_EXECUTE_TIMEOUT_SECONDS`) is reported as `submitted` with a `trackingId`; `check_order` looks it up, and the quote stays recoverable.
+
+## Stops that follow the price
+
+Take profit and stop loss are price levels that trigger a close, not fill prices. When the level is crossed the keeper submits a close and the position settles at the oracle price when that transaction lands, minus spread (spread is waived only for stop loss and liquidation on Upside pairs). In a fast market or across a gap the fill can be well past the level, and a stop inside the liquidation band loses to liquidation, which returns no collateral. Everything except crypto has market hours and closes at the weekend; the keeper does not execute take profit, stop loss or liquidation while a market is closed, so the first tick after reopen can be far past your level.
+
+`set_risk` moves take profit and stop loss by price or percent, adds or removes margin, and manages partial triggers. It also trails: `trailStopPercent: 2` places the stop 2 percent behind the current price only when that is tighter than the stop you have, never looser. For a stop that keeps following without the AI in the loop, create a `trailing_stop` rule with `manage_alerts` and keep `veranta-mcp watch` running on your machine: every tick it moves the stop with your session key (one rule per position, bound to that position's lifecycle, never loosening, checked by the policy), respects a step and a minimum interval, and reports each move to Telegram and the activity log. [Alerts and trailing stops](/ai/alerts) covers the rules in full.
+
+## The activity log
+
+Every quote, execution, result, policy block, pause, risk change, cancel and alert is appended to `~/.veranta/journal-<network>.jsonl`. Keys, signatures and tokens are redacted before writing. Ask the AI "what did you do today" (`get_activity_log`) or read it yourself:
+
+```bash
+veranta-mcp activity --since=today
+```
+
+## The trading journal
+
+Separate from the activity log, `trade_journal` is your notebook. Every open and close the AI executes is recorded with size, prices, PnL, the note given to `quote_trade` as the thesis, and the market regime at the time. Ask the AI to add a note or a lesson ("note on my ETH long: breakout above 2,550, stop below the range", tags like `breakout` or `fomo`), and ask for a review: PnL by pair, tag and regime, plus the closes that still lack a lesson. It lives in `~/.veranta/trade-journal-<network>.jsonl`:
+
+```bash
+veranta-mcp journal --since=30d --pair=ETH/USD
+```
+
+## What the AI can never do
+
+Withdraw USDC from your account, approve token spending, add or remove delegates, change the policy file, or resume after a pause. Margin it withdraws from a position only ever lands in your own wallet. Those powers stay with your wallet and your keyboard.

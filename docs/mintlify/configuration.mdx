@@ -78,10 +78,10 @@ The TypeScript client also takes a `signer` option instead of `privateKey`: a vi
 | Chain | Base (8453) | A fork of Base with the same chain id and contracts |
 | Gateway | `https://prod-api.veranta.xyz` | `https://staging-api.veranta.xyz` |
 | tx-builder | `https://tx-builder.veranta.xyz` | `https://tx-builder-testnet.veranta.xyz` |
-| Default RPC | none (not needed with an API key) | `https://base-testnet-rpc-ovh.avantisfi.com` |
+| Default RPC | none (not needed with an API key) | `https://devnet-rpc.veranta.xyz` |
 | Test funds | n/a | `fundTestnetWallet(address)` in the TypeScript SDK |
 
-The testnet RPC and its explorer (`base-testnet-ovh.avantisfi.com`) stay on the `avantisfi.com` domain for now. Every other service has moved to `veranta.xyz`.
+The testnet RPC is `https://devnet-rpc.veranta.xyz` (websocket `wss://devnet-wsrpc.veranta.xyz`) and its Blockscout explorer is `https://devnet-explorer.veranta.xyz`. Every Veranta service is on `veranta.xyz`.
 
 ## Sync client (Python only)
 

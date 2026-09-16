@@ -1,0 +1,76 @@
+---
+title: Hosted connector
+description: "Use Veranta from claude.ai, the Claude mobile app or ChatGPT with nothing to install: paste one URL, sign once."
+---
+
+Some clients cannot run programs on your computer, and your phone certainly cannot. For them Veranta hosts the server at `mcp.veranta.xyz`. Paste one URL, sign once with your wallet, and the same tools, quotes and guardrails follow your login to every device that client runs on. A testnet copy runs at `testnet-mcp.veranta.xyz` with the same two paths, for paper trading with test money.
+
+| URL | What you get |
+| --- | --- |
+| `https://mcp.veranta.xyz/mcp` | Read-only, no login. Any market, funding, hours, regimes, the calendar, the leaderboard, vault, staking and buybacks, and any wallet's positions, history and performance record by address. The `funding_scan` and `momentum_scan` prompts and the markets, calendar and glossary resources are available. No key exists, nothing can quote or trade. |
+| `https://mcp.veranta.xyz/mcp/trade` | Trading. One wallet signature connects you; from then on every request carries a login token. |
+
+## Connect in one signature
+
+<Steps>
+  <Step title="Add the connector">
+    Add `https://mcp.veranta.xyz/mcp/trade` as a custom connector. The client opens the Veranta connect page.
+  </Step>
+  <Step title="Sign once">
+    A session key is created in your browser. Your wallet signs one request that registers it as a delegate, with the expiry you pick (30 days by default). The page hands the key and the signature to the hosted server, which relays the registration gaslessly and sends you back to the client. The consent page shows the host your client will be sent back to and warns if that host is unknown. The consent page proposes a 30 day session; pick anything from 24 hours to a year before you sign.
+  </Step>
+  <Step title="Trade">
+    "Check my setup, then quote a 5x long on ETH with 500 dollars." The quote comes back in the chat, and the trade fills when you say yes.
+  </Step>
+</Steps>
+
+Tick "Remember this device" and the browser keeps the key encrypted with a key that cannot be exported from the browser. On a later visit the page re-sends the remembered key to the server, which checks the delegation on chain, so connecting a second client needs no wallet.
+
+## How the key travels
+
+Every request from your client carries a login token. Inside the token, encrypted under a master key that never leaves Veranta's infrastructure, is your session key. The server stores no key material: it decrypts the key once per request when it checks the token, signs if the request is an order, and drops it afterwards. Read tools never touch it. Refresh tokens are one-time; reusing one disconnects the delegate. Stealing the key would take both your client's login token and the server's master key.
+
+## Confirmations
+
+The hosted server is stateless and never sees which dialogs your client supports, so it cannot pop up a confirmation. When a quote needs your yes, the AI repeats the confirmation sentence in the conversation and passes `confirmed: true` only after you agree.
+
+## Caps and the pause
+
+Every hosted account runs under the `conservative` policy preset: 3x leverage, 250 USD collateral and 750 USD notional per trade, 2,000 USD opened per day, three open positions, a 100 USD daily loss limit, and your yes on anything from 500 USD notional. Per-user policies are planned. Want your own limits today? Run the server locally with your own policy file.
+
+The hosted connector leaves out the machine-local watchlists and the opt-in vault and referral toolsets; everything else is there, including the kill switch. Two things pause a hosted account: "stop trading" (the AI calls `pause_trading`) and the daily-loss rule, which trips when the day's loss reaches 100 USD. Either way new positions, increases, margin withdrawals and stop removal are blocked while closing and tightening keep working. A daily-loss pause lifts on its own at the next UTC day; a manual pause waits for you. To lift either one, open the resume page on delegate.veranta.xyz (every block message and the pause reply carry the link with your server and network filled in), connect the wallet that owns the account and sign a one-time message. Nobody else can resume it, and neither can the AI.
+
+## What protects you
+
+- The key is a delegate: it can manage positions and margin (withdrawals only ever pay your wallet) and cannot withdraw USDC from your account, approve spending or change delegates; the contract enforces that.
+- It expires when you chose, and you can revoke it from your wallet or from the [API Key Generator](https://delegate.veranta.xyz/) at any time. Revocation also stops every token immediately.
+- Quotes execute once, within 30 seconds, and every action lands in your activity log and trading journal, kept per user on the server.
+
+## Alerts on your phone
+
+Ask the AI to call `link_telegram`. It returns a one-time `https://t.me/...?start=...` link that is valid for ten minutes; open it and press Start, and the Veranta bot ties the chat to your wallet. From then on the hosted service checks your positions every 30 seconds and sends position opens and closes, collateral warnings (60 and 75 percent of the collateral consumed), funding levels, key expiry, market closes and any rule you create with `manage_alerts`; `send_telegram` works too. Send `/stop` to the bot to unlink. Trailing stops are not run on the hosted server, because it never holds your key: run `veranta-mcp watch` on your own machine for those. [Alerts and trailing stops](/ai/alerts) lists every trigger.
+
+<Accordion title="For operators and self-hosters">
+  Everything below is configured by whoever runs the server; the full reference is [hosted/README.md](https://github.com/Avantis-Labs/veranta-mcp/blob/main/hosted/README.md) in the repository.
+
+  - **Data endpoints.** The hosted server answers plain JSON endpoints that every local install uses through `VERANTA_DATA_URL` (default `https://mcp.veranta.xyz` on mainnet; `none` disables): `GET /data/regime?pairs=0,1` returns the current market regime per pair, `GET /data/rates/{pairIndex}?hours=168` returns realized funding and borrow per hour from the on-chain fee accumulators, and `GET /data/profile/{address}` the computed trader profile behind `get_insights`. Regimes are market context, never a warning; rows land 10 to 15 minutes after the minute they describe. Without the data service, `get_regime` falls back to the insights brief and `get_rate_history` to the hourly samples the local server records.
+  - **Event calendar.** `GET /calendar.json` is refreshed every 6 hours from Nasdaq's public economic and earnings calendars through a fixed rule table, with the bundled FOMC schedule filling gaps. `VERANTA_CALENDAR_SOURCE=file` serves a hand-maintained JSON instead.
+  - **Positions for alerts.** With `VERANTA_CORE_MONGO_URI` set, the alert daemon reads every linked trader's positions in one query per tick from the core backend's database with a read-only user; a failed read skips the tick rather than reporting closed positions. Without it, the daemon reads the core API once per trader, the same source `get_account` uses.
+  - **One env file for both networks.** Any variable may carry a `_TESTNET` or `_DEVNET` suffix that replaces the plain value when the server runs on that network; a blank suffixed value switches the setting off there.
+  - **State.** OAuth registrations, Telegram links and per-user policy counters, quotes and journals are JSON under `VERANTA_HOME/hosted`; no key material. A trading deployment runs a single replica with a persistent volume.
+</Accordion>
+
+## Disconnecting
+
+Remove the connector in your client, or revoke the key in the [API Key Generator](https://delegate.veranta.xyz/). Old delegates that you never revoke simply expire.
+
+## Mainnet and testnet
+
+Two servers, one product. `https://mcp.veranta.xyz` trades real USDC on Base; `https://testnet-mcp.veranta.xyz` runs the same code against the Veranta testnet with test funds. Every tool, prompt and resource is identical, and the landing page on either host shows both addresses behind a toggle. To switch, connect the other address in your AI client; the session key and the sign in are per network.
+
+Facts an agent should not guess at:
+
+- The trading address (`/mcp/trade`) includes every read tool. A user never needs both connectors.
+- On testnet, balances, fills and PnL are test money; the server says so in its instructions, and every Telegram message from a testnet server starts with `[TESTNET]`, because one bot serves both networks.
+- The hosted policy preset can differ per network (testnet is usually looser so every limit can be exercised); read `veranta://policy` or `check_setup` instead of assuming the mainnet caps.
+- Session keys default to 30 days on both networks and are chosen on the consent page (24 hours to a year).

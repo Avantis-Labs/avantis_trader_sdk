@@ -174,10 +174,13 @@ class MarketsApi:
         404 = mechanism matched but no spread computable; treat as
         "do not execute", never as zero spread.
 
-        Deployment note: routed at ``{api_base_url}/risk/v2``; live on
-        testnet. The mainnet route exists but the engine is not serving yet
-        (5xx until the v2 cutover); use :meth:`dynamic_spread` there in the
-        meantime.
+        Pass ``leverage`` (also when ``coin_size`` is given) so the engine
+        applies the pair's leverage-tiered spread cap; without it the flat
+        cap applies and the quote can overstate the spread at high leverage.
+
+        Deployment note: routed at ``{api_base_url}/risk/v2`` on testnet and
+        mainnet since the 2026-08-12 cutover; :meth:`dynamic_spread` is the
+        legacy engine and is testnet only.
         """
         info = await self.pair(pair)
 
@@ -218,6 +221,10 @@ class MarketsApi:
         }
         if wanted_price is not None:
             body["wantedPrice10"] = _to_raw10(wanted_price)
+        if leverage is not None:
+            # The engine applies the pair's leverage-tiered spread cap only when
+            # the request carries a leverage; without it the flat cap applies.
+            body["leverage10"] = _to_raw10(leverage)
 
         data = await self._t.json(
             "POST", f"{self._cfg.risk_v2_api_url}/spread", json=body

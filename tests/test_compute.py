@@ -107,9 +107,20 @@ def test_net_pnl_fixed_fee():
         funding_fee=0.5,
     )
     assert out.gross == pytest.approx(100)
-    # closing fee = (1000 + 100) * 0.045% = 0.495
-    assert out.closing_fee == pytest.approx(0.495)
-    assert out.net == pytest.approx(100 - 0.495 - 1.5 - 0.5)
+    # closing fee = 1000 * 0.045% = 0.45, charged on the leveraged position like the contract
+    assert out.closing_fee == pytest.approx(0.45)
+    assert out.net == pytest.approx(100 - 0.45 - 1.5 - 0.5)
+    # the web app's estimate adds the gross PnL to the base: (1000 + 100) * 0.045% = 0.495
+    app = net_pnl(
+        current_price=3300,
+        open_price=3000,
+        collateral=100,
+        leverage=10,
+        is_long=True,
+        close_fee_p=0.045,
+        close_fee_base="notional_plus_pnl",
+    )
+    assert app.closing_fee == pytest.approx(0.495)
 
 
 def test_net_pnl_upside_profit_share():
@@ -176,6 +187,25 @@ def test_maker_taker():
     r = maker_or_taker_fee_p(140, 120, 100, 120, 40, 0.01, 0.05)
     assert r.kind == "mixed"
     assert 0.01 < r.fee_p < 0.05
+
+
+def test_close_fee_clamps_to_closing_side():
+    from veranta_sdk.compute import pair_close_maker_taker_fee_p
+
+    kwargs = dict(
+        initial_coin_oi_long=10,
+        initial_coin_oi_short=4,
+        is_long=True,
+        close_maker_fee_p=0.01,
+        close_taker_fee_p=0.05,
+    )
+    # A stale snapshot shows 10 long coins while the position closes 15: the chain
+    # clamps to 10, reduces the long side to zero and blends over 10, not 15.
+    clamped = pair_close_maker_taker_fee_p(position_size_coin_oi=15, **kwargs)
+    exact = pair_close_maker_taker_fee_p(position_size_coin_oi=10, **kwargs)
+    assert clamped == exact
+    assert clamped.kind == "mixed"
+    assert pair_close_maker_taker_fee_p(position_size_coin_oi=2, **kwargs).kind == "maker"
 
 
 def test_available_liquidity_constraints():

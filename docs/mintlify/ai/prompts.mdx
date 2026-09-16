@@ -1,0 +1,44 @@
+---
+title: Prompts and resources
+description: "Ready-made requests your client can offer as buttons or slash commands, and the documents the AI can read without a tool call."
+---
+
+Prompts are ready-made requests a client can offer as buttons or slash commands. Each one tells the model which tools to call and how to present the result, so a "morning brief" comes out the same every day. You can also just ask in your own words; the prompts are shortcuts, not the only way in. Which prompts appear depends on `VERANTA_PROFILE`; `all` shows everything. The hosted read-only connector lists only the two that need no account, `funding_scan` and `momentum_scan`.
+
+| Prompt | Profiles | What it does |
+| --- | --- | --- |
+| `morning_brief` | all | Account status, open positions, overnight moves on the watchlist, funding and market hours in one summary |
+| `risk_check` | all | Size a trade against caps, liquidation distance, fees, funding, correlation with open positions and market hours, then quote it without executing |
+| `explain_position` | all | Plain-language explanation of one open position: entry, costs so far, distance to TP, SL and liquidation |
+| `close_losers` | all | Review losing positions, propose closes and tighter stops on winners, execute after your yes |
+| `weekly_review` | all | PnL, win rate, fees, best and worst trades from the trading journal, policy events from the activity log |
+| `regime_review` | all | Where you make and lose money by market regime, and what regime your markets are in now |
+| `funding_scan` | crypto | Rank the pairs of one asset class by net funding, with the funding and borrow parts per side, skew and open interest |
+| `momentum_scan` | crypto | Biggest 24h movers with open interest and funding context |
+| `london_open_plan` | tradfi | FX, index and metal markets around the London session with spreads and exposure |
+| `ny_open_plan` | tradfi | US equities and indices around the New York open with event risk |
+| `size_by_risk` | tradfi | From risk percent, entry and stop to a quoted trade |
+| `earnings_watch` | tradfi | Equity positions against the event calendar |
+| `cross_asset_dashboard` | macro | BTC, ETH, gold, oil, US indices and major FX with correlations |
+| `build_basket` | macro | Turn a thesis into legs with sizes and a hedge, quoted as one basket |
+| `hedge_portfolio` | macro | Propose offsets for the current exposure by asset class |
+| `event_playbook` | macro | Positions and alerts to set around the next scheduled macro event |
+
+<Tip>
+In Claude Code the plugin adds two commands: `/veranta:brief` runs the morning brief, and `/veranta:risk ETH/USD long 500 5 2400` runs a risk check for a pair, side, collateral, leverage and stop. Neither executes anything.
+</Tip>
+
+## Resources
+
+Resources are documents the client can attach to the conversation without a tool call.
+
+| URI | Content |
+| --- | --- |
+| `veranta://markets` | Every tradeable pair with funding, open interest, leverage, fees and hours, sorted by open interest |
+| `veranta://account` | Balances, positions with PnL and liquidation distance, orders, alerts |
+| `veranta://policy` | Your policy: preset, limits, pause state and what is left of today's notional and loss budgets |
+| `veranta://watchlists` | The profile default watchlist and lists made with `manage_watchlist` |
+| `veranta://calendar` | Scheduled central bank decisions, inflation and jobs releases and earnings, as structured data |
+| `veranta://glossary` | Collateral, notional, funding, skew, spread, liquidation, TWAP, upside markets, regimes, session keys, builder codes |
+
+The calendar is structured data, never free text from the web. The hosted copy is built from Nasdaq's public economic and earnings calendars through a fixed rule table, so only the server's own event labels, New York times and short consensus figures reach the model; the copy bundled with the server fills in when the hosted one is unreachable. `get_calendar` reads the same document with a look-ahead window and filters by kind or pair.

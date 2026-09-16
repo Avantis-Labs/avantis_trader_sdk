@@ -80,6 +80,7 @@ async def test_spread_coin_size_request_body():
     assert body["isOpen"] is True
     assert body["orderType"] == 0
     assert "wantedPrice10" not in body
+    assert "leverage10" not in body
     assert isinstance(body["pairIndex"], int)
 
     # descaled floats; quoted value prefers the with-flow estimate
@@ -88,6 +89,31 @@ async def test_spread_coin_size_request_body():
     assert out["estimatedSpreadPctWithFlow"] == pytest.approx(0.075)
     assert out["spreadMechanism"] == 5
     assert out["flowParams"]["depth10"] == "5000000000000"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_spread_sends_leverage_for_the_tiered_cap():
+    """leverage10 rides along whenever a leverage is known, also with coin_size,
+    so the engine can apply the pair's leverage-tiered spread cap."""
+    _mock_snapshot()
+    route = respx.post(f"{RISK_V2}/spread").mock(
+        return_value=httpx.Response(200, json=SPREAD_RESPONSE)
+    )
+
+    async with _client() as client:
+        await client.markets.spread(
+            "ETH/USD",
+            is_long=False,
+            coin_size=2.5,
+            leverage=20,
+            trader=TRADER,
+        )
+
+    body = json.loads(route.calls.last.request.content)
+    assert body["coinSize10"] == str(int(2.5 * 1e10))
+    assert body["leverage10"] == str(int(20 * 1e10))
+    assert body["isLong"] is False
 
 
 @pytest.mark.asyncio

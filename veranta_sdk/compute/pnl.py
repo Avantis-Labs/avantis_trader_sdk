@@ -72,13 +72,20 @@ def net_pnl(
     loss_protection_p: float = 0.0,
     pnl_tier_p: list[float] | None = None,
     pnl_fees_p: list[float] | None = None,
+    close_fee_base: str = "notional",
 ) -> NetPnlBreakdown:
-    """Unrealized net PnL breakdown for an open position (UI parity).
+    """Unrealized net PnL breakdown for an open position.
 
     - Fixed-fee (is_upside=False): net = gross - closingFee - rollover - funding
       + lossProtection (loss protection only offsets negative gross, capped).
+      The closing fee is charged on the leveraged position, as the contract
+      does (``close_fee_base="notional"``, the default); pass
+      ``"notional_plus_pnl"`` to reproduce the web app's estimate, which adds
+      the gross PnL to the base.
     - Upside (is_upside=True): net = gross * (1 - tieredFeeP/100) - rollover - funding.
     """
+    if close_fee_base not in ("notional", "notional_plus_pnl"):
+        raise ValueError("close_fee_base must be 'notional' or 'notional_plus_pnl'")
     g = gross_pnl(current_price, open_price, collateral, leverage, is_long)
 
     if is_upside:
@@ -100,9 +107,10 @@ def net_pnl(
             net=net,
         )
 
-    closing_fee = (
-        (collateral * leverage + g) * close_fee_p * (1 - fee_discount_p / 100) / 100
+    fee_base = (
+        collateral * leverage + g if close_fee_base == "notional_plus_pnl" else collateral * leverage
     )
+    closing_fee = fee_base * close_fee_p * (1 - fee_discount_p / 100) / 100
     protection = 0.0
     if g < 0 and loss_protection_p > 0:
         protection = min(-g * loss_protection_p / 100, collateral * loss_protection_p / 100)
@@ -118,9 +126,15 @@ def net_pnl(
     )
 
 
-def position_net_pnl(position, pair_info, current_price: float) -> NetPnlBreakdown:
-    """Net PnL for an ``account.models.Position`` using its pair snapshot info."""
+def position_net_pnl(
+    position, pair_info, current_price: float, *, close_fee_base: str = "notional"
+) -> NetPnlBreakdown:
+    """Net PnL for an ``account.models.Position`` using its pair snapshot info.
+
+    ``close_fee_base`` is passed through to :func:`net_pnl`.
+    """
     return net_pnl(
+        close_fee_base=close_fee_base,
         current_price=current_price,
         open_price=float(position.open_price),
         collateral=float(position.collateral),

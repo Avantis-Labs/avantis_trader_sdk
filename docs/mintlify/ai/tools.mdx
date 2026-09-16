@@ -1,0 +1,473 @@
+---
+title: Tools reference
+description: "Every tool the Veranta MCP server exposes, with inputs, plus the prompts."
+---
+
+This page is generated from the server code (`pnpm docs:gen` in the veranta-mcp repository), so it always matches the published version. There are 36 tools in six toolsets: `core`, `analysis`, `alerts` and `approvals` are on by default, `lp` and `referral` are opt-in through `VERANTA_TOOLSETS`. `link_telegram` is listed only on the hosted connector, and a server without a session key lists no trade or funds tool at all. Every tool returns structured data plus a short text summary, and every error carries a `code`, a `message` and a `fix` that names the next step. For a guided walk through what the tools do together, with prompts to try, read [Features](/ai/features).
+
+Gates: **read** never changes anything, **trade** signs orders or position changes with the session key, **funds** moves USDC between the wallet and a vault, **admin** changes server-side state such as alerts.
+
+## Tools
+
+| Tool | Toolset | Gate | What it does |
+| --- | --- | --- | --- |
+| `check_setup` | core | read | Call this first in every session. |
+| `get_markets` | core | read | Search and list Veranta markets with live price, 24h change, funding and net carry rate per side (funding plus borrow), open interest, skew, leverage range, fees and market hours. |
+| `get_market` | core | read | Everything about one market before trading it: live price and 24h change (measured since the last close when the market was shut for more than 30 hours), the net carry rate per side (funding plus borrow) with its parts, open interest and skew, the spread quoted right now for a given size and side with its mechanism, how much more can be opened (headroom, including the trader's per-pair wallet cap), maker and taker fees, leverage range with any temporary cap, minimum position, market hours and next open or close, TWAP limits, notes such as the ETF a US500/US100 price tracks or a futures roll, and optionally a 24h candle summary. |
+| `get_account` | core | read | The trader's account in one call: USDC balance and allowance, every open position with entry, live price, net PnL after fees and funding (clamped the way the contract settles: gross between minus 100 percent and the pair's max gain, net never below minus collateral), health (trade value as percent of collateral), liquidation price and distance, TP and SL, standing limit orders, running TWAPs, session key expiry, exposure by asset class, and alerts: collateral 60 percent consumed (warning) or 75 percent (critical), past liquidation and awaiting the keeper, no stop loss, key expiring, market closed. |
+| `get_history` | core | read | Past activity from the history API: a portfolio summary (realized net PnL since the V2 cutoff, funding, and the all-time v1 aggregates for win rate, fees paid, loss protection received, volume and best closes), the portfolio page for a period, paged fills with their fee breakdown, order history, or realized PnL by day for a period. |
+| `quote_trade` | core | read | Price a trade before executing it: opens, increases and closes as market, limit, stop_limit or twap, one leg or a basket. |
+| `execute_trade` | core | trade | Execute a quote from quote_trade. |
+| `check_order` | core | read | Look up a batched-market order by the trackingId execute_trade reported for a submitted (timed out) leg: the persisted lifecycle events and, once a terminal event landed, whether it filled (with price, order id and transaction), was canceled by the protocol, or failed. |
+| `set_risk` | core | trade | Change the risk settings of one open position: set or move the take profit and stop loss (by price or percent of collateral), trail the stop behind the price (trailStopPercent, a ratchet that never loosens), remove the stop loss, add or withdraw margin, or add, update and cancel partial take profit and stop loss triggers that close a fraction. |
+| `cancel_order` | core | trade | Cancel a standing limit or stop-limit order (pair plus orderIndex from get_account), a running TWAP (twapId), a partial take profit or stop loss trigger (entityId), or with kind 'all' every standing order at once (each cancel reported separately; scope with pair or kinds). |
+| `close_positions` | core | trade | Close several positions at once by filter: everything, only losers, only winners, one pair, or a list of ids, fully or by fraction. |
+| `pause_trading` | core | admin | Kill switch. |
+| `trade_journal` | core | admin | The trader's notebook. |
+| `get_activity_log` | core | read | The audit trail of what this server did on the user's behalf: quotes, executions and their results, policy blocks and pauses, risk changes, cancels and alerts. |
+| `scan_markets` | analysis | read | Screen every Veranta market at once: biggest 24h movers, highest net carry, most one-sided open interest, or largest markets, optionally within one asset class. |
+| `get_market_hours` | analysis | read | Which markets are open right now, when closed ones open again and when open ones close, with each market's weekly schedule in prose. |
+| `get_rate_history` | analysis | read | Funding and borrow rates for one market over time, and the net rate each side paid (funding plus borrow). |
+| `get_trade_intelligence` | analysis | read | The trader's performance record, the numbers the portfolio page shows: cumulative net PnL with peak and max drawdown, win rate and profit factor by position, average hold time, and net PnL by market, leverage bucket, regime and side, for 7d, 30d, 90d, year to date or all time. |
+| `get_insights` | analysis | read | The personalized market brief Veranta computes for a trader: tier and style, win rate and profit factor, best and worst regime, side bias, a headline on what the trader's markets are doing now, what matters for them, the current regime and volatility of each market they trade, and upcoming events. |
+| `get_regime` | analysis | read | The market regime each pair is in right now (trending up, trending down, breakout, high volatility, consolidation) with the raw classifier state, confidence, volatility level, how long it has held and how old the label is. |
+| `size_position` | analysis | read | Turn a risk budget and a stop level into collateral and leverage: 'risk 1 percent of my balance on gold with a stop at 4,250'. |
+| `simulate_portfolio` | analysis | read | Stress-test the open positions: 'what if BTC drops 10 percent and gold rises 3', or 'everything down 15'. |
+| `get_correlations` | analysis | read | Correlation matrix of recent returns for a list of markets, from Veranta candles. |
+| `plan_hedge` | analysis | read | Size an offsetting position for the book, one asset class or one position from recent co-movement: the book's USD returns are regressed on each candidate instrument (hourly candles), the hedge notional is minus the beta, and effectiveness is the share of variance the instrument explains. |
+| `get_calendar` | analysis | read | Scheduled events that move markets (central bank decisions, inflation and jobs releases, earnings of listed equity pairs) with New York times, consensus figures and the pairs that usually react. |
+| `get_leaderboard` | analysis | read | The Veranta leaderboard as shown on the web app's Leaderboard page: the top traders ranked by all-time net profit with their volume, trade count and win rate, plus protocol totals (distinct traders, all-time volume, trades). |
+| `get_buybacks` | analysis | read | AVNT buyback statistics as shown on the web app's Buybacks page: all-time AVNT bought and burnt with the USDC spent, the last one or two UTC days, a daily series, the most recent buyback transactions with explorer links, and the revenue milestones that decide how much protocol revenue goes to buybacks (average daily revenue in USD against each milestone's daily target). |
+| `get_vault` | analysis | read | The Veranta LP vault (avUSDC) as the Earn page shows it: annualized APY over 1, 7 and 30 days, year to date and 12 months, the rolling 30 day APY history, total deposits (the junior tranche's assets) and the protocol USDC series (junior tranche plus VaultManager buffer) with its 60 day change, utilization, deposit cap, share price, vault buffer ratio, protocol fees over the last 60 days, and the wallet's position (shares, deposit value, earnings, max withdraw). |
+| `get_staking` | analysis | read | The AVNT Security Module as the Staking page shows it: staking APR, emission rate, total AVNT staked, max slashing, cooldown and unstake window, the fee discount tiers from the loyalty service, and for a wallet its staked and wallet AVNT, claimable rewards, rewards per month at the current rate, unstake cooldown state and fee discount profile. |
+| `manage_watchlist` | analysis | admin | Named lists of markets for briefs and scans. |
+| `manage_alerts` | alerts | admin | Create, list and delete alert rules that the watch daemon (`veranta-mcp watch`) evaluates and sends to Telegram: price crossings, collateral consumed by losses (position health), funding levels, session key expiry, a daily summary, market closes, and trailing_stop automations that ratchet a stop loss behind the price using the session key on this machine (one per position). |
+| `send_telegram` | alerts | admin | Send a plain-text message to the user's linked Telegram chat, for example a summary they asked to receive on their phone. |
+| `link_telegram` | alerts | admin | Hosted connector only. |
+| `approve` | approvals | trade | Grant a USDC allowance so trades (target usdc), builder fees (target builder_fees) or vault deposits (target lp) can pull collateral. |
+| `manage_liquidity` | lp | funds | Provide liquidity to the Veranta vault or withdraw it: read the caller's vault position in human units, deposit USDC, or withdraw USDC to the trader wallet. |
+| `manage_referral` | referral | trade | Referral program: read stats for the trader, register a referral code the trader will own, set a referral code on the trader, or claim accrued rebates. |
+
+## Inputs
+
+### check_setup
+
+Call this first in every session. Reports the network, endpoints, the trader account, the signer (none, session key or KMS), whether the session key is an active delegate and when it expires, USDC balance and trading allowance, builder-fee status (rate, fee allowance and whether the session key sits on the fee-charging template), the enabled toolsets, the policy preset with what is left of today's budgets and whether trading is paused, and a list of issues with the exact fix for each. Use it again whenever a trade tool fails with a config, delegation, policy or allowance error.
+
+No inputs.
+
+### get_markets
+
+Search and list Veranta markets with live price, 24h change, funding and net carry rate per side (funding plus borrow), open interest, skew, leverage range, fees and market hours. Use it to resolve a symbol before quoting, to answer 'what can I trade' or 'what is BTC doing', and to compare a few pairs. For one pair in depth (spread at a size, liquidity, candles) use get_market. Symbols look like ETH/USD, US500/USD, EUR/USD, XAU/USD; common names such as gold, nasdaq or bitcoin work in search. The 24h change of a market that was closed for more than 30 hours is marked (s) and measured since its last close. Example: \{ search: 'gold' \} or \{ symbols: ['ETH/USD', 'BTC/USD'] \} or \{ assetClass: 'fx', openOnly: true \}.
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `search` | string | no | Free text matched against the symbol or a common name, for example 'eth', 'gold', 'nasdaq', 'US500' or 'nvda'. |
+| `symbols` | array of string | no | Exact pairs to return, for example ['ETH/USD', 'XAU/USD']. Unknown ones are listed in 'unresolved'. |
+| `assetClass` | `crypto`, `equity`, `fx`, `metal`, `commodity` | no | Only this asset class. |
+| `openOnly` | boolean | no | Only markets that are open for trading right now. Default `false`. |
+| `sortBy` | `openInterest`, `symbol`, `change24h`, `funding` | no | Order of the list. openInterest is total OI in USD, funding is the net carry longs pay per hour (funding plus borrow). Default `"openInterest"`. |
+| `limit` | integer | no |  Default `25`. |
+| `includePrices` | boolean | no | Fetch live prices and 24h change for the returned pairs. Turn off for a faster catalog-only answer. Default `true`. |
+
+### get_market
+
+Everything about one market before trading it: live price and 24h change (measured since the last close when the market was shut for more than 30 hours), the net carry rate per side (funding plus borrow) with its parts, open interest and skew, the spread quoted right now for a given size and side with its mechanism, how much more can be opened (headroom, including the trader's per-pair wallet cap), maker and taker fees, leverage range with any temporary cap, minimum position, market hours and next open or close, TWAP limits, notes such as the ETF a US500/US100 price tracks or a futures roll, and optionally a 24h candle summary. Use get_markets to find the symbol first if unsure. Example: \{ pair: 'XAU/USD', side: 'short', notionalUsd: 5000 \}.
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `pair` | string | yes | Symbol, common name or index, for example 'ETH/USD', 'eth', 'gold', 'US500/USD'. |
+| `side` | `long`, `short` | no | Side used for the spread quote and headroom. Default `"long"`. |
+| `notionalUsd` | number | no | Position size in USD used to quote the spread (collateral times leverage). Default `1000`. |
+| `includeCandles` | boolean | no | Add the last 24 hours of hourly candles as a summary and a candle-based 24h change. Off by default; it costs one more upstream call. Default `false`. |
+
+### get_account
+
+The trader's account in one call: USDC balance and allowance, every open position with entry, live price, net PnL after fees and funding (clamped the way the contract settles: gross between minus 100 percent and the pair's max gain, net never below minus collateral), health (trade value as percent of collateral), liquidation price and distance, TP and SL, standing limit orders, running TWAPs, session key expiry, exposure by asset class, and alerts: collateral 60 percent consumed (warning) or 75 percent (critical), past liquidation and awaiting the keeper, no stop loss, key expiring, market closed. Position ids look like '3:0' (pairIndex:tradeIndex) and are what set_risk and quote_trade close take; cancel_order takes orderIndex, twapId or entityId, not position ids. Use limit and sortBy ('liqDistance', 'pnl', 'notional') on large accounts; totals and alerts always cover every position. Pass trader to inspect any other wallet read-only.
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `trader` | string | no | Another wallet to look at. Defaults to the configured trader. |
+| `includeOrders` | boolean | no | Include standing limit orders. Default `true`. |
+| `includeTwaps` | boolean | no | Include running TWAP orders. Default `true`. |
+| `limit` | integer | no | Positions to list in detail. Totals, exposure and alerts always cover every position; when truncated, a per-pair aggregate is added. Default `25`. |
+| `sortBy` | `liqDistance`, `pnl`, `notional` | no | Order of the positions: liqDistance puts the closest to liquidation first, pnl the largest loss first, notional the largest position first. Default is the API order. |
+
+### get_history
+
+Past activity from the history API: a portfolio summary (realized net PnL since the V2 cutoff, funding, and the all-time v1 aggregates for win rate, fees paid, loss protection received, volume and best closes), the portfolio page for a period, paged fills with their fee breakdown, order history, or realized PnL by day for a period. For open positions use get_account. Example: \{ kind: 'trades', limit: 10 \} or \{ kind: 'pnl_by_day', period: '7d' \}.
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `kind` | `summary`, `portfolio`, `trades`, `orders`, `pnl_by_day` | no | summary: realized net PnL since the V2 cutoff plus all-time v1 aggregates (win rate, fees, loss protection, volume, best closes). portfolio: the portfolio page in one call (PnL for the period, portfolio value, volume, PnL breakdown into gross, funding and fees, win rate, trade count, biggest win, most traded market, and the cumulative PnL chart). trades: fills with fees. orders: order history. pnl_by_day: daily realized PnL for a period from the v2 profit-loss history. Default `"summary"`. |
+| `trader` | string | no | Defaults to the configured trader. |
+| `page` | integer | no | For trades and orders; the first page is 1 (the history API rejects page 0). Default `1`. |
+| `limit` | integer | no | For trades and orders. Default `20`. |
+| `period` | string | no | For pnl_by_day and portfolio: 7d, 30d, 90d, 1y or all. 90d is served as three months; 1y and all both return the whole v2 history (closes since the V2 cutoff). Default `"30d"`. |
+
+### quote_trade
+
+Price a trade before executing it: opens, increases and closes as market, limit, stop_limit or twap, one leg or a basket. Returns the expected entry (mark plus live spread) or exit (mark minus spread), every fee (maker or taker open fee, estimated close fee, builder fee, carry settled by increases), liquidation price and distance, take profit and stop loss prices, expected PnL for closes, validation against the pair's rules and the wallet balance, market context and the policy verdict (allow, confirm or block). The quoteId is valid for about 30 seconds and executes exactly once through execute_trade. Give two of collateralUsd, notionalUsd and leverage. Examples: \{ pair: 'ETH/USD', side: 'long', collateralUsd: 200, leverage: 3, stopLossPercent: 10 \} or \{ action: 'close', positionId: '1:0', closeFraction: 0.5 \} or \{ legs: [...] \}.
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `action` | `open`, `increase`, `close` | no | open a new position, increase an existing one, or close (part of) an existing one. Default `"open"`. |
+| `pair` | string | no | Pair symbol for open, for example 'ETH/USD'. For increase or close you may pass positionId instead. |
+| `positionId` | string | no | Position handle from get_account ('pairIndex:tradeIndex', for example '1:0'). Needed for increase and close unless pair plus side identifies exactly one position. |
+| `side` | `long`, `short` | no | Required for open. For close, selects the position when positionId is omitted. |
+| `collateralUsd` | number | no | Collateral in USD. Give two of collateralUsd, notionalUsd and leverage. |
+| `notionalUsd` | number | no | Position size in USD (collateral times leverage). |
+| `leverage` | number | no | Leverage multiplier. Defaults to the position's leverage for increase. |
+| `orderType` | `market`, `limit`, `stop_limit`, `twap` | no | market fills now. limit waits for limitPrice (longs below market, shorts above). stop_limit triggers through limitPrice in the other direction (longs above market, shorts below). twap spreads the order over twapRunTimeSeconds and cannot carry takeProfit or stopLoss. Default `"market"`. |
+| `limitPrice` | number | no | Price for limit and stop_limit orders. |
+| `takeProfit` | number | no | Take profit price. Or use takeProfitPercent. Not allowed on twap legs. |
+| `takeProfitPercent` | number | no | Take profit as percent gain on collateral (100 means the collateral doubles), before close fee, funding and borrow. On Upside pairs the target is net of the profit share. |
+| `stopLoss` | number | no | Stop loss price. Or use stopLossPercent. Not allowed on twap legs. |
+| `stopLossPercent` | number | no | Stop loss as percent of collateral lost (10 means lose about 10 percent of collateral), before close fee, funding and borrow. A stop is a trigger level: the close settles at the oracle price when the keeper transaction lands, minus spread, so the realized loss can exceed this percent. |
+| `slippagePercent` | number | no | Maximum deviation from the quoted entry price (mark plus spread) accepted for market opens and increases; the web app uses 3. Ignored on close legs, which have no on-chain slippage bound. Default `1`. |
+| `closeFraction` | number | no | For close: fraction of the position to close (1 closes everything). |
+| `closeCollateralUsd` | number | no | For close: collateral amount to close, alternative to closeFraction. |
+| `twapRunTimeSeconds` | integer | no | For twap: total run time in seconds, a whole multiple of the pair's slice frequency. |
+| `legs` | array of object | no | Basket: several legs quoted together. When given, the top-level leg fields are ignored. |
+| `note` | string | no | Free text kept in the journal, for example the reason for the trade. |
+
+### execute_trade
+
+Execute a quote from quote_trade. Runs once per quoteId (a retry returns the same result), rejects expired quotes and prices that moved more than the leg's slippagePercent since the quote (3 percent for closes), re-checks the policy and the session key, waits for the fill and returns the fill price, realized PnL for closes, order id, trackingId, transaction link and the resulting position. If a leg times out it is reported as submitted with its trackingId: call check_order, never re-quote blindly. With a builder code configured (VERANTA_BUILDER_CODE), market legs relay directly and have no trackingId or lifecycle: the leg counts as filled once get_account shows the position (new, grown or reduced), the new position's open price stands in for the fill price on opens and no fill price is reported for increases or closes; if the keeper has not acted within the timeout the leg is submitted with its transaction hash and get_account tells the outcome. If the quote's policy verdict was confirm, show the user the confirmation sentence first and pass confirmed: true only after a clear yes.
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `quoteId` | string | yes | The quoteId returned by quote_trade. |
+| `confirmed` | boolean | no | Set true only after the user explicitly agreed to the quote's confirmation sentence. Default `false`. |
+| `stopOnFailure` | boolean | no | For baskets: stop at the first failing leg instead of continuing. Default `true`. |
+
+### check_order
+
+Look up a batched-market order by the trackingId execute_trade reported for a submitted (timed out) leg: the persisted lifecycle events and, once a terminal event landed, whether it filled (with price, order id and transaction), was canceled by the protocol, or failed. With wait: true it polls until settled or timeoutSeconds. Call this before quoting the same trade again. Only batched-market legs have a trackingId: market orders placed with a builder code (VERANTA_BUILDER_CODE) relay directly and cannot be tracked here; for those, get_account shows whether the position appeared or changed.
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `trackingId` | string | yes | The trackingId reported by execute_trade for a submitted leg. |
+| `wait` | boolean | no | Keep polling until the order settles or timeoutSeconds pass. Default `false`. |
+| `timeoutSeconds` | integer | no | With wait: how long to poll. Default `30`. |
+
+### set_risk
+
+Change the risk settings of one open position: set or move the take profit and stop loss (by price or percent of collateral), trail the stop behind the price (trailStopPercent, a ratchet that never loosens), remove the stop loss, add or withdraw margin, or add, update and cancel partial take profit and stop loss triggers that close a fraction. Tightening (adding or moving a stop closer, take profit, adding margin) always works, even while trading is paused. Loosening (withdrawing margin, removing or widening a stop) counts as an increase under the policy: the resulting leverage must stay within the policy cap and it is blocked while paused. Stops are checked against the contract's cap (a stop may lose at most maxSlP percent of collateral, 80 percent on most pairs) and against the liquidation price; take profits above the pair's maximum gain are stored clamped by the contract and the result says so. Always confirm the current entry and liquidation price with get_account first. Example: \{ positionId: '1:0', stopLoss: 2400 \}, \{ positionId: '1:0', takeProfitPercent: 50, stopLossPercent: 20 \} or \{ positionId: '1:0', trailStopPercent: 2 \}.
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `positionId` | string | yes | Position id from get_account ('pairIndex:tradeIndex'). |
+| `takeProfit` | number | no | New take profit price. |
+| `takeProfitPercent` | number | no | Take profit as percent gain on collateral from the entry price. |
+| `stopLoss` | number | no | New stop loss price. |
+| `stopLossPercent` | number | no | Stop loss as percent of collateral lost from the entry price. |
+| `clearStopLoss` | boolean | no | Remove the stop loss entirely. Default `false`. |
+| `trailStopPercent` | number | no | Trailing stop step: place the stop this percent of price behind the current price, only if that is tighter than the current stop (a ratchet; never loosens). Call it again as the price moves, or create a trailing_stop rule with manage_alerts to let the watch daemon do it. |
+| `trailStopDistance` | number | no | Same as trailStopPercent but as an absolute price distance. |
+| `addMarginUsd` | number | no | Add collateral from the wallet (lowers leverage and moves the liquidation price away). |
+| `removeMarginUsd` | number | no | Withdraw collateral to the wallet (raises leverage; checked against the policy like an increase; not possible on Upside positions). |
+| `partial` | object | no | Partial take profit or stop loss that closes only a fraction of the position at a price. |
+
+### cancel_order
+
+Cancel a standing limit or stop-limit order (pair plus orderIndex from get_account), a running TWAP (twapId), a partial take profit or stop loss trigger (entityId), or with kind 'all' every standing order at once (each cancel reported separately; scope with pair or kinds). Cancelling a limit order releases its escrowed collateral. Open positions are closed with quote_trade or close_positions, not here.
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `kind` | `limit`, `twap`, `partial`, `all` | yes | limit: a standing limit or stop-limit open order. twap: a running TWAP. partial: a partial TP/SL trigger. all: every standing limit order, running TWAP and partial trigger (optionally scoped by pair and kinds). |
+| `pair` | string | no | For limit: the pair of the order. For all: only orders on this pair. |
+| `kinds` | array of string | no | For all: restrict to these kinds (default every kind). |
+| `orderIndex` | integer | no | For limit: the order index from get_account. |
+| `twapId` | integer | no | For twap: the on-chain twapId from get_account. |
+| `entityId` | string | no | For partial: the stored trigger id. |
+
+### close_positions
+
+Close several positions at once by filter: everything, only losers, only winners, one pair, or a list of ids, fully or by fraction. Each close is quoted, the policy is applied to the whole set (large sets need the user's confirmation), then the closes execute one after another and every result is reported. Positions whose market is closed are skipped and named with the reopen time; the rest still close. For a single position prefer quote_trade with action 'close'. Example: \{ only: 'losing' \} or \{ only: 'pair', pair: 'BTC/USD', fraction: 0.5 \}.
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `only` | `all`, `losing`, `winning`, `pair`, `ids` | no | all: every open position. losing or winning: by current net PnL. pair: every position on `pair`. ids: the listed positionIds. Default `"all"`. |
+| `pair` | string | no | With only: 'pair', the symbol to close. |
+| `side` | `long`, `short` | no | Optional side filter. |
+| `ids` | array of string | no | With only: 'ids', position ids from get_account. |
+| `fraction` | number | no | Fraction of each position to close. Default `1`. |
+| `confirmed` | boolean | no | Set true after the user agreed to the confirmation sentence, if one was returned. Default `false`. |
+
+### pause_trading
+
+Kill switch. Blocks new positions, increases, margin withdrawals, stop removal and approvals until a human runs `veranta-mcp policy resume` on the machine. Closing positions, cancelling orders, adding margin and tightening stops keep working. Use it when the user asks to stop, when something looks wrong, or after repeated failures. It cannot be undone from the conversation.
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `reason` | string | no | Why trading is being paused; shown in every later block. |
+
+### trade_journal
+
+The trader's notebook. Every open and close is recorded automatically with size, prices, PnL and the note given to quote_trade; placed and cancelled limit, stop-limit and TWAP orders are recorded as order entries without PnL. Use add_note to record the thesis before a trade, the reason for a change, or the lesson after a close (tags like 'breakout' or 'fomo' make reviews useful). list shows the notebook; review aggregates closes by pair, tag and regime and lists trades that still lack a lesson. This is separate from get_activity_log, which records what the server did.
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `action` | `add_note`, `list`, `review` | no | add_note records a thesis, reason or lesson. list shows entries. review aggregates closes by pair, tag and regime and lists trades that still lack a note. Default `"list"`. |
+| `positionId` | string | no | Position id ('pairIndex:tradeIndex') the note is about; also filters list. |
+| `pair` | string | no | Pair the note is about when there is no position yet; also filters list and review. |
+| `note` | string | no | The note text, in the user's words. |
+| `tags` | array of string | no | Short labels such as 'breakout', 'fomo', 'plan-followed'. |
+| `kind` | `note`, `review` | no | For add_note: a review is a post-trade lesson. Default `"note"`. |
+| `since` | string | no | For list and review: 'today', '7d', '30d' or an ISO timestamp. Default 30 days. |
+| `tag` | string | no | For list: only entries with this tag. |
+| `limit` | integer | no |  Default `50`. |
+
+### get_activity_log
+
+The audit trail of what this server did on the user's behalf: quotes, executions and their results, policy blocks and pauses, risk changes, cancels and alerts. Use it to answer 'what did you do today' or to reconcile after a disconnect. For the trader's own notes and lessons use trade_journal. Keys and signatures are never recorded.
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `since` | string | no | 'today', a duration like '24h' or '7d', or an ISO timestamp. Defaults to the last 24 hours. |
+| `types` | array of string | no | Only these entry types. |
+| `limit` | integer | no |  Default `50`. |
+
+### scan_markets
+
+Screen every Veranta market at once: biggest 24h movers, highest net carry, most one-sided open interest, or largest markets, optionally within one asset class. Use it for 'what is moving', 'where is carry richest', 'find crowded trades'. Returns full market summaries with live prices. Markets that were closed for more than 30 hours (weekend equities, FX, metals) are listed apart from the movers ranking because their change is measured since the last close, not over 24 hours. Example: \{ sortBy: 'funding', assetClass: 'crypto', limit: 10 \}.
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `sortBy` | `change24h`, `funding`, `skew`, `openInterest` | no | change24h: biggest movers (markets whose last close is older than 30 hours are listed separately, not ranked). funding: highest net carry paid by longs per hour, funding plus borrow (negative means longs get paid). skew: most one-sided open interest. openInterest: largest markets. Default `"change24h"`. |
+| `direction` | `desc`, `asc` | no |  Default `"desc"`. |
+| `assetClass` | `crypto`, `equity`, `fx`, `metal`, `commodity` | no |  |
+| `openOnly` | boolean | no |  Default `true`. |
+| `minOpenInterestUsd` | number | no | Skip markets with less total open interest. Default `0`. |
+| `limit` | integer | no |  Default `15`. |
+
+### get_market_hours
+
+Which markets are open right now, when closed ones open again and when open ones close, with each market's weekly schedule in prose. Crypto trades around the clock. From the live feed schedules: US500, US100, NVDA, AAPL, AMZN, MSFT, META, TSLA and GOOG run one session from Sunday 20:00 to Friday 20:00 New York; the other single stocks trade 09:30 to 16:00 New York on weekdays; FX runs Sunday 17:00 to Friday 17:00 New York with a daily 15 minute break at 17:00 New York (21:00 to 21:15 UTC) and a longer one on USD/SEK; gold, silver and USD/CNH break 17:00 to 18:00 New York; WTI and Brent trade 01:00 to 23:00 London on weekdays (Brent has closed earlier in the past, so read its schedule). Trust nextOpen and nextClose over any rule of thumb: they include holidays. While a market is closed the keeper does not execute take profit, stop loss or liquidation; the first tick after the reopen can be far past your level, so a stop set before the weekend is not a guaranteed exit price. Check this before a market order on a non-crypto pair or when planning around the London or New York open. Example: \{ assetClass: 'fx' \} or \{ symbols: ['XAU/USD', 'US500/USD'] \}.
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `assetClass` | `crypto`, `equity`, `fx`, `metal`, `commodity` | no | Only this asset class. |
+| `symbols` | array of string | no | Only these pairs. |
+
+### get_rate_history
+
+Funding and borrow rates for one market over time, and the net rate each side paid (funding plus borrow). History is the realized hourly rate from the on-chain fee accumulators when the Veranta data service is reachable; otherwise it is the hourly samples this installation recorded plus the server's daily borrow series (a legacy one-year array, sliced to the window and clamped with the pair's caps). Also reconciles the latest realized hour with the live rate, funding and borrow apart, and names the real drivers: trades that change each side's coin open interest, the hedging band, the fee publisher's daily hedging update, the store-time price versus the candle close, and interpolation between on-chain stores. Use it to answer 'what has it cost to hold ETH longs this week'. Rates are percent per hour of notional; positive means the side pays.
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `pair` | string | yes | Pair symbol, for example BTC/USD. |
+| `days` | integer | no |  Default `7`. |
+
+### get_trade_intelligence
+
+The trader's performance record, the numbers the portfolio page shows: cumulative net PnL with peak and max drawdown, win rate and profit factor by position, average hold time, and net PnL by market, leverage bucket, regime and side, for 7d, 30d, 90d, year to date or all time. Built from closed trades stamped with the market regime that was in force when each was opened (trending up, trending down, breakout, high volatility, consolidation); statistics count positions (a partial close or TWAP slice does not count twice) and report the close fills next to them. Per-regime win rate, PnL, profit factor and hold time, and splits by close type (market close, take profit, stop loss, liquidation, partial take profit, partial stop loss, TWAP close, TWAP partial close, RFQ close, RFQ partial close, unknown). History starts at the V2 cutoff, returned as cutoffTimestamp and cutoffDate; days that reach past it only cover the V2 era. Use it to answer 'where do I actually make money' and to check a new idea against the trader's own record.
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `trader` | string | no | Defaults to the configured trader. |
+| `period` | `7d`, `30d`, `90d`, `ytd`, `all` | no | Window by close time, like the portfolio page: 7d, 30d, 90d, ytd or all. Statistics and the equity curve use it. Default `"all"`. |
+| `days` | integer | no | Only trades opened in the last N days (server-side filter by open time). History starts at the V2 cutoff (cutoffDate in the output); more days than that only cover the V2 era. |
+| `regime` | `trending_up`, `trending_down`, `breakout`, `high_volatility`, `consolidation`, `unclassified` | no | Only trades opened in this regime. |
+| `pair` | string | no | Only this market. |
+| `limit` | integer | no | How many individual close fills to return (newest first); 0 for stats only. Default `20`. |
+
+### get_insights
+
+The personalized market brief Veranta computes for a trader: tier and style, win rate and profit factor, best and worst regime, side bias, a headline on what the trader's markets are doing now, what matters for them, the current regime and volatility of each market they trade, and upcoming events. Read it before proposing trades so advice matches the trader's record and today's conditions. Market context only, not a trade filter: when you relay a regime, lead with the volatility level. Not financial advice.
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `trader` | string | no | Defaults to the configured trader. |
+| `refresh` | boolean | no | Bypass the five-minute cache. Default `false`. |
+
+### get_regime
+
+The market regime each pair is in right now (trending up, trending down, breakout, high volatility, consolidation) with the raw classifier state, confidence, volatility level, how long it has held and how old the label is. Market context only, not a trade filter: when you relay it, lead with the volatility level. Classifier rows land roughly 10 to 15 minutes after the minute, sometimes later, so a fresh label is usually 10 to 20 minutes old (see ageMinutes). Covers every pair when the Veranta data service is reachable; a pair with no row in the last 48 h comes back with its last row and stale: true, a pair the classifier does not cover is listed under missing. Without the data service, the trader's own markets from the insights brief. Compare with get_trade_intelligence to see how the trader has done in the regime.
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `pairs` | array of string | no | Markets to check. Defaults to the trader's own markets from the insights brief. |
+
+### size_position
+
+Turn a risk budget and a stop level into collateral and leverage: 'risk 1 percent of my balance on gold with a stop at 4,250'. Returns notional, collateral, leverage (kept low enough that liquidation sits beyond the stop), the stop distance in pips, points or dollars, estimated fees, reward-to-risk when a target is given, and a ready-made quote_trade input. When the balance or the pair rules cap the size, riskUsd reports the risk actually taken next to requestedRiskUsd. Give riskUsd or riskPercentOfBalance, and stopPrice or stopDistancePercent.
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `pair` | string | yes | Pair symbol, for example XAU/USD. |
+| `side` | `long`, `short` | yes |  |
+| `stopPrice` | number | no | Where the stop loss goes. Or give stopDistancePercent. |
+| `stopDistancePercent` | number | no | Stop distance from entry in percent of price. |
+| `entryPrice` | number | no | Planned entry. Defaults to the live price. |
+| `riskUsd` | number | no | Money to lose if the stop hits. Or give riskPercentOfBalance. |
+| `riskPercentOfBalance` | number | no | Risk as percent of the USDC wallet balance. |
+| `maxLeverage` | number | no | Cap on leverage. Defaults to the policy maximum. |
+| `takeProfitPrice` | number | no | Optional target, to report the reward-to-risk ratio. |
+
+### simulate_portfolio
+
+Stress-test the open positions: 'what if BTC drops 10 percent and gold rises 3', or 'everything down 15'. Returns each position's PnL now and in the scenario, which ones would be liquidated or closed at their stop or take profit on the way (the PnL is truncated at that level, liquidation first), and the total change relative to collateral. PnL is clamped like the contract (gross between minus 100 percent and max gain, net never below minus collateral). Moves are percent of the current price or an absolute price. Use pair 'all' to apply one move to every position.
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `moves` | array of object | yes |  |
+| `trader` | string | no |  |
+
+### get_correlations
+
+Correlation matrix of recent returns for a list of markets, from Veranta candles. Use it to see whether two positions are really the same bet, to build hedged baskets, or to check how gold, BTC and equity indices have been moving together. Values near 1 move together, near -1 opposite, near 0 independently. Returns across a gap wider than 1.5 candles (overnight or weekend closes) are skipped rather than treated as one period. Example: \{ symbols: ['BTC/USD', 'ETH/USD', 'XAU/USD'], days: 14 \}.
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `symbols` | array of string | yes | Two to twelve pairs, for example ['BTC/USD', 'ETH/USD', 'XAU/USD', 'US500/USD']. |
+| `days` | integer | no | Look-back window in days. Default `7`. |
+| `resolution` | `60`, `240`, `D` | no | Candle size: hourly, four-hour or daily. Default `"60"`. |
+
+### plan_hedge
+
+Size an offsetting position for the book, one asset class or one position from recent co-movement: the book's USD returns are regressed on each candidate instrument (hourly candles), the hedge notional is minus the beta, and effectiveness is the share of variance the instrument explains. Returns ranked candidates, the residual exposure and a ready quote_trade input; nothing is executed. Example: \{ target: 'flatten_class', assetClass: 'crypto' \} or \{ target: 'protect_position', positionId: '1:0', instruments: ['BTC/USD'] \}.
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `target` | `flatten_class`, `reduce_net_exposure`, `protect_position` | no | flatten_class: neutralize one asset class (assetClass required). reduce_net_exposure: hedge the whole book. protect_position: hedge one position (positionId required). Default `"reduce_net_exposure"`. |
+| `assetClass` | `crypto`, `equity`, `fx`, `metal`, `commodity` | no |  |
+| `positionId` | string | no |  |
+| `reducePercent` | number | no | Share of the exposure to neutralize. Default `100`. |
+| `instruments` | array of string | no | Candidate hedge pairs. Defaults to liquid pairs of the same class plus BTC, gold and US500. |
+| `days` | integer | no | History used for the co-movement, in days of hourly candles. Default `14`. |
+| `leverage` | number | no | Leverage for the proposed hedge leg. Default `2`. |
+
+### get_calendar
+
+Scheduled events that move markets (central bank decisions, inflation and jobs releases, earnings of listed equity pairs) with New York times, consensus figures and the pairs that usually react. The hosted calendar refreshes from Nasdaq's public economic and earnings calendars every few hours and carries the official FOMC schedule; the bundled copy is the fallback. Use it to avoid opening into a decision, to place alerts, or to explain a move. Example: \{ days: 14, pair: 'XAU/USD' \}.
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `days` | integer | no | Look-ahead window in days. Default `30`. |
+| `kind` | `central_bank`, `inflation`, `jobs`, `other` | no | Only this kind of event. |
+| `pair` | string | no | Only events whose watch list names this pair, for example XAU/USD. |
+| `includePast` | boolean | no | Also list events from the last 7 days, to explain recent moves. Default `false`. |
+
+### get_leaderboard
+
+The Veranta leaderboard as shown on the web app's Leaderboard page: the top traders ranked by all-time net profit with their volume, trade count and win rate, plus protocol totals (distinct traders, all-time volume, trades). Pass trader to learn where one wallet ranks; it defaults to the configured trader. Money is USD, win rate is the percent of trades closed in profit. sortBy re-orders the same rows; winRate only counts traders with at least 10 trades. For one wallet's own fills and PnL use get_history. Example: \{ limit: 10, sortBy: 'volume' \}.
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `limit` | integer | no | Rows to return, 1 to 100. Default `20`. |
+| `sortBy` | `profit`, `volume`, `winRate`, `trades` | no | profit: net profit in USD, the protocol's own ranking. volume: traded notional in USD. winRate: share of trades closed in profit, only traders with at least 10 trades. trades: number of trades. Default `"profit"`. |
+| `trader` | string | no | Wallet whose own rank to report. Defaults to the configured trader. |
+
+### get_buybacks
+
+AVNT buyback statistics as shown on the web app's Buybacks page: all-time AVNT bought and burnt with the USDC spent, the last one or two UTC days, a daily series, the most recent buyback transactions with explorer links, and the revenue milestones that decide how much protocol revenue goes to buybacks (average daily revenue in USD against each milestone's daily target). Amounts are AVNT tokens and USD (USDC). Protocol wide, no trader input. Example: \{ days: 14, transactions: 5 \}.
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `days` | integer | no | Daily rows to return, counting back from today in UTC, 1 to 365. Default `30`. |
+| `transactions` | integer | no | Most recent buyback transactions to include, 0 to 50. Default `10`. |
+
+### get_vault
+
+The Veranta LP vault (avUSDC) as the Earn page shows it: annualized APY over 1, 7 and 30 days, year to date and 12 months, the rolling 30 day APY history, total deposits (the junior tranche's assets) and the protocol USDC series (junior tranche plus VaultManager buffer) with its 60 day change, utilization, deposit cap, share price, vault buffer ratio, protocol fees over the last 60 days, and the wallet's position (shares, deposit value, earnings, max withdraw). Read only; to deposit or withdraw use manage_liquidity. Percentages are plain numbers (6.79 means 6.79 percent), money is USD, shares are avUSDC. Parts that are slow or down are listed in notes instead of failing the call. Example: \{\} or \{ trader: '0x...', includeChart: true \}.
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `trader` | string | no | Wallet whose vault position to include. Defaults to the configured trader; without one only the public figures are returned. |
+| `includeChart` | boolean | no | Include the daily points of the rolling 30 day APY series (about 60 points). Default `false`. |
+
+### get_staking
+
+The AVNT Security Module as the Staking page shows it: staking APR, emission rate, total AVNT staked, max slashing, cooldown and unstake window, the fee discount tiers from the loyalty service, and for a wallet its staked and wallet AVNT, claimable rewards, rewards per month at the current rate, unstake cooldown state and fee discount profile. Mainnet only, read only (staking, unstaking and claiming happen in the Veranta app). Reads the Staking contract on Base through Multicall3 in one call (set VERANTA_RPC_URL to use your own RPC). Amounts are AVNT (18 decimals already applied), percentages are plain numbers (13.8 means 13.8 percent), durations are seconds. Parts that are slow or down are listed in notes instead of failing the call. Example: \{\} or \{ trader: '0x...' \}.
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `trader` | string | no | Wallet whose stake, rewards, cooldown and fee discount tier to include. Defaults to the configured trader; without one only the module figures and the tier table are returned. |
+
+### manage_watchlist
+
+Named lists of markets for briefs and scans. 'default' comes from the trader profile until you overwrite it. Create a list, add or remove symbols, or delete a list; then pass the symbols to get_markets or get_market_hours. Example: \{ action: 'create', name: 'metals', symbols: ['XAU/USD', 'XAG/USD'] \}.
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `action` | `list`, `show`, `create`, `add`, `remove`, `delete` | no |  Default `"list"`. |
+| `name` | string | no | Watchlist name. 'default' is the profile watchlist. |
+| `symbols` | array of string | no | Symbols for create, add and remove. |
+
+### manage_alerts
+
+Create, list and delete alert rules that the watch daemon (`veranta-mcp watch`) evaluates and sends to Telegram: price crossings, collateral consumed by losses (position health), funding levels, session key expiry, a daily summary, market closes, and trailing_stop automations that ratchet a stop loss behind the price using the session key on this machine (one per position). Fills and closes from any client are always reported by the daemon. Example: \{ action: 'create', rule: \{ kind: 'price', pair: 'XAU/USD', direction: 'above', price: 4400 \} \}.
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `action` | `list`, `create`, `delete` | no |  Default `"list"`. |
+| `rule` | object | no | For create. Kinds: price \{pair, direction above\|below, price\}, health \{positionId\|'all', collateralConsumedPercent: warn when losses have eaten this percent of the position's collateral, default 60; liquidation is at 85, messages turn critical from 75\}, funding \{pair, side, hourlyPercentAbove\}, key_expiry \{daysBefore\}, daily_summary \{time 'HH:MM'\}, market_hours \{pair, minutesBefore\}, trailing_stop \{positionId\|'all', distancePercent, stepPercent, minIntervalSeconds\} (an automation: the watch daemon moves the stop behind the price with the session key on this machine, never loosening it; one trailing_stop rule per position, an 'all' rule counts for every position; moves are submitted without waiting and confirmed on a later tick). positionId must be an open position id like '3:0'. |
+| `id` | string | no | For delete. |
+
+### send_telegram
+
+Send a plain-text message to the user's linked Telegram chat, for example a summary they asked to receive on their phone. Needs TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID (set up with `veranta-mcp telegram setup`).
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `text` | string | yes | Plain text message. |
+
+### link_telegram
+
+Hosted connector only. Returns a one-time link that ties this wallet to the user's Telegram chat with the Veranta bot; after that, fills, closes, liquidation warnings, key expiry and the rules from manage_alerts are delivered there by the hosted alert service, and send_telegram works. Use status to check, unlink to stop. Locally, run `veranta-mcp telegram setup` instead.
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `action` | `link`, `status`, `unlink` | no | link returns a one-time Telegram link, status reports the current chat, unlink stops the alerts. Default `"link"`. |
+
+### approve
+
+Grant a USDC allowance so trades (target usdc), builder fees (target builder_fees) or vault deposits (target lp) can pull collateral. Recommend a bounded amountUsd: the allowance is the ceiling on what the contract can pull, and for builder_fees it caps the fee pulls (at most 1 percent of notional per order side), so a few times the planned collateral is plenty; unlimited needs confirmed: true. The policy applies (blocked while paused, lp needs allowLp). Approvals are signed by the trader wallet itself, so this works only when the configured key is the trader; with a session key it returns the link where the user approves from their wallet. Run check_setup first; it says which allowance is missing.
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `target` | `usdc`, `builder_fees`, `lp` | no | usdc: trading collateral (TradingStorage). builder_fees: the BuilderCode registry. lp: the vault tranche for deposits. Default `"usdc"`. |
+| `amountUsd` | number | no | Allowance in USD. Prefer a bounded amount (a few times the collateral the user plans to deploy); omit for unlimited, which needs confirmed: true. |
+| `confirmed` | boolean | no | Set true after the user agreed to an unlimited allowance. Default `false`. |
+
+### manage_liquidity
+
+Provide liquidity to the Veranta vault or withdraw it: read the caller's vault position in human units, deposit USDC, or withdraw USDC to the trader wallet. Deposits are limited by the vault's deposit cap (room left is maxDepositUsd) and withdrawals by the utilization gate (the vault keeps a buffer for open positions; maxWithdrawUsd is what it can release now), and the tool refuses amounts above either. Vault actions are caller-scoped on chain, so a session key cannot deposit or withdraw for the trader: with a session key the tool returns a handoff (estimate plus the app link) for the user to finish in their wallet; with the trader wallet as signer it executes after the policy flag allowLp and the user's confirmation. Use get_vault for APY, TVL and fees. Disabled unless the lp toolset is enabled.
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `action` | `status`, `deposit`, `withdraw` | no | status: the caller's vault position (use get_vault for APY, TVL and fees). deposit and withdraw move USDC: they execute only when the signer is the trader wallet itself; with a session key they return a handoff for the user to finish in the app. Default `"status"`. |
+| `amountUsd` | number | no | USDC amount for deposit or withdraw. |
+| `confirmed` | boolean | no | Set true after the user agreed to move funds. Default `false`. |
+
+### manage_referral
+
+Referral program: read stats for the trader, register a referral code the trader will own, set a referral code on the trader, or claim accrued rebates. Register and set sign a gasless intent; this tool's own rule (not a contract rule) is that the trader key must be the signer, so a session key cannot bind referral codes to the account, and the policy flag allowReferral must be on. Claim executes with the trader wallet and otherwise hands the user to the app's referral page. Disabled unless the referral toolset is enabled.
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `action` | `status`, `register`, `set`, `claim` | no | register creates a code you own; set applies someone's code to this trader; claim sends accrued referral rebates to the trader wallet (trader wallet as signer, otherwise a handoff to the app). Default `"status"`. |
+| `code` | string | no |  |
+
+## Prompts
+
+| Prompt | Profiles | What it does |
+| --- | --- | --- |
+| `morning_brief` | all | Account status, open positions, overnight moves on the watchlist, funding and market hours in one summary. |
+| `risk_check` | all | Size a trade against caps, liquidation distance, fees, funding, correlation with open positions and market hours before quoting it. |
+| `explain_position` | all | Plain-language explanation of one open position: entry, costs so far, distance to TP, SL and liquidation. |
+| `close_losers` | all | Review losing positions, propose closes, tighten stops on winners, execute after confirmation. |
+| `weekly_review` | all | PnL, win rate, fees, best and worst trades from the trading journal review, and policy events from the activity log. |
+| `funding_scan` | crypto | Rank the pairs of one asset class (crypto by default) by net funding, show the funding and borrow parts per side, skew and open interest. |
+| `momentum_scan` | crypto | Biggest 24h movers with open interest and funding context. |
+| `london_open_plan` | tradfi | FX, index and metal markets around the London session with spreads and exposure. |
+| `ny_open_plan` | tradfi | US equities and indices around the New York open with event risk. |
+| `size_by_risk` | tradfi | From risk percent, entry and stop to a quoted trade. |
+| `earnings_watch` | tradfi | Equity positions against the event calendar. |
+| `cross_asset_dashboard` | macro | BTC, ETH, gold, oil, US indices and major FX with correlations. |
+| `build_basket` | macro | Turn a thesis into legs with sizes and a hedge, quoted as one basket. |
+| `hedge_portfolio` | macro | Propose offsets for the current exposure by asset class. |
+| `event_playbook` | macro | Positions and alerts to set around the next scheduled macro event. |
+| `regime_review` | all | Where the trader makes and loses money by market regime, and what regime their markets are in now. |
