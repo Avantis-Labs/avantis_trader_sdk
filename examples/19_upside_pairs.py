@@ -35,11 +35,20 @@ async def main() -> None:
         )
         print("open tx:", receipt.tx_hash)
 
-        await asyncio.sleep(5)  # wait for the operator fill
+        # Wait for the operator fill to show up in positions. Base has had 200 ms
+        # blocks since Denim, so this takes about a second: poll every 0.25 s
+        # instead of sleeping for seconds.
+        pos = None
+        for _ in range(20):  # up to about 5 s
+            data = await client.account.positions()
+            pos = next((p for p in data.positions if p.pair_index == btc_upside.index), None)
+            if pos is not None:
+                break
+            await asyncio.sleep(0.25)
+        if pos is None:
+            raise SystemExit("the new position is not listed yet; poll for longer")
 
         # -- close: also routes automatically ----------------------------
-        data = await client.account.positions()
-        pos = next(p for p in data.positions if p.pair_index == btc_upside.index)
         print("position is_upside:", pos.is_upside)
 
         receipt = await client.trade.market_close(

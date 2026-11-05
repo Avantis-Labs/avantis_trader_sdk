@@ -84,6 +84,8 @@ const order = await client.trade.partialTpSl(pos.pairIndex, pos.index, {
 | `percentage` | `percentage` | Signed percent for percentage triggers |
 | `open_timestamp` | `openTimestamp` | Pin the trigger to a specific open if the position was just modified |
 
+A partial trigger is bound to the position's open timestamp, which is a whole second. Since Base's Denim upgrade a close and a reopen of the same position slot can land inside one second and share it. After any change to a slot within the same second, place the trigger again.
+
 Existing triggers are listed on each position. Partial orders carry `is_global=False` / `isGlobal: false` and an `entityId`. The full-position levels show up as global triggers with deterministic ids such as `global-tp-...`. Passing a global id to the partial update or cancel methods raises `ValidationError`; manage those levels with the full-position method instead.
 
 ## Update a partial trigger

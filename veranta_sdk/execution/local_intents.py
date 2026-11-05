@@ -327,6 +327,16 @@ class LocalIntentBuilder:
         nonce: int | None = None,
         deadline_ms: int | None = None,
     ) -> IntentPayload:
+        """Close (part of) a position for a USDC amount.
+
+        ``open_timestamp`` is the position's ``Trade.timestamp``, a WHOLE
+        second. Since Denim (200 ms blocks, 2026-11-05 18:00 UTC) a close and a
+        reopen of the same slot (``pair_index``, ``index``) can land inside one
+        second, so the old and the new position can share it. After ANY
+        same-second change to the slot, re-read the position and re-request the
+        intent (build and sign it again); never reuse one signed before the
+        change.
+        """
         message = {
             "_trader": to_checksum_address(trader),
             "_pairIndex": pair_index,
@@ -351,7 +361,12 @@ class LocalIntentBuilder:
         nonce: int | None = None,
         deadline_ms: int | None = None,
     ) -> IntentPayload:
-        """Close a fixed base-asset exposure instead of a USDC amount."""
+        """Close a fixed base-asset exposure instead of a USDC amount.
+
+        ``open_timestamp`` carries the same-second caveat described on
+        ``close_trade``: re-request the intent after any same-second change to
+        the slot.
+        """
         message = {
             "_trader": to_checksum_address(trader),
             "_pairIndex": pair_index,
@@ -492,6 +507,11 @@ class LocalIntentBuilder:
         NO deadline by design; freshness comes from ``signTimestamp`` (ms,
         must not be in the future). The signed order is stored OFF-CHAIN via
         the core API /price-triggers; building/signing alone does nothing.
+
+        ``open_timestamp`` is the position's whole-second ``Trade.timestamp``, so
+        the same-second caveat described on ``close_trade`` applies: after any
+        same-second change to the slot (a close and reopen, an increase),
+        re-request the order instead of reusing one signed before the change.
         """
         if trigger not in _TRIGGER_TYPE_CODES:
             raise ValueError(f"trigger must be one of {sorted(_TRIGGER_TYPE_CODES)}")

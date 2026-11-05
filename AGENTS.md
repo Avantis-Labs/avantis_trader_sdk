@@ -67,6 +67,24 @@ routes /ws = iris, not consumed by the SDK).
    through core API /price-triggers (ids are `entityId`; partial updates
    mint a NEW entityId, global ids are deterministic and stable).
 
+## Base Denim (200 ms blocks, mainnet 2026-11-05 18:00 UTC)
+
+- A block every 200 ms, whole-second block timestamps, no Flashblocks.
+  Receipt polls match that: `JsonRpcClient.wait_for_receipt` defaults to
+  0.25 s (`poll_s` overrides it). Do not put multi-second sleeps between a
+  transaction (or an order) and its receipt; poll.
+- `ExecutionConfirmedInFlashblock` (order events) is deprecated and never
+  emitted again; `OrderEventStream` still forwards it if one arrives. Do not
+  wait for it.
+- `eth_getTransactionCount(..., "pending")` stays the default for nonces. It
+  still works but no longer means preconfirmed: keep the default, and do not
+  treat it as inclusion proof.
+- `Trade.timestamp` is a whole second and can be shared by a close and a
+  reopen of the same slot inside one second. Intents bound to it
+  (`close_trade`, `close_trade_coin`, `partial_tp_sl` in
+  execution/local_intents.py) must be re-requested after any same-second
+  change; never cache a signed one.
+
 ## When Modifying
 - Keep methods async; pydantic v2 models; typed errors from errors.py.
 - Add an example for new features; update CHANGELOG.md and docs/mintlify/
