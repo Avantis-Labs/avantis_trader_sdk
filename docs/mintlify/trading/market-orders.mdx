@@ -118,6 +118,8 @@ Positions on Upside pairs close with the Upside close type automatically.
 
 <Warning>
 A close is tied to the position's open timestamp. If you open and close in quick succession and hit a `PositionMismatch` simulation failure, pass `open_timestamp=pos.opened_at` / `openTimestamp: pos.openedAt`, or fetch positions again first.
+
+Blocks come every 200 ms since Base's Denim upgrade (mainnet, 2026-11-05 18:00 UTC), but the open timestamp is still a whole second. A close and a reopen of the same position slot can land inside one second, and the old and the new position then share the same timestamp. After any change to a slot within the same second, fetch positions again. If you build intents yourself, re-request them (build and sign them again) instead of reusing one you prepared earlier.
 </Warning>
 
 ## Follow the order lifecycle

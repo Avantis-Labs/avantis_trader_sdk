@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.2.1 (2026-11-05)
+
+Base Denim (mainnet 2026-11-05 18:00 UTC): a block every 200 ms, block
+timestamps still whole seconds, no Flashblocks.
+
+- `JsonRpcClient.wait_for_receipt` polls every 0.25 s by default (was 1 s);
+  the `poll_s` argument still overrides it.
+- The `ExecutionConfirmedInFlashblock` order event is deprecated: Flashblocks
+  are gone, so it is never emitted again. `OrderEventStream` still forwards it
+  should one ever arrive; wait for `OrderFilled` or `OrderCanceled`.
+- Docs: the `pending` block tag still works but no longer means preconfirmed
+  (nonce reads are unchanged). A position's whole-second `Trade.timestamp` can
+  now be shared by a close and a reopen of the same slot inside one second, so
+  re-request intents bound to it (`close_trade`, `close_trade_coin`,
+  `partial_tp_sl`) after any same-second change.
+- Examples 05, 06 and 19 poll for the new position every 0.25 s instead of
+  sleeping for seconds.
+
 ## 2.2.0 (2026-09-16)
 
 - `compute.net_pnl` and `compute.position_net_pnl` charge the close fee on the

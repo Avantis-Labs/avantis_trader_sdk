@@ -98,8 +98,7 @@ The most reliable way to confirm fills from outside the order call itself:
 orders = client.order_event_stream()   # your trader address by default
 
 async def on_event(ev):                # OrderEvent
-    print(ev.event, ev.data)           # OrderPickedUpForExecution, ExecutionConfirmedInFlashblock,
-                                       # OrderFilled, OrderCanceled
+    print(ev.event, ev.data)           # OrderPickedUpForExecution, OrderFilled, OrderCanceled
 
 await orders.run(on_event)
 ```
@@ -108,12 +107,13 @@ await orders.run(on_event)
 const orders = client.orderEventStream(); // your trader address by default
 
 await orders.run((ev) => {                // OrderEvent
-  console.log(ev.event, ev.data);         // OrderPickedUpForExecution, ExecutionConfirmedInFlashblock,
-                                          // OrderFilled, OrderCanceled
+  console.log(ev.event, ev.data);         // OrderPickedUpForExecution, OrderFilled, OrderCanceled
 });
 ```
 
 </CodeGroup>
+
+`ExecutionConfirmedInFlashblock` is deprecated. It reported a Flashblock preconfirmation, and Flashblocks are gone since Base's Denim upgrade (mainnet, 2026-11-05 18:00 UTC), so it is never emitted again. The stream still forwards it unchanged if one ever arrives. Wait for `OrderFilled` or `OrderCanceled` instead.
 
 The order event stream needs the deployment's Pusher key, which the network profile provides.
 

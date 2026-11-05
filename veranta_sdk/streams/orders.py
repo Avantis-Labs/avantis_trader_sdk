@@ -1,8 +1,14 @@
 """Order-execution event stream (Pusher public channels).
 
 The Veranta operator publishes per-trader execution events on channel
-``events-{traderAddress}``: ``OrderPickedUpForExecution``,
-``ExecutionConfirmedInFlashblock``, ``OrderFilled``, ``OrderCanceled``.
+``events-{traderAddress}``: ``OrderPickedUpForExecution``, ``OrderFilled``,
+``OrderCanceled``.
+
+``ExecutionConfirmedInFlashblock`` is DEPRECATED. It reported a Flashblock
+preconfirmation, and Flashblocks are gone since Base's Denim upgrade (mainnet,
+2026-11-05 18:00 UTC; 200 ms blocks), so it is never emitted again. The stream
+still forwards it unchanged should one ever arrive, but do not wait for it:
+``OrderFilled`` and ``OrderCanceled`` are the outcomes.
 
 Implemented directly over the Pusher WebSocket protocol (protocol 7, public
 channels, no auth), so no extra dependency is required beyond ``websockets``.
@@ -19,9 +25,11 @@ from typing import Any
 
 Callback = Callable[["OrderEvent"], Awaitable[None] | None]
 
+# ``ExecutionConfirmedInFlashblock`` is deprecated and never emitted after Denim;
+# it stays in the tuple only so code that enumerates it keeps working.
 EVENTS = (
     "OrderPickedUpForExecution",
-    "ExecutionConfirmedInFlashblock",
+    "ExecutionConfirmedInFlashblock",  # deprecated, see the module docstring
     "OrderFilled",
     "OrderCanceled",
 )

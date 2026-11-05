@@ -40,9 +40,15 @@ async def main() -> None:
         print("route:", receipt.route)
         print("tx:", receipt.tx_hash)
         # A confirmed tx != a filled trade: market orders are fulfilled by the
-        # operator. Poll positions to see the fill:
-        await asyncio.sleep(3)
-        data = await client.account.positions()
+        # operator. Poll positions to see the fill. Base has had 200 ms blocks
+        # since Denim, so the fill shows up within about a second: poll every
+        # 0.25 s instead of sleeping for seconds.
+        pair_index = await client.markets.pair_index("ETH/USD")
+        for _ in range(20):  # up to about 5 s
+            data = await client.account.positions()
+            if any(p.pair_index == pair_index for p in data.positions):
+                break
+            await asyncio.sleep(0.25)
         print("open positions:", len(data.positions))
 
 

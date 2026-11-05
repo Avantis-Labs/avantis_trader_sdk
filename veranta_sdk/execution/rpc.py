@@ -16,6 +16,11 @@ from ..errors import RpcError, TransactionRevertedError
 
 _ids = itertools.count(1)
 
+# Default ``wait_for_receipt`` poll interval. Base has produced a block every
+# 200 ms since Denim (mainnet, 2026-11-05 18:00 UTC), so 0.25 s finds a receipt
+# within about one block of it landing.
+_DEFAULT_RECEIPT_POLL_S = 0.25
+
 
 class JsonRpcClient:
     def __init__(self, url: str, timeout_s: float = 30.0) -> None:
@@ -47,6 +52,14 @@ class JsonRpcClient:
         return int(await self.call("eth_chainId"), 16)
 
     async def get_transaction_count(self, address: str, block: str = "pending") -> int:
+        """Account nonce at ``block``. The default stays ``"pending"`` on purpose.
+
+        Denim (Base mainnet, 2026-11-05 18:00 UTC) removes Flashblocks. The
+        ``pending`` tag still works, but it no longer means "preconfirmed": do
+        not read it as proof that an earlier transaction landed. Wait for that
+        transaction's receipt (``wait_for_receipt``, about 200 ms) when order
+        matters.
+        """
         return int(await self.call("eth_getTransactionCount", [address, block]), 16)
 
     async def get_code(self, address: str) -> str:
@@ -76,8 +89,18 @@ class JsonRpcClient:
         return await self.call("eth_getTransactionReceipt", [tx_hash])
 
     async def wait_for_receipt(
-        self, tx_hash: str, timeout_s: float = 120.0, poll_s: float = 1.0
+        self,
+        tx_hash: str,
+        timeout_s: float = 120.0,
+        poll_s: float = _DEFAULT_RECEIPT_POLL_S,
     ) -> dict[str, Any]:
+        """Poll ``eth_getTransactionReceipt`` until the transaction is mined.
+
+        ``poll_s`` defaults to 0.25 s (one 200 ms Base block, rounded up). Raise
+        it for a rate-limited public RPC. Raises ``TransactionRevertedError`` for
+        a failed receipt and ``RpcError`` once ``timeout_s`` (default 120 s) has
+        passed.
+        """
         deadline = asyncio.get_event_loop().time() + timeout_s
         while asyncio.get_event_loop().time() < deadline:
             receipt = await self.get_receipt(tx_hash)

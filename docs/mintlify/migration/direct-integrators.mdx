@@ -73,7 +73,10 @@ Key intent conventions (these bite people):
   carries `_openTimestamp`, which must equal the on-chain trade's
   timestamp. Re-read the position right before signing, because margin
   updates and partial closes refresh it (mismatch reverts
-  `PositionMismatch()`).
+  `PositionMismatch()`). The timestamp is a whole second, and since Denim
+  (200 ms blocks, mainnet 2026-11-05 18:00 UTC) a close and a reopen of the
+  same slot can land inside one second and share it. Re-request any intent
+  bound to `_openTimestamp` after a same-second change to the slot.
 - **Two EIP-712 domains**, both `("AvantisTrading", "1", chainId)`: trading
   intents verify against the TradingRouter proxy, referral intents against
   the Referral contract (separate nonce bitmap).

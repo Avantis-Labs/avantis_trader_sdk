@@ -45,6 +45,10 @@ const client = new Veranta({ execution: "direct", rpcUrl: "https://mainnet.base.
 
 When you trade with an API key in direct mode, calls are wrapped as delegated actions and the API key's address needs ETH for gas.
 
+Since Base's Denim upgrade (mainnet, 2026-11-05 18:00 UTC) a block arrives every 200 ms and Flashblocks are gone. With the default `wait=True` the SDK checks for your receipt every 0.25 seconds. If you wait on receipts yourself, `JsonRpcClient.wait_for_receipt(tx_hash, timeout_s, poll_s)` / `waitForReceipt(txHash, timeoutMs, pollMs)` takes the interval, for example a longer one for a rate-limited public RPC.
+
+The SDK still reads nonces at the `pending` block tag, and you do not need to change anything. The tag keeps working, but it no longer means "preconfirmed", so do not treat it as proof that an earlier transaction landed. Wait for that transaction's receipt instead.
+
 Two things never go direct: full-position TP/SL updates (no public contract entry point) and builder-fee orders (the fee is charged by the EIP-7702 template, which a plain transaction never runs, so the SDK refuses them rather than silently skipping the fee).
 
 ## Browser wallets (TypeScript)
